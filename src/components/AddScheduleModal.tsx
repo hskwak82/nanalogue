@@ -24,6 +24,12 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
   const [waitingForAnswer, setWaitingForAnswer] = useState(false)
   const conversationEndRef = useRef<HTMLDivElement>(null)
 
+  // Refs to always access latest state in callbacks
+  const conversationRef = useRef(conversation)
+  conversationRef.current = conversation
+  const currentScheduleRef = useRef(currentSchedule)
+  currentScheduleRef.current = currentSchedule
+
   const tts = useTTS()
   const ttsRef = useRef(tts)
   ttsRef.current = tts
@@ -68,6 +74,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       // Start with a greeting
       const greeting = '어떤 일정을 추가할까요?'
       setConversation([{ role: 'assistant', content: greeting }])
+      setWaitingForAnswer(true)  // Enable auto-start listening after greeting
       // Auto-play greeting and start listening
       setTimeout(() => {
         ttsRef.current.speak(greeting)
@@ -85,7 +92,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
   useEffect(() => {
     if (wasSpeakingRef.current && !tts.isSpeaking && waitingForAnswer) {
       if (stt.isSupported && !stt.isListening) {
-        setTimeout(() => stt.startListening(), 300)
+        setTimeout(() => sttRef.current.startListening(), 300)
       }
     }
     wasSpeakingRef.current = tts.isSpeaking
@@ -93,11 +100,15 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
 
   // Process user input
   const handleUserInput = async (text: string) => {
-    stt.stopListening()
+    sttRef.current.stopListening()
     setWaitingForAnswer(false)
 
+    // Use refs to get latest state (avoid stale closure)
+    const currentConversation = conversationRef.current
+    const schedule = currentScheduleRef.current
+
     // Add user message to conversation
-    const updatedConversation = [...conversation, { role: 'user' as const, content: text }]
+    const updatedConversation = [...currentConversation, { role: 'user' as const, content: text }]
     setConversation(updatedConversation)
 
     setIsLoading(true)
@@ -110,8 +121,8 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
         .join('\n')
 
       // Include current schedule state
-      const scheduleContext = currentSchedule
-        ? `\n현재 파악된 일정: 제목="${currentSchedule.title}", 날짜=${currentSchedule.date || '미정'}, 시간=${currentSchedule.time || '미정'}`
+      const scheduleContext = schedule
+        ? `\n현재 파악된 일정: 제목="${schedule.title}", 날짜=${schedule.date || '미정'}, 시간=${schedule.time || '미정'}`
         : ''
 
       const response = await fetch('/api/chat/parse-schedule', {
@@ -120,24 +131,25 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
         body: JSON.stringify({
           text: text,
           conversationHistory: conversationHistory + scheduleContext,
-          currentSchedule: currentSchedule,
+          currentSchedule: schedule,
           referenceDate: new Date().toISOString().split('T')[0],
         }),
       })
       const data = await response.json()
 
       if (data.schedules?.length > 0) {
-        const schedule = data.schedules[0]
+        const newSchedule = data.schedules[0]
 
-        // Merge with existing schedule info
+        // Merge with existing schedule info (use ref for latest state)
+        const existingSchedule = currentScheduleRef.current
         const mergedSchedule: ParsedSchedule = {
-          title: schedule.title || currentSchedule?.title || '',
-          date: schedule.date || currentSchedule?.date || '',
-          time: schedule.time || currentSchedule?.time,
-          duration: schedule.duration || currentSchedule?.duration,
-          confidence: schedule.confidence,
-          isComplete: schedule.isComplete,
-          missingFields: schedule.missingFields || [],
+          title: newSchedule.title || existingSchedule?.title || '',
+          date: newSchedule.date || existingSchedule?.date || '',
+          time: newSchedule.time || existingSchedule?.time,
+          duration: newSchedule.duration || existingSchedule?.duration,
+          confidence: newSchedule.confidence,
+          isComplete: newSchedule.isComplete,
+          missingFields: newSchedule.missingFields || [],
         }
 
         setCurrentSchedule(mergedSchedule)
@@ -147,26 +159,26 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
           // Ask follow-up question
           setConversation(prev => [...prev, { role: 'assistant', content: data.followUpQuestion }])
           setWaitingForAnswer(true)
-          tts.speak(data.followUpQuestion)
+          ttsRef.current.speak(data.followUpQuestion)
         } else if (mergedSchedule.date) {
           // Schedule is complete enough
           const confirmMsg = `${mergedSchedule.title}${mergedSchedule.date ? `, ${formatDate(mergedSchedule.date)}` : ''}${mergedSchedule.time ? ` ${formatTime(mergedSchedule.time)}` : ' 종일'}로 추가할까요?`
           setConversation(prev => [...prev, { role: 'assistant', content: confirmMsg }])
-          tts.speak(confirmMsg)
+          ttsRef.current.speak(confirmMsg)
           setWaitingForAnswer(true)
         } else {
           // Still need date at minimum
           const askDate = '언제 일정인가요?'
           setConversation(prev => [...prev, { role: 'assistant', content: askDate }])
           setWaitingForAnswer(true)
-          tts.speak(askDate)
+          ttsRef.current.speak(askDate)
         }
       } else {
         // Could not detect schedule
         const retryMsg = '일정 정보를 잘 이해하지 못했어요. 언제 무슨 일정인지 다시 말씀해 주세요.'
         setConversation(prev => [...prev, { role: 'assistant', content: retryMsg }])
         setWaitingForAnswer(true)
-        tts.speak(retryMsg)
+        ttsRef.current.speak(retryMsg)
       }
     } catch {
       setError('일정 파싱 중 오류가 발생했어요.')
@@ -207,7 +219,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       if (response.ok) {
         const successMsg = '일정이 추가되었어요!'
         setConversation(prev => [...prev, { role: 'assistant', content: successMsg }])
-        tts.speak(successMsg)
+        ttsRef.current.speak(successMsg)
         setTimeout(() => {
           onEventAdded()
           onClose()
@@ -224,10 +236,10 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
 
   const handleMicClick = () => {
     if (stt.isListening) {
-      stt.stopListening()
+      sttRef.current.stopListening()
     } else {
-      tts.stop()
-      stt.startListening()
+      ttsRef.current.stop()
+      sttRef.current.startListening()
     }
   }
 
