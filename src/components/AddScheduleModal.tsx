@@ -22,6 +22,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
   const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
   const [waitingForAnswer, setWaitingForAnswer] = useState(false)
+  const [pendingClose, setPendingClose] = useState(false)
   const conversationEndRef = useRef<HTMLDivElement>(null)
 
   // Refs to always access latest state in callbacks
@@ -67,6 +68,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       setCurrentSchedule(null)
       setError(null)
       setWaitingForAnswer(false)
+      setPendingClose(false)
       sttRef.current.resetTranscript()
       sttRef.current.stopListening()
       ttsRef.current.stop()
@@ -147,6 +149,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
           date: newSchedule.date || existingSchedule?.date || '',
           time: newSchedule.time || existingSchedule?.time,
           duration: newSchedule.duration || existingSchedule?.duration,
+          isAllDay: newSchedule.isAllDay ?? existingSchedule?.isAllDay,
           confidence: newSchedule.confidence,
           isComplete: newSchedule.isComplete,
           missingFields: newSchedule.missingFields || [],
@@ -154,8 +157,14 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
 
         setCurrentSchedule(mergedSchedule)
 
-        // Check if schedule is complete (has date) - if so, save immediately
-        if (mergedSchedule.date && mergedSchedule.title) {
+        // Check if schedule is truly complete:
+        // - Has title AND date AND (time OR isAllDay=true)
+        const isScheduleComplete =
+          mergedSchedule.title &&
+          mergedSchedule.date &&
+          (mergedSchedule.time || mergedSchedule.isAllDay === true)
+
+        if (isScheduleComplete) {
           // Schedule is complete - save and close
           await saveScheduleToCalendar(mergedSchedule)
         } else if (data.followUpQuestion) {
@@ -163,18 +172,22 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
           setConversation(prev => [...prev, { role: 'assistant', content: data.followUpQuestion }])
           setWaitingForAnswer(true)
           ttsRef.current.speak(data.followUpQuestion)
-        } else if (!mergedSchedule.date) {
-          // Still need date at minimum
-          const askDate = '언제 일정인가요?'
-          setConversation(prev => [...prev, { role: 'assistant', content: askDate }])
-          setWaitingForAnswer(true)
-          ttsRef.current.speak(askDate)
-        } else if (!mergedSchedule.title) {
-          // Still need title
-          const askTitle = '무슨 일정인가요?'
-          setConversation(prev => [...prev, { role: 'assistant', content: askTitle }])
-          setWaitingForAnswer(true)
-          ttsRef.current.speak(askTitle)
+        } else {
+          // Generate appropriate follow-up based on what's missing
+          let question = ''
+          if (!mergedSchedule.title) {
+            question = '무슨 일정인가요?'
+          } else if (!mergedSchedule.date) {
+            question = '언제 일정인가요?'
+          } else if (!mergedSchedule.time && mergedSchedule.isAllDay !== true) {
+            question = '종일 일정인가요, 아니면 시간이 정해져 있나요?'
+          }
+
+          if (question) {
+            setConversation(prev => [...prev, { role: 'assistant', content: question }])
+            setWaitingForAnswer(true)
+            ttsRef.current.speak(question)
+          }
         }
       } else {
         // Could not detect schedule
@@ -190,7 +203,15 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
     }
   }
 
-  // Save schedule to calendar and close
+  // Watch for TTS completion to close modal
+  useEffect(() => {
+    if (pendingClose && !tts.isSpeaking) {
+      onEventAdded()
+      onClose()
+    }
+  }, [pendingClose, tts.isSpeaking, onEventAdded, onClose])
+
+  // Save schedule to calendar and close after TTS
   const saveScheduleToCalendar = async (schedule: ParsedSchedule) => {
     if (!schedule.date || !schedule.title) return
 
@@ -204,16 +225,16 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
           date: schedule.date,
           time: schedule.time,
           duration: schedule.duration,
+          isAllDay: schedule.isAllDay,
         }),
       })
       if (response.ok) {
-        const successMsg = `${schedule.title}, ${formatDate(schedule.date)}${schedule.time ? ` ${formatTime(schedule.time)}` : ' 종일'}에 추가했어요!`
+        const timeDisplay = schedule.isAllDay ? '종일' : (schedule.time ? formatTime(schedule.time) : '종일')
+        const successMsg = `${schedule.title}, ${formatDate(schedule.date)} ${timeDisplay}에 추가했어요!`
         setConversation(prev => [...prev, { role: 'assistant', content: successMsg }])
         ttsRef.current.speak(successMsg)
-        setTimeout(() => {
-          onEventAdded()
-          onClose()
-        }, 2000)
+        // Set pending close - will close after TTS finishes
+        setPendingClose(true)
       } else {
         throw new Error('Failed to create event')
       }

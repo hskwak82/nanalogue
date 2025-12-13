@@ -271,9 +271,10 @@ export interface ParsedSchedule {
   endDate?: string       // YYYY-MM-DD (for multi-day events)
   time?: string          // HH:mm
   duration?: number      // minutes
+  isAllDay?: boolean     // true if explicitly confirmed as all-day event
   confidence: number     // 0-1
   isComplete: boolean    // true if all required info is provided
-  missingFields?: ('time' | 'duration' | 'endDate')[]  // what info is missing
+  missingFields?: ('time' | 'duration' | 'endDate' | 'isAllDay')[]  // what info is missing
 }
 
 export interface PendingSchedule extends ParsedSchedule {
