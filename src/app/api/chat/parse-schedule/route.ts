@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
+interface CurrentSchedule {
+  title: string
+  date?: string
+  time?: string
+  duration?: number
+}
+
 interface ParseScheduleRequest {
   text: string
   referenceDate: string  // YYYY-MM-DD (today's date for relative parsing)
+  conversationHistory?: string  // Full conversation history for context
+  currentSchedule?: CurrentSchedule  // Already parsed schedule info
 }
 
 export interface ParsedSchedule {
@@ -24,7 +33,7 @@ function getGeminiClient() {
 
 export async function POST(request: Request): Promise<NextResponse<ParseScheduleResponse>> {
   try {
-    const { text, referenceDate }: ParseScheduleRequest = await request.json()
+    const { text, referenceDate, conversationHistory, currentSchedule }: ParseScheduleRequest = await request.json()
 
     if (!text || !referenceDate) {
       return NextResponse.json({
@@ -36,33 +45,58 @@ export async function POST(request: Request): Promise<NextResponse<ParseSchedule
     const genAI = getGeminiClient()
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
+    // Build current schedule context
+    let currentScheduleContext = ''
+    if (currentSchedule) {
+      currentScheduleContext = `
+현재까지 파악된 일정 정보:
+- 제목: ${currentSchedule.title || '미정'}
+- 날짜: ${currentSchedule.date || '미정'}
+- 시간: ${currentSchedule.time || '미정'}
+- 소요시간: ${currentSchedule.duration ? currentSchedule.duration + '분' : '미정'}
+
+중요: 위 정보를 기반으로 사용자의 새 입력에서 추가/수정 정보를 반영하세요.
+예: 날짜가 "2024-12-16"으로 이미 정해졌는데 사용자가 "1시로 해줘"라고 하면, 날짜는 유지하고 시간만 "13:00"로 설정하세요.
+`
+    }
+
+    // Build conversation history context
+    let conversationContext = ''
+    if (conversationHistory) {
+      conversationContext = `
+이전 대화 내용:
+${conversationHistory}
+
+위 대화를 참고하여 사용자의 의도를 정확히 파악하세요.
+`
+    }
+
     const prompt = `당신은 한국어 자연어에서 일정 정보를 추출하는 전문가입니다.
 
-사용자 메시지에서 일정, 약속, 계획, 미팅, 회의 등의 정보를 추출하세요.
+사용자와 대화하며 일정 정보를 수집하고 있습니다. 이전 대화에서 이미 파악된 정보가 있으면 유지하면서 새로운 정보를 추가/수정하세요.
 
 오늘 날짜: ${referenceDate}
+${currentScheduleContext}
+${conversationContext}
 
 규칙:
-1. 일정 관련 키워드가 있으면 무조건 감지하세요 (회의, 약속, 미팅, 출장, 병원, 면접 등)
-2. 날짜가 없어도 일정으로 감지하고 date를 null로 설정
+1. 이미 파악된 정보(currentSchedule)는 유지하고, 새로운 정보만 업데이트
+2. 사용자가 시간만 말하면("1시로 해줘") 기존 날짜는 유지하고 시간만 변경
 3. 상대적 날짜를 절대 날짜로 변환:
    - "내일" → 오늘 + 1일
    - "모레" → 오늘 + 2일
    - "다음주 월요일" → 다음 주 월요일 날짜
-4. 시간이 명시되지 않으면 time을 null로 설정
-5. 시간 해석:
-   - "3시" → "15:00" (보통 오후로 추정)
+4. 시간 해석:
+   - "1시" 또는 "1시로" → "13:00" (보통 오후로 추정)
    - "오전 10시" → "10:00"
    - "오후 3시" → "15:00"
    - "저녁" → "18:00"
    - "점심" → "12:00"
    - "아침" → "09:00"
-6. 부족한 정보 식별:
-   - date가 null이면 missingFields에 "date" 추가
-   - time이 null이면 missingFields에 "time" 추가
-7. 부족한 정보가 있으면 자연스러운 추가 질문 생성
+5. 일정이 완성되면(제목, 날짜, 시간 모두 있으면) isComplete=true
+6. 부족한 정보가 있으면 자연스러운 추가 질문 생성
 
-사용자 메시지: "${text}"
+사용자의 새 입력: "${text}"
 
 반드시 아래 JSON 형식으로만 응답하세요:
 {
@@ -81,9 +115,9 @@ export async function POST(request: Request): Promise<NextResponse<ParseSchedule
 }
 
 예시:
-- "회의 약속 있어" → date, time 모두 없음 → followUpQuestion: "회의가 언제 있으세요?"
-- "내일 점심 약속" → time 없음 → followUpQuestion: "몇 시에 만나기로 하셨어요?"
-- "내일 3시 회의" → 모든 정보 있음 → followUpQuestion: null`
+- 기존: 날짜=2024-12-16 → 입력: "1시로 해줘" → date="2024-12-16", time="13:00"
+- 기존: 없음 → 입력: "내일 점심 약속" → date=내일날짜, time="12:00", title="점심 약속"
+- 기존: title="점심 약속", date="2024-12-16" → 입력: "아 3시로" → time="15:00" (날짜 유지)`
 
     const result = await model.generateContent(prompt)
     const response = await result.response

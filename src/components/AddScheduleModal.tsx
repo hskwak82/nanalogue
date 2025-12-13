@@ -25,6 +25,8 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
   const conversationEndRef = useRef<HTMLDivElement>(null)
 
   const tts = useTTS()
+  const ttsRef = useRef(tts)
+  ttsRef.current = tts
 
   useEffect(() => {
     setMounted(true)
@@ -41,6 +43,16 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
     silenceTimeout: 2000,
     onSilenceEnd: handleSilenceEnd,
   })
+  const sttRef = useRef(stt)
+  sttRef.current = stt
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      ttsRef.current.stop()
+      sttRef.current.stopListening()
+    }
+  }, [])
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -49,15 +61,16 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       setCurrentSchedule(null)
       setError(null)
       setWaitingForAnswer(false)
-      stt.resetTranscript()
-      tts.stop()
+      sttRef.current.resetTranscript()
+      sttRef.current.stopListening()
+      ttsRef.current.stop()
     } else {
       // Start with a greeting
       const greeting = '어떤 일정을 추가할까요?'
       setConversation([{ role: 'assistant', content: greeting }])
       // Auto-play greeting and start listening
       setTimeout(() => {
-        tts.speak(greeting)
+        ttsRef.current.speak(greeting)
       }, 300)
     }
   }, [isOpen])
@@ -84,23 +97,30 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
     setWaitingForAnswer(false)
 
     // Add user message to conversation
-    setConversation(prev => [...prev, { role: 'user', content: text }])
+    const updatedConversation = [...conversation, { role: 'user' as const, content: text }]
+    setConversation(updatedConversation)
 
     setIsLoading(true)
     setError(null)
 
     try {
-      // Build context from current schedule if exists
-      let contextText = text
-      if (currentSchedule) {
-        contextText = `기존 일정: ${currentSchedule.title}${currentSchedule.date ? `, 날짜: ${currentSchedule.date}` : ''}${currentSchedule.time ? `, 시간: ${currentSchedule.time}` : ''}. 추가 정보: ${text}`
-      }
+      // Build full conversation history for context
+      const conversationHistory = updatedConversation
+        .map(m => `${m.role === 'user' ? '사용자' : 'AI'}: ${m.content}`)
+        .join('\n')
+
+      // Include current schedule state
+      const scheduleContext = currentSchedule
+        ? `\n현재 파악된 일정: 제목="${currentSchedule.title}", 날짜=${currentSchedule.date || '미정'}, 시간=${currentSchedule.time || '미정'}`
+        : ''
 
       const response = await fetch('/api/chat/parse-schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: contextText,
+          text: text,
+          conversationHistory: conversationHistory + scheduleContext,
+          currentSchedule: currentSchedule,
           referenceDate: new Date().toISOString().split('T')[0],
         }),
       })
@@ -242,7 +262,11 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={() => {
+          ttsRef.current.stop()
+          sttRef.current.stopListening()
+          onClose()
+        }}
       />
 
       {/* Modal */}
@@ -251,7 +275,11 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
         <div className="flex items-center justify-between px-6 py-4 border-b border-pastel-pink/30">
           <h2 className="text-lg font-semibold text-gray-800">일정 추가</h2>
           <button
-            onClick={onClose}
+            onClick={() => {
+              ttsRef.current.stop()
+              sttRef.current.stopListening()
+              onClose()
+            }}
             className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
