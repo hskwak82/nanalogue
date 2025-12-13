@@ -263,3 +263,16 @@ export interface CalendarEvent {
   end: string
   status?: 'completed' | 'pending' | 'canceled'
 }
+
+// Schedule detection types for AI conversation
+export interface ParsedSchedule {
+  title: string
+  date: string           // YYYY-MM-DD
+  time?: string          // HH:mm
+  confidence: number     // 0-1
+}
+
+export interface ScheduleDetectionResult {
+  hasSchedule: boolean
+  schedules: ParsedSchedule[]
+}

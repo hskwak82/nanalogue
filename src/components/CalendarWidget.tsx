@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar } from './Calendar'
+import { AddScheduleModal } from './AddScheduleModal'
+import { Toast } from './Toast'
 
 interface DiaryEntry {
   entry_date: string
@@ -41,6 +43,8 @@ export function CalendarWidget({
     return { [key]: initialGoogleEvents }
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
 
   const getCacheKey = (year: number, month: number) => `${year}-${month}`
   const currentCacheKey = getCacheKey(currentMonth.year, currentMonth.month)
@@ -199,6 +203,16 @@ export function CalendarWidget({
             </svg>
             <span>동기화</span>
           </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1 text-xs text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+            title="일정 추가"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>일정 추가</span>
+          </button>
         </div>
       )}
 
@@ -290,6 +304,25 @@ export function CalendarWidget({
               ))}
           </div>
         </div>
+      )}
+
+      {/* Add Schedule Modal */}
+      <AddScheduleModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onEventAdded={() => {
+          handleSync()
+          setToast({ message: '일정이 캘린더에 추가되었어요!', type: 'success' })
+        }}
+      />
+
+      {/* Toast */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   )

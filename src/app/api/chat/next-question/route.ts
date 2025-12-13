@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import type { ConversationMessage } from '@/types/database'
+import type { ConversationMessage, ParsedSchedule } from '@/types/database'
 
 function getGeminiClient() {
   return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -49,6 +49,9 @@ export async function POST(request: Request) {
       phaseGuidance = '후반 대화: 감사했던 점, 내일 계획, 또는 오늘의 교훈 등 하루를 마무리하는 질문을 하세요.'
     }
 
+    // Get today's date for schedule parsing
+    const today = new Date().toISOString().split('T')[0]
+
     const prompt = `당신은 따뜻하고 공감 능력이 뛰어난 친구 같은 AI입니다.
 사용자의 하루를 자연스럽게 들으면서 일기 작성을 위한 정보를 모읍니다.
 
@@ -59,27 +62,75 @@ export async function POST(request: Request) {
 4. 너무 형식적이거나 딱딱하지 않게, 구어체로 말하세요
 5. 이모지나 특수문자는 사용하지 마세요 (음성으로 읽힙니다)
 
-응답 형식:
-- 공감/반응 (1-2문장) + 자연스러운 연결 질문 (1문장)
-- 전체 2-3문장으로 짧게 유지
-- 순수 텍스트만 사용 (이모지 없이)
+일정 감지 지침:
+- 사용자가 일정, 약속, 계획, 미팅, 회의 등을 언급하면 감지하세요
+- 예: "내일 3시에 회의", "다음주 월요일 점심 약속", "모레 병원 가야해"
+- 오늘 날짜: ${today}
+- 상대적 날짜를 절대 날짜(YYYY-MM-DD)로 변환하세요
+- 시간이 있으면 HH:mm 형식으로, 없으면 null로 설정
+
+응답 형식 (반드시 JSON으로):
+{
+  "question": "공감 + 질문 내용 (2-3문장, 이모지 없이)",
+  "detectedSchedules": [
+    {"title": "일정 제목", "date": "YYYY-MM-DD", "time": "HH:mm" 또는 null, "confidence": 0.9}
+  ]
+}
+
+일정이 없으면 detectedSchedules는 빈 배열 []로 설정하세요.
 
 ${phaseGuidance}
 
 지금까지의 대화:
 ${conversationContext}
 
-다음 응답을 생성하세요 (공감 + 질문, 이모지 없이):`
+사용자의 마지막 메시지에서 일정이 있다면 감지하고, 자연스러운 응답을 JSON 형식으로 생성하세요:`
 
     const result = await model.generateContent(prompt)
     const response = await result.response
-    const question =
-      response.text() || '그렇군요, 더 자세히 이야기해 주실 수 있어요?'
+    let responseText = response.text().trim()
+
+    // Clean up the response - remove markdown code blocks if present
+    if (responseText.startsWith('```json')) {
+      responseText = responseText.slice(7)
+    }
+    if (responseText.startsWith('```')) {
+      responseText = responseText.slice(3)
+    }
+    if (responseText.endsWith('```')) {
+      responseText = responseText.slice(0, -3)
+    }
+    responseText = responseText.trim()
+
+    let question = '그렇군요, 더 자세히 이야기해 주실 수 있어요?'
+    let detectedSchedules: ParsedSchedule[] = []
+
+    try {
+      const parsed = JSON.parse(responseText)
+      question = parsed.question || question
+      if (parsed.detectedSchedules && Array.isArray(parsed.detectedSchedules)) {
+        detectedSchedules = parsed.detectedSchedules.map((s: {
+          title: string
+          date: string
+          time?: string | null
+          confidence: number
+        }) => ({
+          title: s.title,
+          date: s.date,
+          time: s.time || undefined,
+          confidence: s.confidence,
+        }))
+      }
+    } catch {
+      // If JSON parsing fails, use the raw text as question
+      question = responseText || question
+    }
 
     return NextResponse.json({
       question: question.trim(),
       purpose: 'conversation',
       shouldEnd: false,
+      detectedSchedules,
     })
   } catch (error) {
     console.error('Error generating question:', error)

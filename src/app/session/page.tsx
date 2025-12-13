@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
-import type { ConversationMessage } from '@/types/database'
+import { Toast } from '@/components/Toast'
+import type { ConversationMessage, ParsedSchedule } from '@/types/database'
 
 export default function SessionPage() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -19,6 +20,8 @@ export default function SessionPage() {
   const [isCompleting, setIsCompleting] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
+  const [isCalendarConnected, setIsCalendarConnected] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -153,6 +156,16 @@ export default function SessionPage() {
     if (preferences?.tts_voice) {
       setUserVoice(preferences.tts_voice)
     }
+
+    // Check if calendar is connected
+    const { data: calendarToken } = await supabase
+      .from('calendar_tokens')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('provider', 'google')
+      .maybeSingle()
+
+    setIsCalendarConnected(!!calendarToken)
 
     if (!profile) {
       // Create profile manually
@@ -326,6 +339,37 @@ export default function SessionPage() {
           .from('daily_sessions')
           .update({ raw_conversation: updatedMessages })
           .eq('id', sessionId)
+
+        // Handle detected schedules
+        if (isCalendarConnected && data.detectedSchedules && data.detectedSchedules.length > 0) {
+          const highConfidence = (data.detectedSchedules as ParsedSchedule[]).filter(
+            (s: ParsedSchedule) => s.confidence >= 0.8
+          )
+          if (highConfidence.length > 0) {
+            // Add schedules to calendar
+            for (const schedule of highConfidence) {
+              try {
+                await fetch('/api/calendar/create-event', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    title: schedule.title,
+                    date: schedule.date,
+                    time: schedule.time,
+                  }),
+                })
+              } catch (err) {
+                console.error('Failed to add schedule to calendar:', err)
+              }
+            }
+            // Show toast
+            const scheduleNames = highConfidence.map(s => s.title).join(', ')
+            setToast({
+              message: `"${scheduleNames}" 일정이 캘린더에 추가되었어요!`,
+              type: 'success',
+            })
+          }
+        }
       }
 
       if (data.shouldEnd) {
@@ -696,6 +740,15 @@ export default function SessionPage() {
           )}
         </div>
       </div>
+
+      {/* Toast for schedule notifications */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

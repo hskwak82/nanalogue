@@ -286,6 +286,70 @@ export async function saveCalendarTokens(
   }
 }
 
+// Create a calendar event with optional time
+export interface CreateCalendarEventParams {
+  userId: string
+  title: string
+  date: string        // YYYY-MM-DD
+  time?: string       // HH:mm (optional)
+  duration?: number   // minutes (default: 60)
+  description?: string
+}
+
+export interface CreateCalendarEventResult {
+  success: boolean
+  eventId?: string
+  error?: string
+}
+
+export async function createCalendarEvent(
+  params: CreateCalendarEventParams
+): Promise<CreateCalendarEventResult> {
+  const { userId, title, date, time, duration = 60, description } = params
+
+  const calendar = await getCalendarClient(userId)
+  if (!calendar) {
+    return { success: false, error: 'Calendar not connected' }
+  }
+
+  try {
+    let start: { date?: string; dateTime?: string; timeZone?: string }
+    let end: { date?: string; dateTime?: string; timeZone?: string }
+
+    if (time) {
+      // Timed event
+      const startDateTime = `${date}T${time}:00+09:00`
+      const endDate = new Date(`${date}T${time}:00`)
+      endDate.setMinutes(endDate.getMinutes() + duration)
+      const endHours = String(endDate.getHours()).padStart(2, '0')
+      const endMinutes = String(endDate.getMinutes()).padStart(2, '0')
+      const endDateTime = `${date}T${endHours}:${endMinutes}:00+09:00`
+
+      start = { dateTime: startDateTime, timeZone: 'Asia/Seoul' }
+      end = { dateTime: endDateTime, timeZone: 'Asia/Seoul' }
+    } else {
+      // All-day event
+      start = { date }
+      end = { date }
+    }
+
+    const response = await calendar.events.insert({
+      calendarId: 'primary',
+      requestBody: {
+        summary: title,
+        description,
+        start,
+        end,
+      },
+    })
+
+    return { success: true, eventId: response.data.id || undefined }
+  } catch (error) {
+    console.error('Failed to create calendar event:', error)
+    return { success: false, error: 'Failed to create event' }
+  }
+}
+
 // Disconnect calendar (remove tokens)
 export async function disconnectCalendar(userId: string): Promise<boolean> {
   const supabase = await createClient()
