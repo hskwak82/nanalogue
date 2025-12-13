@@ -17,6 +17,8 @@ export default function SessionPage() {
   const [error, setError] = useState<string | null>(null)
   const [userVoice, setUserVoice] = useState<string | undefined>(undefined)
   const [isCompleting, setIsCompleting] = useState(false)
+  const [showRestartConfirm, setShowRestartConfirm] = useState(false)
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -186,54 +188,10 @@ export default function SessionPage() {
     }
 
     if (existingSession) {
-      // If completed, reset session for new conversation
+      // If completed, show confirmation dialog instead of auto-reset
       if (existingSession.status === 'completed') {
-        // Reset session to active state with empty conversation
-        await supabase
-          .from('daily_sessions')
-          .update({
-            status: 'active',
-            raw_conversation: [],
-            completed_at: null,
-          })
-          .eq('id', existingSession.id)
-
-        setSessionId(existingSession.id)
-        setMessages([])
-        setQuestionCount(0)
-
-        // Start with greeting
-        setLoading(true)
-        try {
-          const response = await fetch('/api/chat/next-question', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [],
-              questionCount: 0,
-            }),
-          })
-          const data = await response.json()
-          if (data.question) {
-            const aiMessage: ConversationMessage = {
-              role: 'assistant',
-              content: data.question,
-              timestamp: new Date().toISOString(),
-              purpose: data.purpose,
-            }
-            setMessages([aiMessage])
-            setQuestionCount(1)
-
-            await supabase
-              .from('daily_sessions')
-              .update({ raw_conversation: [aiMessage] })
-              .eq('id', existingSession.id)
-          }
-        } catch (err) {
-          console.error('Failed to generate question:', err)
-        } finally {
-          setLoading(false)
-        }
+        setCompletedSessionId(existingSession.id)
+        setShowRestartConfirm(true)
         return
       }
 
@@ -425,6 +383,67 @@ export default function SessionPage() {
     await sendMessage()
   }
 
+  // Handle restart session after confirmation
+  async function handleRestartSession() {
+    if (!completedSessionId) return
+
+    setShowRestartConfirm(false)
+    setLoading(true)
+
+    try {
+      // Reset session to active state
+      await supabase
+        .from('daily_sessions')
+        .update({
+          status: 'active',
+          raw_conversation: [],
+          completed_at: null,
+        })
+        .eq('id', completedSessionId)
+
+      setSessionId(completedSessionId)
+      setMessages([])
+      setQuestionCount(0)
+
+      // Start with greeting
+      const response = await fetch('/api/chat/next-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [],
+          questionCount: 0,
+        }),
+      })
+      const data = await response.json()
+      if (data.question) {
+        const aiMessage: ConversationMessage = {
+          role: 'assistant',
+          content: data.question,
+          timestamp: new Date().toISOString(),
+          purpose: data.purpose,
+        }
+        setMessages([aiMessage])
+        setQuestionCount(1)
+
+        await supabase
+          .from('daily_sessions')
+          .update({ raw_conversation: [aiMessage] })
+          .eq('id', completedSessionId)
+      }
+    } catch (err) {
+      console.error('Failed to restart session:', err)
+      setError('세션 재시작에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // View existing diary
+  function handleViewDiary() {
+    const today = new Date().toISOString().split('T')[0]
+    router.push(`/diary/${today}`)
+  }
+
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
     // Mark as completing to prevent TTS auto-play
     setIsCompleting(true)
@@ -482,6 +501,50 @@ export default function SessionPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show restart confirmation dialog
+  if (showRestartConfirm) {
+    const today = new Date().toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+          <h2 className="mb-2 text-xl font-bold text-gray-900">
+            오늘의 일기가 있습니다
+          </h2>
+          <p className="mb-6 text-gray-600">
+            {today} 일기가 이미 작성되어 있습니다.
+            <br />
+            기존 일기를 보시겠습니까, 새로 작성하시겠습니까?
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleViewDiary}
+              className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-500"
+            >
+              기존 일기 보기
+            </button>
+            <button
+              onClick={handleRestartSession}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 hover:bg-gray-50"
+            >
+              새로 작성하기
+            </button>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+            >
+              홈으로 돌아가기
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
