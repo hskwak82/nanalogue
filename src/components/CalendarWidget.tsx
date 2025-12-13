@@ -14,7 +14,8 @@ interface DiaryEntry {
 interface GoogleEvent {
   date: string
   title: string
-  time?: string      // HH:mm for timed events
+  time?: string      // HH:mm for timed events (start time)
+  endTime?: string   // HH:mm for timed events (end time)
   isAllDay: boolean
 }
 
@@ -135,6 +136,15 @@ export function CalendarWidget({
     const ampm = hour >= 12 ? '오후' : '오전'
     const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
     return `${ampm} ${hour12}:${minutes}`
+  }
+
+  // Format time range for display (start - end)
+  const formatTimeRange = (startTime?: string, endTime?: string) => {
+    if (!startTime) return ''
+    const start = formatTime(startTime)
+    if (!endTime) return start
+    const end = formatTime(endTime)
+    return `${start} - ${end}`
   }
 
   // Get diary entry for selected date
@@ -281,7 +291,7 @@ export function CalendarWidget({
                       <span className="text-gray-700 truncate">{event.title}</span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {event.isAllDay ? '종일' : event.time ? formatTime(event.time) : ''}
+                      {event.isAllDay ? '종일' : formatTimeRange(event.time, event.endTime)}
                     </span>
                   </div>
                 </div>
@@ -337,7 +347,7 @@ export function CalendarWidget({
                         weekday: 'short',
                       })}
                       {' · '}
-                      {event.isAllDay ? '종일' : event.time ? formatTime(event.time) : ''}
+                      {event.isAllDay ? '종일' : formatTimeRange(event.time, event.endTime)}
                     </p>
                   </div>
                 </div>

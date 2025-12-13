@@ -16,7 +16,8 @@ interface CalendarToken {
 interface CalendarEvent {
   date: string
   title: string
-  time?: string      // HH:mm for timed events
+  time?: string      // HH:mm for timed events (start time)
+  endTime?: string   // HH:mm for timed events (end time)
   isAllDay: boolean
   description?: string
 }
@@ -209,16 +210,23 @@ export async function getMonthEvents(
       const isAllDay = !!event.start?.date // All-day events have 'date', timed events have 'dateTime'
       let date: string
       let time: string | undefined
+      let endTime: string | undefined
 
       if (isAllDay) {
         date = event.start!.date!
       } else if (event.start?.dateTime) {
         // Extract date and time from dateTime (e.g., "2024-12-17T14:00:00+09:00")
-        const dateTime = event.start.dateTime
-        date = dateTime.split('T')[0]
+        const startDateTime = event.start.dateTime
+        date = startDateTime.split('T')[0]
         // Extract HH:mm from the time part
-        const timePart = dateTime.split('T')[1]
-        time = timePart.substring(0, 5) // "14:00"
+        const startTimePart = startDateTime.split('T')[1]
+        time = startTimePart.substring(0, 5) // "14:00"
+
+        // Extract end time
+        if (event.end?.dateTime) {
+          const endTimePart = event.end.dateTime.split('T')[1]
+          endTime = endTimePart.substring(0, 5) // "15:00"
+        }
       } else {
         continue
       }
@@ -227,6 +235,7 @@ export async function getMonthEvents(
         date,
         title: event.summary || 'Untitled',
         time,
+        endTime,
         isAllDay,
         description: event.description || undefined,
       })
