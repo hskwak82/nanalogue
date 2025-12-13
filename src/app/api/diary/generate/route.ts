@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@/lib/supabase/server'
 import type { ConversationMessage } from '@/types/database'
 
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || '',
-  })
+function getGeminiClient() {
+  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 }
 
 export async function POST(request: Request) {
@@ -30,12 +28,10 @@ export async function POST(request: Request) {
       )
       .join('\n')
 
-    const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `당신은 따뜻하고 세심한 일기 작성 도우미입니다.
+    const genAI = getGeminiClient()
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+    const prompt = `당신은 따뜻하고 세심한 일기 작성 도우미입니다.
 사용자와의 대화 내용을 바탕으로 1인칭 시점의 일기를 작성해주세요.
 
 일기 작성 가이드라인:
@@ -45,29 +41,38 @@ export async function POST(request: Request) {
 - 3-5개 문단, 적당한 길이 유지
 - 사실만 나열하지 말고 그때의 감정과 생각도 포함
 
-응답 형식 (JSON):
+다음 대화를 바탕으로 오늘의 일기를 작성해주세요:
+
+${conversationText}
+
+응답은 반드시 다음 JSON 형식으로 출력하세요:
 {
   "content": "일기 본문",
   "summary": "하루 한줄 요약",
   "emotions": ["감정 태그들"],
   "gratitude": ["감사한 점들"],
   "tomorrow_plan": "내일 계획이나 다짐"
-}`,
-        },
-        {
-          role: 'user',
-          content: `다음 대화를 바탕으로 오늘의 일기를 작성해주세요:\n\n${conversationText}`,
-        },
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-    })
+}`
 
-    const diaryContent = completion.choices[0].message.content
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    let diaryContent = response.text()
+
     if (!diaryContent) {
       throw new Error('Failed to generate diary content')
     }
+
+    // Remove markdown code blocks if present
+    diaryContent = diaryContent.trim()
+    if (diaryContent.startsWith('```json')) {
+      diaryContent = diaryContent.slice(7)
+    } else if (diaryContent.startsWith('```')) {
+      diaryContent = diaryContent.slice(3)
+    }
+    if (diaryContent.endsWith('```')) {
+      diaryContent = diaryContent.slice(0, -3)
+    }
+    diaryContent = diaryContent.trim()
 
     const diary = JSON.parse(diaryContent)
     const today = new Date().toISOString().split('T')[0]

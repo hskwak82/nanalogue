@@ -12,6 +12,12 @@ export default function SessionPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [questionCount, setQuestionCount] = useState(0)
   const [initialized, setInitialized] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 테스트용: 에러 배너가 제대로 보이는지 확인
+  useEffect(() => {
+    console.log('Error state changed:', error)
+  }, [error])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -34,6 +40,30 @@ export default function SessionPage() {
     if (!user) {
       router.push('/login')
       return
+    }
+
+    // Ensure profile exists (in case trigger didn't run)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile) {
+      // Create profile manually
+      await supabase.from('profiles').insert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.name || user.user_metadata?.full_name || null,
+      })
+      // Create preferences
+      await supabase.from('user_preferences').insert({
+        user_id: user.id,
+      })
+      // Create subscription
+      await supabase.from('subscriptions').insert({
+        user_id: user.id,
+      })
     }
 
     const today = new Date().toISOString().split('T')[0]
@@ -120,6 +150,7 @@ export default function SessionPage() {
 
   async function generateNextQuestion(currentMessages: ConversationMessage[]) {
     setLoading(true)
+    setError(null)
 
     try {
       const response = await fetch('/api/chat/next-question', {
@@ -157,6 +188,7 @@ export default function SessionPage() {
       }
     } catch (error) {
       console.error('Failed to generate question:', error)
+      setError('질문 생성에 실패했습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setLoading(false)
     }
@@ -174,6 +206,7 @@ export default function SessionPage() {
     const updatedMessages = [...messages, userMessage]
     setMessages(updatedMessages)
     setInput('')
+    setError(null)
 
     // Save immediately
     await supabase
@@ -191,6 +224,7 @@ export default function SessionPage() {
 
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
     setLoading(true)
+    setError(null)
 
     try {
       // Generate diary
@@ -202,6 +236,13 @@ export default function SessionPage() {
           messages: finalMessages,
         }),
       })
+
+      // Check HTTP status first
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        setError(errorData.error || `일기 생성 실패 (${response.status}). API 할당량 초과일 수 있습니다. 1분 후 다시 시도해주세요.`)
+        return
+      }
 
       const data = await response.json()
 
@@ -218,9 +259,13 @@ export default function SessionPage() {
         // Redirect to diary
         const today = new Date().toISOString().split('T')[0]
         router.push(`/diary/${today}`)
+      } else {
+        // Show error message
+        setError(data.error || '일기 생성에 실패했습니다.')
       }
     } catch (error) {
       console.error('Failed to complete session:', error)
+      setError('일기 생성에 실패했습니다. 네트워크 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
@@ -237,6 +282,21 @@ export default function SessionPage() {
           </span>
         </div>
       </header>
+
+      {/* Error Banner - 고정 위치 */}
+      {error && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 px-4 py-4 shadow-lg">
+          <div className="mx-auto max-w-2xl flex items-center justify-between">
+            <p className="text-white font-medium">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="text-white hover:text-red-200 text-xl font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6">
@@ -287,7 +347,7 @@ export default function SessionPage() {
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
               placeholder="메시지를 입력하세요..."
               disabled={loading}
-              className="flex-1 rounded-full border border-gray-300 px-4 py-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100"
+              className="flex-1 rounded-full border-2 border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
             />
             <button
               onClick={handleSend}
@@ -303,7 +363,7 @@ export default function SessionPage() {
               <button
                 onClick={() => handleSessionComplete(messages)}
                 disabled={loading}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
               >
                 대화 마무리하고 일기 생성하기
               </button>

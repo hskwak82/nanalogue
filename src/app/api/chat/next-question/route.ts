@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ConversationMessage } from '@/types/database'
 
-function getOpenAIClient() {
-  return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || '',
-  })
+function getGeminiClient() {
+  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 }
 
 const QUESTION_FLOW = [
@@ -83,12 +81,10 @@ export async function POST(request: Request) {
       )
       .join('\n')
 
-    const completion = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        {
-          role: 'system',
-          content: `당신은 따뜻하고 공감적인 일기 도우미입니다.
+    const genAI = getGeminiClient()
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+
+    const prompt = `당신은 따뜻하고 공감적인 일기 도우미입니다.
 사용자의 하루를 기록하기 위해 자연스러운 대화를 나눕니다.
 현재 대화 맥락을 바탕으로 적절한 후속 질문을 해주세요.
 
@@ -98,23 +94,20 @@ export async function POST(request: Request) {
 - 감정을 더 깊이 탐색하거나, 구체적인 상황을 물어보세요
 - 판단하지 않고 경청하는 태도를 유지하세요
 
-현재 목적: ${flowStep.purpose === 'detail' ? '구체적인 상황이나 느낌 탐색' : '감정 탐색'}`,
-        },
-        {
-          role: 'user',
-          content: `지금까지의 대화:\n${conversationContext}\n\n다음 질문을 생성해주세요.`,
-        },
-      ],
-      max_tokens: 150,
-      temperature: 0.7,
-    })
+현재 목적: ${flowStep.purpose === 'detail' ? '구체적인 상황이나 느낌 탐색' : '감정 탐색'}
 
+지금까지의 대화:
+${conversationContext}
+
+다음 질문을 생성해주세요. 질문만 출력하세요.`
+
+    const result = await model.generateContent(prompt)
+    const response = await result.response
     const question =
-      completion.choices[0].message.content ||
-      '그 경험에 대해 더 자세히 이야기해 주시겠어요?'
+      response.text() || '그 경험에 대해 더 자세히 이야기해 주시겠어요?'
 
     return NextResponse.json({
-      question,
+      question: question.trim(),
       purpose: flowStep.purpose,
       shouldEnd: false,
     })
