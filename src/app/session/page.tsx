@@ -182,17 +182,18 @@ export default function SessionPage() {
     }
 
     if (existingSession) {
+      // Check if completed BEFORE setting messages (to prevent TTS from playing)
+      if (existingSession.status === 'completed') {
+        router.push(`/diary/${today}`)
+        return
+      }
+
       setSessionId(existingSession.id)
       const conversation = existingSession.raw_conversation as ConversationMessage[]
       setMessages(conversation || [])
       setQuestionCount(
         conversation?.filter((m) => m.role === 'assistant').length || 0
       )
-
-      if (existingSession.status === 'completed') {
-        router.push(`/diary/${today}`)
-        return
-      }
     } else {
       // Create new session
       const { data: newSession, error } = await supabase
