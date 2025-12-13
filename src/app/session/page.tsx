@@ -346,6 +346,10 @@ export default function SessionPage() {
   }
 
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
+    // Stop TTS if speaking
+    tts.stop()
+    stt.stopListening()
+
     setLoading(true)
     setError(null)
 
