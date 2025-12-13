@@ -11,11 +11,13 @@ interface CalendarProps {
   entries: DiaryEntry[]
   onDateSelect?: (date: string) => void
   googleEvents?: { date: string; title: string }[]
+  selectedDate?: string | null
+  onMonthChange?: (year: number, month: number) => void
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-export function Calendar({ entries, onDateSelect, googleEvents = [] }: CalendarProps) {
+export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDate, onMonthChange }: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
 
   const year = currentDate.getFullYear()
@@ -59,11 +61,15 @@ export function Calendar({ entries, onDateSelect, googleEvents = [] }: CalendarP
   }, [year, month])
 
   const goToPreviousMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1))
+    const newDate = new Date(year, month - 1, 1)
+    setCurrentDate(newDate)
+    onMonthChange?.(newDate.getFullYear(), newDate.getMonth())
   }
 
   const goToNextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1))
+    const newDate = new Date(year, month + 1, 1)
+    setCurrentDate(newDate)
+    onMonthChange?.(newDate.getFullYear(), newDate.getMonth())
   }
 
   const formatDateString = (day: number) => {
@@ -135,6 +141,7 @@ export function Calendar({ entries, onDateSelect, googleEvents = [] }: CalendarP
           const hasDiary = entryDates.has(dateStr)
           const hasGoogleEvent = googleEventDates.has(dateStr)
           const isTodayDate = isToday(day)
+          const isSelected = selectedDate === dateStr
           const dayOfWeek = (index % 7)
 
           return (
@@ -144,10 +151,12 @@ export function Calendar({ entries, onDateSelect, googleEvents = [] }: CalendarP
               className={`
                 aspect-square flex flex-col items-center justify-center rounded-lg text-sm
                 transition-all relative
-                ${isTodayDate ? 'ring-2 ring-pastel-purple font-bold' : ''}
-                ${hasDiary ? 'bg-pastel-mint-light text-gray-700 hover:bg-pastel-mint' : 'hover:bg-pastel-pink-light'}
+                ${isSelected ? 'ring-2 ring-pastel-purple-dark bg-pastel-purple-light' : ''}
+                ${isTodayDate && !isSelected ? 'ring-2 ring-pastel-purple font-bold' : ''}
+                ${hasDiary && !isSelected ? 'bg-pastel-mint-light text-gray-700 hover:bg-pastel-mint' : ''}
+                ${!hasDiary && !isSelected ? 'hover:bg-pastel-pink-light' : ''}
                 ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-600'}
-                ${!hasDiary && !isTodayDate ? 'hover:text-pastel-purple-dark' : ''}
+                ${!hasDiary && !isTodayDate && !isSelected ? 'hover:text-pastel-purple-dark' : ''}
               `}
             >
               <span>{day}</span>

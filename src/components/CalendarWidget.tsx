@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Calendar } from './Calendar'
 
@@ -23,23 +24,107 @@ interface CalendarWidgetProps {
 export function CalendarWidget({
   entries,
   isConnected,
-  googleEvents = [],
+  googleEvents: initialGoogleEvents = [],
   onConnect,
 }: CalendarWidgetProps) {
   const router = useRouter()
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date()
+    return { year: now.getFullYear(), month: now.getMonth() }
+  })
+
+  // Cache for events by month (key: "YYYY-MM")
+  const [eventsCache, setEventsCache] = useState<Record<string, GoogleEvent[]>>(() => {
+    const now = new Date()
+    const key = `${now.getFullYear()}-${now.getMonth()}`
+    return { [key]: initialGoogleEvents }
+  })
+  const [isLoading, setIsLoading] = useState(false)
+
+  const getCacheKey = (year: number, month: number) => `${year}-${month}`
+  const currentCacheKey = getCacheKey(currentMonth.year, currentMonth.month)
+  const googleEvents = eventsCache[currentCacheKey] || []
+
+  // Fetch events for a specific month
+  const fetchEventsForMonth = async (year: number, month: number, forceRefresh = false) => {
+    if (!isConnected) return
+
+    const key = getCacheKey(year, month)
+
+    // Skip if already cached and not forcing refresh
+    if (!forceRefresh && eventsCache[key]) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch(
+        `/api/calendar/events?year=${year}&month=${month}`
+      )
+      if (response.ok) {
+        const data = await response.json()
+        setEventsCache(prev => ({
+          ...prev,
+          [key]: data.events || []
+        }))
+      }
+    } catch (error) {
+      console.error('Failed to fetch calendar events:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Fetch on month change (only if not cached)
+  useEffect(() => {
+    fetchEventsForMonth(currentMonth.year, currentMonth.month)
+  }, [currentMonth, isConnected])
+
+  const handleMonthChange = (year: number, month: number) => {
+    setCurrentMonth({ year, month })
+    setSelectedDate(null)
+  }
+
+  // Sync button handler - clears cache and re-fetches current month
+  const handleSync = async () => {
+    setEventsCache({})
+    await fetchEventsForMonth(currentMonth.year, currentMonth.month, true)
+  }
 
   const handleDateSelect = (date: string) => {
-    // Check if there's a diary entry for this date
-    const hasEntry = entries.some((e) => e.entry_date === date)
-    if (hasEntry) {
-      router.push(`/diary/${date}`)
-    } else {
-      // Check if it's today
-      const today = new Date().toISOString().split('T')[0]
-      if (date === today) {
-        router.push('/session')
+    // Toggle selected date to show events
+    if (selectedDate === date) {
+      // Double click: navigate to diary or session
+      const hasEntry = entries.some((e) => e.entry_date === date)
+      if (hasEntry) {
+        router.push(`/diary/${date}`)
+      } else {
+        const today = new Date().toISOString().split('T')[0]
+        if (date === today) {
+          router.push('/session')
+        }
       }
+    } else {
+      setSelectedDate(date)
     }
+  }
+
+  // Get events for selected date
+  const selectedDateEvents = selectedDate
+    ? googleEvents.filter((e) => e.date === selectedDate)
+    : []
+
+  // Get diary entry for selected date
+  const selectedDateDiary = selectedDate
+    ? entries.find((e) => e.entry_date === selectedDate)
+    : null
+
+  // Format selected date for display
+  const formatSelectedDate = (date: string) => {
+    return new Date(date + 'T00:00:00').toLocaleDateString('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    })
   }
 
   return (
@@ -48,6 +133,8 @@ export function CalendarWidget({
         entries={entries}
         onDateSelect={handleDateSelect}
         googleEvents={googleEvents}
+        selectedDate={selectedDate}
+        onMonthChange={handleMonthChange}
       />
 
       {/* Connection status */}
@@ -84,12 +171,123 @@ export function CalendarWidget({
       )}
 
       {isConnected && (
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-xs text-pastel-mint">
+        <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center gap-1 text-xs text-pastel-mint">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <span>Google Calendar 연동됨</span>
+          </div>
+          <button
+            onClick={handleSync}
+            disabled={isLoading}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-pastel-purple transition-colors disabled:opacity-50"
+            title="일정 동기화"
+          >
+            <svg
+              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span>동기화</span>
+          </button>
+        </div>
+      )}
+
+      {/* Selected Date Info */}
+      {selectedDate && (
+        <div className="rounded-xl bg-white/70 backdrop-blur-sm p-4 border border-pastel-pink/30">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">
+              {formatSelectedDate(selectedDate)}
+            </h3>
+            <button
+              onClick={() => setSelectedDate(null)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Diary entry for this date */}
+          {selectedDateDiary && (
+            <button
+              onClick={() => router.push(`/diary/${selectedDate}`)}
+              className="w-full flex items-center gap-2 text-sm p-2 rounded-lg bg-pastel-mint-light hover:bg-pastel-mint/30 transition-colors mb-2"
+            >
+              <span className="w-2 h-2 rounded-full bg-pastel-purple flex-shrink-0" />
+              <span className="text-gray-700">나날로그 일기</span>
+              <svg className="w-4 h-4 ml-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Google Calendar events for this date */}
+          {selectedDateEvents.length > 0 ? (
+            <div className="space-y-2">
+              {selectedDateEvents.map((event, idx) => (
+                <div
+                  key={`${event.date}-${idx}`}
+                  className="flex items-start gap-2 text-sm p-2 rounded-lg bg-pastel-peach-light/50"
+                >
+                  <span className="w-2 h-2 rounded-full bg-pastel-peach mt-1 flex-shrink-0" />
+                  <span className="text-gray-700">{event.title}</span>
+                </div>
+              ))}
+            </div>
+          ) : !selectedDateDiary ? (
+            <p className="text-sm text-gray-400 text-center py-2">일정이 없습니다</p>
+          ) : null}
+
+          {/* Quick action for today */}
+          {selectedDate === new Date().toISOString().split('T')[0] && !selectedDateDiary && (
+            <button
+              onClick={() => router.push('/session')}
+              className="w-full mt-2 text-sm text-pastel-purple hover:text-pastel-purple-dark font-medium"
+            >
+              오늘 기록 시작하기 →
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Upcoming Google Calendar Events (when no date selected) */}
+      {!selectedDate && isConnected && googleEvents.length > 0 && (
+        <div className="rounded-xl bg-white/70 backdrop-blur-sm p-4 border border-pastel-pink/30">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">다가오는 일정</h3>
+          <div className="space-y-2">
+            {googleEvents
+              .filter((e) => e.date >= new Date().toISOString().split('T')[0])
+              .slice(0, 5)
+              .map((event, idx) => (
+                <div
+                  key={`${event.date}-${idx}`}
+                  className="flex items-start gap-2 text-sm"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-pastel-peach mt-1.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-700 truncate">{event.title}</p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(event.date + 'T00:00:00').toLocaleDateString('ko-KR', {
+                        month: 'short',
+                        day: 'numeric',
+                        weekday: 'short',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
+import { getMonthEvents } from '@/lib/google-calendar'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -45,6 +46,13 @@ export default async function DashboardPage() {
 
   const isCalendarConnected = !!calendarToken
 
+  // Get Google Calendar events for current month if connected
+  let googleEvents: { date: string; title: string }[] = []
+  if (isCalendarConnected) {
+    const now = new Date()
+    googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
+  }
+
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -80,6 +88,7 @@ export default async function DashboardPage() {
             <CalendarWidget
               entries={diaryEntries?.map((e) => ({ entry_date: e.entry_date })) || []}
               isConnected={isCalendarConnected}
+              googleEvents={googleEvents}
             />
           </div>
 
