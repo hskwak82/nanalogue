@@ -213,7 +213,25 @@ export async function getMonthEvents(
       let endTime: string | undefined
 
       if (isAllDay) {
-        date = event.start!.date!
+        // All-day events: expand multi-day events to show on each day
+        const startDate = new Date(event.start!.date! + 'T00:00:00')
+        // Google Calendar end date is exclusive, so subtract 1 day
+        const endDate = event.end?.date
+          ? new Date(event.end.date + 'T00:00:00')
+          : new Date(startDate.getTime() + 24 * 60 * 60 * 1000)
+
+        // Generate entry for each day in the range
+        const currentDate = new Date(startDate)
+        while (currentDate < endDate) {
+          const dateStr = currentDate.toISOString().split('T')[0]
+          events.push({
+            date: dateStr,
+            title: event.summary || 'Untitled',
+            isAllDay: true,
+            description: event.description || undefined,
+          })
+          currentDate.setDate(currentDate.getDate() + 1)
+        }
       } else if (event.start?.dateTime) {
         // Extract date and time from dateTime (e.g., "2024-12-17T14:00:00+09:00")
         const startDateTime = event.start.dateTime
@@ -227,18 +245,18 @@ export async function getMonthEvents(
           const endTimePart = event.end.dateTime.split('T')[1]
           endTime = endTimePart.substring(0, 5) // "15:00"
         }
+
+        events.push({
+          date,
+          title: event.summary || 'Untitled',
+          time,
+          endTime,
+          isAllDay: false,
+          description: event.description || undefined,
+        })
       } else {
         continue
       }
-
-      events.push({
-        date,
-        title: event.summary || 'Untitled',
-        time,
-        endTime,
-        isAllDay,
-        description: event.description || undefined,
-      })
     }
 
     return events
