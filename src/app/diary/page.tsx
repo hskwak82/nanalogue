@@ -33,19 +33,19 @@ export default async function DiaryListPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-pastel-cream">
       <Navigation
         user={user ? { email: user.email, name: profile?.name } : null}
       />
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-2xl font-bold text-gray-900">나의 일기</h1>
+        <h1 className="mb-8 text-2xl font-bold text-gray-700">나의 일기</h1>
 
         {entries && entries.length > 0 ? (
           <div className="space-y-8">
             {Object.entries(entriesByMonth).map(([monthKey, monthEntries]) => (
               <div key={monthKey}>
-                <h2 className="mb-4 text-lg font-semibold text-gray-700">
+                <h2 className="mb-4 text-lg font-semibold text-pastel-purple-dark">
                   {new Date(monthKey + '-01').toLocaleDateString('ko-KR', {
                     year: 'numeric',
                     month: 'long',
@@ -56,11 +56,11 @@ export default async function DiaryListPage() {
                     <Link
                       key={entry.id}
                       href={`/diary/${entry.entry_date}`}
-                      className="block rounded-xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow"
+                      className="block rounded-2xl bg-white/70 backdrop-blur-sm p-5 shadow-sm border border-pastel-pink/30 hover:shadow-md hover:bg-white/80 transition-all"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-gray-700">
                             {new Date(entry.entry_date).toLocaleDateString(
                               'ko-KR',
                               {
@@ -71,7 +71,7 @@ export default async function DiaryListPage() {
                             )}
                           </p>
                           {entry.summary && (
-                            <p className="mt-1 text-sm text-gray-600 line-clamp-2">
+                            <p className="mt-1 text-sm text-gray-500 line-clamp-2">
                               {entry.summary}
                             </p>
                           )}
@@ -83,7 +83,7 @@ export default async function DiaryListPage() {
                                   (emotion, idx) => (
                                     <span
                                       key={idx}
-                                      className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700"
+                                      className="rounded-full bg-pastel-purple-light px-2 py-0.5 text-xs text-pastel-purple-dark"
                                     >
                                       {emotion}
                                     </span>
@@ -104,7 +104,7 @@ export default async function DiaryListPage() {
             <p className="text-gray-500 mb-4">아직 작성된 일기가 없습니다.</p>
             <Link
               href="/session"
-              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"
+              className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
             >
               첫 일기 작성하기
             </Link>

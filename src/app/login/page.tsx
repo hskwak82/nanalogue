@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { login, signInWithGoogle } from './actions'
+import { Logo } from '@/components/Logo'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -31,22 +32,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-pastel-cream px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full max-w-md space-y-8">
-        <div>
-          <h1 className="text-center text-3xl font-bold tracking-tight text-gray-900">
-            나날로그
-          </h1>
-          <h2 className="mt-2 text-center text-lg text-gray-600">
+        <div className="flex flex-col items-center">
+          <Logo size="lg" />
+          <p className="mt-3 text-center text-gray-500">
             매일의 기록, AI와 함께
-          </h2>
+          </p>
         </div>
 
-        <div className="mt-8 space-y-6 rounded-xl bg-white p-8 shadow-lg">
+        <div className="mt-8 space-y-6 rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-pastel-pink/30">
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-pastel-pink bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-pastel-pink-light transition-all disabled:cursor-not-allowed disabled:opacity-50"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -71,16 +70,16 @@ export default function LoginPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
+              <div className="w-full border-t border-pastel-pink" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="bg-white px-2 text-gray-500">또는</span>
+              <span className="bg-white/80 px-2 text-gray-400">또는</span>
             </div>
           </div>
 
           <form action={handleSubmit} className="space-y-4">
             {error && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600">
+              <div className="rounded-xl bg-pastel-peach-light p-3 text-sm text-gray-700">
                 {error}
               </div>
             )}
@@ -88,7 +87,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-500"
               >
                 이메일
               </label>
@@ -98,7 +97,7 @@ export default function LoginPage() {
                 type="email"
                 autoComplete="email"
                 required
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="mt-1 block w-full rounded-xl border border-pastel-pink px-3 py-2 shadow-sm focus:border-pastel-purple focus:outline-none focus:ring-1 focus:ring-pastel-purple"
                 placeholder="name@example.com"
               />
             </div>
@@ -106,7 +105,7 @@ export default function LoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-500"
               >
                 비밀번호
               </label>
@@ -116,7 +115,7 @@ export default function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="mt-1 block w-full rounded-xl border border-pastel-pink px-3 py-2 shadow-sm focus:border-pastel-purple focus:outline-none focus:ring-1 focus:ring-pastel-purple"
                 placeholder="••••••••"
               />
             </div>
@@ -124,17 +123,17 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full rounded-full bg-pastel-purple px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all focus:outline-none focus:ring-2 focus:ring-pastel-purple focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? '로그인 중...' : '로그인'}
             </button>
           </form>
 
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-sm text-gray-500">
             계정이 없으신가요?{' '}
             <Link
               href="/signup"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
             >
               회원가입
             </Link>

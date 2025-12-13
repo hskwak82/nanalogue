@@ -512,12 +512,12 @@ export default function SessionPage() {
     })
 
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
-          <h2 className="mb-2 text-xl font-bold text-gray-900">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-pastel-pink/30">
+          <h2 className="mb-2 text-xl font-bold text-gray-700">
             오늘의 일기가 있습니다
           </h2>
-          <p className="mb-6 text-gray-600">
+          <p className="mb-6 text-gray-500">
             {today} 일기가 이미 작성되어 있습니다.
             <br />
             기존 일기를 보시겠습니까, 새로 작성하시겠습니까?
@@ -525,19 +525,19 @@ export default function SessionPage() {
           <div className="flex flex-col gap-3">
             <button
               onClick={handleViewDiary}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-500"
+              className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
             >
               기존 일기 보기
             </button>
             <button
               onClick={handleRestartSession}
-              className="w-full rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 hover:bg-gray-50"
+              className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
             >
               새로 작성하기
             </button>
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+              className="w-full px-4 py-2 text-sm text-gray-400 hover:text-pastel-purple-dark transition-colors"
             >
               홈으로 돌아가기
             </button>
@@ -548,21 +548,21 @@ export default function SessionPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-pastel-cream">
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white px-4 py-4">
+      <header className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push('/dashboard')}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              className="rounded-full p-2 text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark transition-all"
               title="홈으로"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
               </svg>
             </button>
-            <h1 className="text-lg font-semibold text-gray-900">오늘의 대화</h1>
+            <h1 className="text-lg font-semibold text-gray-700">오늘의 대화</h1>
           </div>
           <div className="flex items-center gap-3">
             <SpeakerToggle
@@ -571,7 +571,7 @@ export default function SessionPage() {
               isSpeaking={tts.isSpeaking}
               onToggle={tts.toggle}
             />
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-pastel-purple-dark">
               {questionCount}/7 질문
             </span>
           </div>
@@ -580,12 +580,12 @@ export default function SessionPage() {
 
       {/* Error Banner - 고정 위치 */}
       {error && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-red-600 px-4 py-4 shadow-lg">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-pastel-peach px-4 py-4 shadow-lg border-b border-pastel-peach-light">
           <div className="mx-auto max-w-2xl flex items-center justify-between">
-            <p className="text-white font-medium">{error}</p>
+            <p className="text-gray-700 font-medium">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="text-white hover:text-red-200 text-xl font-bold"
+              className="text-gray-600 hover:text-gray-800 text-xl font-bold"
             >
               ✕
             </button>
@@ -606,8 +606,8 @@ export default function SessionPage() {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-pastel-purple text-white'
+                    : 'bg-white/80 text-gray-700 shadow-sm border border-pastel-pink/30'
                 }`}
               >
                 <div className="flex items-start gap-1">
@@ -625,11 +625,11 @@ export default function SessionPage() {
 
           {loading && (
             <div className="flex justify-start">
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+              <div className="rounded-2xl bg-white/80 px-4 py-3 shadow-sm border border-pastel-pink/30">
                 <div className="flex space-x-2">
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:0.2s]" />
-                  <div className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:0.4s]" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60 [animation-delay:0.2s]" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60 [animation-delay:0.4s]" />
                 </div>
               </div>
             </div>
@@ -640,13 +640,13 @@ export default function SessionPage() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-gray-200 bg-white p-4">
+      <div className="border-t border-pastel-pink bg-white/80 backdrop-blur-sm p-4">
         <div className="mx-auto max-w-2xl">
           {/* 녹음 중 표시 */}
           {stt.isListening && (
-            <div className="mb-2 flex items-center justify-center gap-2 text-red-500">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              <span className="text-sm font-medium">녹음 중...</span>
+            <div className="mb-2 flex items-center justify-center gap-2 text-pastel-peach">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-pastel-peach" />
+              <span className="text-sm font-medium text-gray-600">녹음 중...</span>
             </div>
           )}
 
@@ -665,7 +665,7 @@ export default function SessionPage() {
               placeholder={stt.isListening ? '말씀하세요...' : '메시지를 입력하세요... (Cmd+Enter로 전송)'}
               disabled={loading}
               rows={2}
-              className="flex-1 resize-none rounded-2xl border-2 border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+              className="flex-1 resize-none rounded-2xl border-2 border-pastel-pink bg-white px-4 py-3 text-gray-700 placeholder-gray-400 focus:border-pastel-purple focus:outline-none focus:ring-1 focus:ring-pastel-purple disabled:bg-pastel-warm disabled:text-gray-500"
             />
             <VoiceInput
               isListening={stt.isListening}
@@ -676,7 +676,7 @@ export default function SessionPage() {
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full bg-pastel-purple px-6 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all disabled:cursor-not-allowed disabled:opacity-50"
             >
               전송
             </button>
@@ -688,7 +688,7 @@ export default function SessionPage() {
               <button
                 onClick={() => handleSessionComplete(messages)}
                 disabled={loading}
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-500 disabled:opacity-50"
+                className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors disabled:opacity-50"
               >
                 대화 마무리하고 일기 생성하기
               </button>

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { Logo } from '@/components/Logo'
 
 export default async function LandingPage() {
   const supabase = await createClient()
@@ -14,21 +15,21 @@ export default async function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-pastel-pink-light to-pastel-cream">
       {/* Header */}
       <header className="px-4 py-6">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <span className="text-xl font-bold text-indigo-600">나날로그</span>
+          <Logo size="md" />
           <div className="space-x-4">
             <Link
               href="/login"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="text-sm font-medium text-gray-500 hover:text-pastel-purple-dark transition-colors"
             >
               로그인
             </Link>
             <Link
               href="/signup"
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+              className="rounded-full bg-pastel-purple px-5 py-2 text-sm font-medium text-white hover:bg-pastel-purple-dark transition-all shadow-sm"
             >
               시작하기
             </Link>
@@ -39,12 +40,12 @@ export default async function LandingPage() {
       {/* Hero */}
       <main className="px-4 py-20">
         <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-700 sm:text-5xl">
             매일의 기록,
             <br />
-            <span className="text-indigo-600">AI와 함께</span>
+            <span className="text-pastel-purple">AI와 함께</span>
           </h1>
-          <p className="mt-6 text-lg text-gray-600">
+          <p className="mt-6 text-lg text-gray-500">
             AI와의 따뜻한 대화를 통해 하루를 기록하세요.
             <br />
             일기 쓰기가 어려웠던 당신을 위한, 새로운 방식의 일기장입니다.
@@ -52,7 +53,7 @@ export default async function LandingPage() {
           <div className="mt-10">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-8 py-4 text-lg font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors"
+              className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-8 py-4 text-lg font-semibold text-white shadow-lg hover:bg-pastel-purple-dark transition-all"
             >
               무료로 시작하기
             </Link>
@@ -62,10 +63,10 @@ export default async function LandingPage() {
         {/* Features */}
         <div className="mx-auto mt-24 max-w-5xl">
           <div className="grid gap-8 md:grid-cols-3">
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100">
+            <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-pastel-purple-light">
                 <svg
-                  className="h-6 w-6 text-indigo-600"
+                  className="h-6 w-6 text-pastel-purple-dark"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -78,18 +79,18 @@ export default async function LandingPage() {
                   />
                 </svg>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-gray-700">
                 대화형 기록
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-500">
                 AI의 질문에 답하기만 하면 자연스럽게 하루가 기록됩니다.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100">
+            <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-pastel-peach-light">
                 <svg
-                  className="h-6 w-6 text-indigo-600"
+                  className="h-6 w-6 text-gray-600"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -102,18 +103,18 @@ export default async function LandingPage() {
                   />
                 </svg>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-gray-700">
                 AI 일기 생성
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-500">
                 대화 내용을 바탕으로 AI가 따뜻한 일기를 작성해드립니다.
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100">
+            <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-pastel-mint-light">
                 <svg
-                  className="h-6 w-6 text-indigo-600"
+                  className="h-6 w-6 text-gray-600"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -126,10 +127,10 @@ export default async function LandingPage() {
                   />
                 </svg>
               </div>
-              <h3 className="mb-2 text-lg font-semibold text-gray-900">
+              <h3 className="mb-2 text-lg font-semibold text-gray-700">
                 감정 분석
               </h3>
-              <p className="text-gray-600">
+              <p className="text-gray-500">
                 오늘의 감정과 감사한 점을 자동으로 정리해드립니다.
               </p>
             </div>
@@ -138,8 +139,8 @@ export default async function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 py-8">
-        <div className="mx-auto max-w-7xl px-4 text-center text-sm text-gray-500">
+      <footer className="border-t border-pastel-pink py-8">
+        <div className="mx-auto max-w-7xl px-4 text-center text-sm text-gray-400">
           &copy; 2024 나날로그. All rights reserved.
         </div>
       </footer>

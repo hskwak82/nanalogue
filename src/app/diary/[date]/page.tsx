@@ -45,7 +45,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
   })
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-pastel-cream">
       <Navigation
         user={user ? { email: user.email, name: profile?.name } : null}
       />
@@ -54,7 +54,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
         {/* Back button */}
         <Link
           href="/diary"
-          className="mb-6 inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
+          className="mb-6 inline-flex items-center text-sm text-gray-500 hover:text-pastel-purple-dark transition-colors"
         >
           <svg
             className="mr-1 h-4 w-4"
@@ -74,9 +74,9 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">{formattedDate}</h1>
+          <h1 className="text-2xl font-bold text-gray-700">{formattedDate}</h1>
           {entry.summary && (
-            <p className="mt-2 text-lg text-gray-600">{entry.summary}</p>
+            <p className="mt-2 text-lg text-gray-500">{entry.summary}</p>
           )}
         </div>
 
@@ -97,7 +97,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
                 {(entry.emotions as string[]).map((emotion, idx) => (
                   <span
                     key={idx}
-                    className="rounded-full bg-indigo-100 px-3 py-1 text-sm text-indigo-700"
+                    className="rounded-full bg-pastel-purple-light px-3 py-1 text-sm text-pastel-purple-dark"
                   >
                     {emotion}
                   </span>
@@ -107,10 +107,10 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           )}
 
         {/* Diary Content */}
-        <div className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
           <div className="prose prose-gray max-w-none">
             {(entry.content as string).split('\n').map((paragraph: string, idx: number) => (
-              <p key={idx} className="mb-4 last:mb-0 text-gray-800 leading-relaxed">
+              <p key={idx} className="mb-4 last:mb-0 text-gray-700 leading-relaxed">
                 {paragraph}
               </p>
             ))}
@@ -121,15 +121,15 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
         {entry.gratitude &&
           Array.isArray(entry.gratitude) &&
           entry.gratitude.length > 0 && (
-            <div className="mb-6 rounded-2xl bg-amber-50 p-6">
-              <h2 className="mb-3 text-sm font-medium text-amber-800">
+            <div className="mb-6 rounded-2xl bg-pastel-peach-light p-6 border border-pastel-peach/30">
+              <h2 className="mb-3 text-sm font-medium text-gray-600">
                 감사한 점
               </h2>
               <ul className="space-y-2">
                 {(entry.gratitude as string[]).map((item, idx) => (
                   <li
                     key={idx}
-                    className="flex items-start text-amber-900"
+                    className="flex items-start text-gray-700"
                   >
                     <span className="mr-2">✨</span>
                     {item}
@@ -141,11 +141,11 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
 
         {/* Tomorrow Plan */}
         {entry.tomorrow_plan && (
-          <div className="rounded-2xl bg-indigo-50 p-6">
-            <h2 className="mb-3 text-sm font-medium text-indigo-800">
+          <div className="rounded-2xl bg-pastel-mint-light p-6 border border-pastel-mint/30">
+            <h2 className="mb-3 text-sm font-medium text-gray-600">
               내일의 다짐
             </h2>
-            <p className="text-indigo-900">{entry.tomorrow_plan}</p>
+            <p className="text-gray-700">{entry.tomorrow_plan}</p>
           </div>
         )}
       </main>

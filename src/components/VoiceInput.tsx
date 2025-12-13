@@ -39,8 +39,8 @@ export function VoiceInput({
       disabled={disabled}
       className={`rounded-full p-3 transition-all ${
         isListening
-          ? 'bg-red-500 text-white animate-pulse hover:bg-red-600'
-          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+          ? 'bg-pastel-peach text-white animate-pulse hover:bg-pastel-peach/80'
+          : 'bg-pastel-warm text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
       } disabled:cursor-not-allowed disabled:opacity-50`}
       title={isListening ? '녹음 중지' : '음성으로 입력'}
     >
@@ -106,10 +106,10 @@ export function SpeakerToggle({
     <button
       type="button"
       onClick={onToggle}
-      className={`rounded-lg p-2 transition-all ${
+      className={`rounded-full p-2 transition-all ${
         isEnabled
-          ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200'
-          : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+          ? 'bg-pastel-purple-light text-pastel-purple-dark hover:bg-pastel-purple/30'
+          : 'bg-pastel-warm text-gray-400 hover:bg-pastel-pink-light'
       } ${isSpeaking ? 'animate-pulse' : ''}`}
       title={isEnabled ? '음성 자동재생 끄기' : '음성 자동재생 켜기'}
     >
@@ -165,7 +165,7 @@ export function PlayButton({ isPlaying, onClick }: PlayButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className="ml-2 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+      className="ml-2 rounded-full p-1 text-pastel-purple/60 hover:bg-pastel-pink-light hover:text-pastel-purple-dark transition-colors"
       title={isPlaying ? '정지' : '재생'}
     >
       {isPlaying ? (

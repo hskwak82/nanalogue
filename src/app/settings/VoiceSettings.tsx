@@ -80,13 +80,13 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-gray-500 mb-2">
           AI 음성 선택
         </label>
         <select
           value={selectedVoice}
           onChange={(e) => setSelectedVoice(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-xl border border-pastel-pink px-3 py-2 text-gray-700 focus:border-pastel-purple focus:outline-none focus:ring-1 focus:ring-pastel-purple bg-white"
         >
           <optgroup label="Neural2 (최고 품질)">
             {VOICE_OPTIONS.filter((v) => v.quality === 'Neural2').map((voice) => (
@@ -114,14 +114,14 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
         <button
           onClick={handleTest}
           disabled={testing}
-          className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 disabled:opacity-50"
+          className="rounded-full border border-pastel-purple px-4 py-2 text-sm font-medium text-pastel-purple hover:bg-pastel-purple-light transition-all disabled:opacity-50"
         >
           {testing ? '재생 중...' : '미리 듣기'}
         </button>
         <button
           onClick={handleSave}
           disabled={saving || selectedVoice === currentVoice}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+          className="rounded-full bg-pastel-purple px-4 py-2 text-sm font-medium text-white hover:bg-pastel-purple-dark transition-all disabled:opacity-50"
         >
           {saving ? '저장 중...' : '저장'}
         </button>
@@ -130,7 +130,7 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
       {message && (
         <p
           className={`text-sm ${
-            message.type === 'success' ? 'text-green-600' : 'text-red-600'
+            message.type === 'success' ? 'text-pastel-mint' : 'text-pastel-peach'
           }`}
         >
           {message.text}

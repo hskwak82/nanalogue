@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/login/actions'
+import { Logo } from './Logo'
 
 interface NavigationProps {
   user: {
@@ -17,41 +18,41 @@ export function Navigation({ user }: NavigationProps) {
   const isActive = (path: string) => pathname === path
 
   return (
-    <nav className="border-b border-gray-200 bg-white">
+    <nav className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between">
           <div className="flex">
             <Link href="/dashboard" className="flex flex-shrink-0 items-center">
-              <span className="text-xl font-bold text-indigo-600">나날로그</span>
+              <Logo size="md" />
             </Link>
             {user && (
-              <div className="ml-10 flex items-center space-x-4">
+              <div className="ml-10 flex items-center space-x-2">
                 <Link
                   href="/dashboard"
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     isActive('/dashboard')
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
                   }`}
                 >
                   홈
                 </Link>
                 <Link
                   href="/session"
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     pathname.startsWith('/session')
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
                   }`}
                 >
                   오늘 기록
                 </Link>
                 <Link
                   href="/diary"
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     pathname.startsWith('/diary')
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
                   }`}
                 >
                   일기
@@ -64,35 +65,35 @@ export function Navigation({ user }: NavigationProps) {
               <div className="flex items-center space-x-4">
                 <Link
                   href="/settings"
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                     pathname.startsWith('/settings')
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
                   }`}
                 >
                   설정
                 </Link>
-                <span className="text-sm text-gray-500">{user.email}</span>
+                <span className="text-sm text-gray-400">{user.email}</span>
                 <form action={signOut}>
                   <button
                     type="submit"
-                    className="rounded-md bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                    className="rounded-full bg-pastel-warm px-4 py-2 text-sm font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
                   >
                     로그아웃
                   </button>
                 </form>
               </div>
             ) : (
-              <div className="space-x-4">
+              <div className="flex items-center space-x-3">
                 <Link
                   href="/login"
-                  className="text-sm font-medium text-gray-500 hover:text-gray-700"
+                  className="text-sm font-medium text-gray-500 hover:text-pastel-purple-dark transition-colors"
                 >
                   로그인
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                  className="rounded-full bg-pastel-purple px-5 py-2 text-sm font-medium text-white hover:bg-pastel-purple-dark transition-all shadow-sm"
                 >
                   시작하기
                 </Link>

@@ -22,42 +22,42 @@ export default async function SettingsPage() {
     .single()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-pastel-cream">
       <Navigation
         user={user ? { email: user.email, name: profile?.name } : null}
       />
 
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-2xl font-bold text-gray-900">설정</h1>
+        <h1 className="mb-8 text-2xl font-bold text-gray-700">설정</h1>
 
         {/* Profile Section */}
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">프로필</h2>
+        <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+          <h2 className="mb-4 text-lg font-semibold text-gray-700">프로필</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-500">
                 이메일
               </label>
-              <p className="mt-1 text-gray-900">{user?.email}</p>
+              <p className="mt-1 text-gray-700">{user?.email}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-500">
                 이름
               </label>
-              <p className="mt-1 text-gray-900">{profile?.name || '-'}</p>
+              <p className="mt-1 text-gray-700">{profile?.name || '-'}</p>
             </div>
           </div>
         </section>
 
         {/* Preferences Section */}
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">선호 설정</h2>
+        <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+          <h2 className="mb-4 text-lg font-semibold text-gray-700">선호 설정</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-500">
                 대화 톤
               </label>
-              <p className="mt-1 text-gray-900">
+              <p className="mt-1 text-gray-700">
                 {preferences?.tone === 'friendly'
                   ? '친근한'
                   : preferences?.tone === 'formal'
@@ -66,10 +66,10 @@ export default async function SettingsPage() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-500">
                 언어
               </label>
-              <p className="mt-1 text-gray-900">
+              <p className="mt-1 text-gray-700">
                 {preferences?.language === 'ko' ? '한국어' : 'English'}
               </p>
             </div>
@@ -77,8 +77,8 @@ export default async function SettingsPage() {
         </section>
 
         {/* Voice Settings Section */}
-        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">음성 설정</h2>
+        <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+          <h2 className="mb-4 text-lg font-semibold text-gray-700">음성 설정</h2>
           {user && (
             <VoiceSettings
               userId={user.id}
@@ -88,16 +88,16 @@ export default async function SettingsPage() {
         </section>
 
         {/* Calendar Integration (Coming Soon) */}
-        <section className="rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+        <section className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+          <h2 className="mb-4 text-lg font-semibold text-gray-700">
             캘린더 연동
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-500">
             Google Calendar와 연동하여 일정 기반 회고를 할 수 있습니다.
           </p>
           <button
             disabled
-            className="mt-4 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
+            className="mt-4 rounded-full bg-pastel-warm px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
           >
             준비 중
           </button>

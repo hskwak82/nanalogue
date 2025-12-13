@@ -1,8 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #FAF8F5;
+  --foreground: #4A4A4A;
+
+  /* Pastel Color Palette */
+  --pastel-purple: #A89BC4;
+  --pastel-purple-light: #C9B8D9;
+  --pastel-purple-dark: #8B7BAA;
+  --pastel-pink: #E8D5E0;
+  --pastel-pink-light: #F5E6ED;
+  --pastel-peach: #F5D0C5;
+  --pastel-peach-light: #FBE8E3;
+  --pastel-mint: #B8D4C8;
+  --pastel-mint-light: #D4E8E0;
+  --pastel-blue: #B8D4E3;
+  --pastel-blue-light: #D4E8F5;
+  --pastel-cream: #FAF8F5;
+  --pastel-warm: #F5F0E8;
 }
 
 @theme inline {
@@ -10,13 +25,21 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Pastel Colors for Tailwind */
+  --color-pastel-purple: var(--pastel-purple);
+  --color-pastel-purple-light: var(--pastel-purple-light);
+  --color-pastel-purple-dark: var(--pastel-purple-dark);
+  --color-pastel-pink: var(--pastel-pink);
+  --color-pastel-pink-light: var(--pastel-pink-light);
+  --color-pastel-peach: var(--pastel-peach);
+  --color-pastel-peach-light: var(--pastel-peach-light);
+  --color-pastel-mint: var(--pastel-mint);
+  --color-pastel-mint-light: var(--pastel-mint-light);
+  --color-pastel-blue: var(--pastel-blue);
+  --color-pastel-blue-light: var(--pastel-blue-light);
+  --color-pastel-cream: var(--pastel-cream);
+  --color-pastel-warm: var(--pastel-warm);
 }
 
 body {
