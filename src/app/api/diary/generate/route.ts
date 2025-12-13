@@ -74,7 +74,23 @@ ${conversationText}
     }
     diaryContent = diaryContent.trim()
 
-    const diary = JSON.parse(diaryContent)
+    // Sanitize JSON - fix control characters in string values
+    // Replace unescaped newlines within strings with escaped version
+    diaryContent = diaryContent.replace(/[\x00-\x1F\x7F]/g, (char) => {
+      if (char === '\n') return '\\n'
+      if (char === '\r') return '\\r'
+      if (char === '\t') return '\\t'
+      return ''
+    })
+
+    let diary
+    try {
+      diary = JSON.parse(diaryContent)
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      console.error('Raw content:', diaryContent.substring(0, 500))
+      throw new Error('일기 생성 결과를 파싱할 수 없습니다.')
+    }
     const today = new Date().toISOString().split('T')[0]
 
     // Save diary entry - check if exists first
@@ -131,8 +147,9 @@ ${conversationText}
     })
   } catch (error) {
     console.error('Error generating diary:', error)
+    const errorMessage = error instanceof Error ? error.message : '일기 생성에 실패했습니다.'
     return NextResponse.json(
-      { error: 'Failed to generate diary' },
+      { error: errorMessage },
       { status: 500 }
     )
   }
