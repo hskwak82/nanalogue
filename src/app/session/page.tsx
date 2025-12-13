@@ -14,11 +14,8 @@ export default function SessionPage() {
   const [initialized, setInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 테스트용: 에러 배너가 제대로 보이는지 확인
-  useEffect(() => {
-    console.log('Error state changed:', error)
-  }, [error])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -26,9 +23,20 @@ export default function SessionPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
+  const focusInput = () => {
+    inputRef.current?.focus()
+  }
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // AI 응답 후 입력창에 포커스
+  useEffect(() => {
+    if (!loading) {
+      focusInput()
+    }
+  }, [loading])
 
   const initializeSession = useCallback(async () => {
     if (initialized) return
@@ -69,12 +77,18 @@ export default function SessionPage() {
     const today = new Date().toISOString().split('T')[0]
 
     // Check for existing session today
-    const { data: existingSession } = await supabase
+    const { data: existingSession, error: fetchError } = await supabase
       .from('daily_sessions')
       .select('*')
       .eq('user_id', user.id)
       .eq('session_date', today)
-      .single()
+      .maybeSingle()
+
+    if (fetchError) {
+      console.error('Failed to fetch session:', fetchError)
+      setError('세션을 불러오는데 실패했습니다.')
+      return
+    }
 
     if (existingSession) {
       setSessionId(existingSession.id)
@@ -102,7 +116,8 @@ export default function SessionPage() {
         .single()
 
       if (error) {
-        console.error('Failed to create session:', error)
+        console.error('Failed to create session:', JSON.stringify(error, null, 2))
+        setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
         return
       }
 
@@ -339,26 +354,34 @@ export default function SessionPage() {
       {/* Input */}
       <div className="border-t border-gray-200 bg-white p-4">
         <div className="mx-auto max-w-2xl">
-          <div className="flex space-x-4">
-            <input
-              type="text"
+          <div className="flex space-x-4 items-end">
+            <textarea
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-              placeholder="메시지를 입력하세요..."
+              onKeyDown={(e) => {
+                // Cmd+Enter or Ctrl+Enter to send
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="메시지를 입력하세요... (Cmd+Enter로 전송)"
               disabled={loading}
-              className="flex-1 rounded-full border-2 border-gray-300 bg-white px-4 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+              rows={2}
+              className="flex-1 resize-none rounded-2xl border-2 border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="rounded-full bg-indigo-600 px-6 py-2 font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-full bg-indigo-600 px-6 py-3 font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
               전송
             </button>
           </div>
 
-          {questionCount >= 5 && (
+          {/* 사용자가 한 번이라도 답변했으면 일기 생성 버튼 표시 */}
+          {messages.some((m) => m.role === 'user') && (
             <div className="mt-4 text-center">
               <button
                 onClick={() => handleSessionComplete(messages)}

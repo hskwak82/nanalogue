@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
+import { DiaryActions } from './DiaryActions'
 
 interface DiaryDetailPageProps {
   params: Promise<{ date: string }>
@@ -72,11 +73,16 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
         </Link>
 
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">{formattedDate}</h1>
           {entry.summary && (
             <p className="mt-2 text-lg text-gray-600">{entry.summary}</p>
           )}
+        </div>
+
+        {/* Actions */}
+        <div className="mb-8">
+          <DiaryActions date={date} sessionId={entry.session_id} />
         </div>
 
         {/* Emotions */}
