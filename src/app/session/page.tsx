@@ -186,9 +186,54 @@ export default function SessionPage() {
     }
 
     if (existingSession) {
-      // Check if completed BEFORE setting messages (to prevent TTS from playing)
+      // If completed, reset session for new conversation
       if (existingSession.status === 'completed') {
-        router.push(`/diary/${today}`)
+        // Reset session to active state with empty conversation
+        await supabase
+          .from('daily_sessions')
+          .update({
+            status: 'active',
+            raw_conversation: [],
+            completed_at: null,
+          })
+          .eq('id', existingSession.id)
+
+        setSessionId(existingSession.id)
+        setMessages([])
+        setQuestionCount(0)
+
+        // Start with greeting
+        setLoading(true)
+        try {
+          const response = await fetch('/api/chat/next-question', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: [],
+              questionCount: 0,
+            }),
+          })
+          const data = await response.json()
+          if (data.question) {
+            const aiMessage: ConversationMessage = {
+              role: 'assistant',
+              content: data.question,
+              timestamp: new Date().toISOString(),
+              purpose: data.purpose,
+            }
+            setMessages([aiMessage])
+            setQuestionCount(1)
+
+            await supabase
+              .from('daily_sessions')
+              .update({ raw_conversation: [aiMessage] })
+              .eq('id', existingSession.id)
+          }
+        } catch (err) {
+          console.error('Failed to generate question:', err)
+        } finally {
+          setLoading(false)
+        }
         return
       }
 
@@ -211,6 +256,8 @@ export default function SessionPage() {
         .select()
         .single()
 
+      let currentSessionId: string
+
       if (error) {
         console.error('Failed to create session:', JSON.stringify(error, null, 2))
         // If duplicate key error, try to fetch existing session again
@@ -222,24 +269,31 @@ export default function SessionPage() {
             .eq('session_date', today)
             .single()
 
-          if (retrySession?.status === 'completed') {
-            router.push(`/diary/${today}`)
-            return
-          } else if (retrySession) {
-            setSessionId(retrySession.id)
-            const conversation = retrySession.raw_conversation as ConversationMessage[]
-            setMessages(conversation || [])
-            setQuestionCount(
-              conversation?.filter((m) => m.role === 'assistant').length || 0
-            )
+          if (retrySession) {
+            // Reset and start fresh
+            await supabase
+              .from('daily_sessions')
+              .update({
+                status: 'active',
+                raw_conversation: [],
+                completed_at: null,
+              })
+              .eq('id', retrySession.id)
+
+            currentSessionId = retrySession.id
+          } else {
+            setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
             return
           }
+        } else {
+          setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
+          return
         }
-        setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
-        return
+      } else {
+        currentSessionId = newSession.id
       }
 
-      setSessionId(newSession.id)
+      setSessionId(currentSessionId)
 
       // Start with greeting - fetch directly
       setLoading(true)
@@ -267,7 +321,7 @@ export default function SessionPage() {
           await supabase
             .from('daily_sessions')
             .update({ raw_conversation: [aiMessage] })
-            .eq('id', newSession.id)
+            .eq('id', currentSessionId)
         }
       } catch (error) {
         console.error('Failed to generate question:', error)
