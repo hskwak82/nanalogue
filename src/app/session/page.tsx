@@ -21,9 +21,22 @@ export default function SessionPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // TTS/STT hooks
+  // Ref to store sendMessage function for voice callback
+  const sendMessageRef = useRef<(text: string) => void>(() => {})
+
+  // TTS hook
   const tts = useTTS()
-  const stt = useSTT()
+
+  // STT hook with auto-send on silence (2 seconds)
+  const stt = useSTT({
+    silenceTimeout: 2000,
+    onSilenceEnd: (transcript) => {
+      if (transcript.trim()) {
+        sendMessageRef.current(transcript.trim())
+      }
+    },
+  })
+
   const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null)
 
   const scrollToBottom = () => {
@@ -265,32 +278,48 @@ export default function SessionPage() {
     }
   }
 
+  // 메시지 전송 함수 (텍스트 또는 입력창 내용 사용)
+  const sendMessage = useCallback(
+    async (text?: string) => {
+      const messageText = text || input.trim()
+      if (!messageText || loading) return
+
+      const userMessage: ConversationMessage = {
+        role: 'user',
+        content: messageText,
+        timestamp: new Date().toISOString(),
+      }
+
+      const currentMessages = [...messages, userMessage]
+      setMessages(currentMessages)
+      setInput('')
+      stt.resetTranscript()
+      setError(null)
+
+      // Save immediately
+      await supabase
+        .from('daily_sessions')
+        .update({ raw_conversation: currentMessages })
+        .eq('id', sessionId)
+
+      // Check if we should end session (after 5-7 questions)
+      if (questionCount >= 6) {
+        await handleSessionComplete(currentMessages)
+      } else {
+        await generateNextQuestion(currentMessages)
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [input, loading, messages, sessionId, questionCount, supabase, stt]
+  )
+
+  // Update ref for voice callback
+  useEffect(() => {
+    sendMessageRef.current = sendMessage
+  }, [sendMessage])
+
   async function handleSend() {
-    if (!input.trim() || loading) return
-
-    const userMessage: ConversationMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-    }
-
-    const updatedMessages = [...messages, userMessage]
-    setMessages(updatedMessages)
-    setInput('')
-    setError(null)
-
-    // Save immediately
-    await supabase
-      .from('daily_sessions')
-      .update({ raw_conversation: updatedMessages })
-      .eq('id', sessionId)
-
-    // Check if we should end session (after 5-7 questions)
-    if (questionCount >= 6) {
-      await handleSessionComplete(updatedMessages)
-    } else {
-      await generateNextQuestion(updatedMessages)
-    }
+    await sendMessage()
   }
 
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
