@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
 import { Toast } from '@/components/Toast'
-import type { ConversationMessage, ParsedSchedule } from '@/types/database'
+import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 
 export default function SessionPage() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -22,6 +22,7 @@ export default function SessionPage() {
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
   const [isCalendarConnected, setIsCalendarConnected] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
+  const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -306,6 +307,32 @@ export default function SessionPage() {
     initializeSession()
   }, [initializeSession])
 
+  // Helper function to add schedule to calendar
+  async function addScheduleToCalendar(schedule: ParsedSchedule) {
+    try {
+      const response = await fetch('/api/calendar/create-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: schedule.title,
+          date: schedule.date,
+          time: schedule.time,
+          duration: schedule.duration,
+        }),
+      })
+      if (response.ok) {
+        setToast({
+          message: `"${schedule.title}" 일정이 캘린더에 추가되었어요!`,
+          type: 'success',
+        })
+        return true
+      }
+    } catch (err) {
+      console.error('Failed to add schedule to calendar:', err)
+    }
+    return false
+  }
+
   async function generateNextQuestion(currentMessages: ConversationMessage[]) {
     setLoading(true)
     setError(null)
@@ -317,6 +344,15 @@ export default function SessionPage() {
         body: JSON.stringify({
           messages: currentMessages,
           questionCount,
+          pendingSchedule: pendingSchedule ? {
+            id: pendingSchedule.id,
+            title: pendingSchedule.title,
+            date: pendingSchedule.date,
+            time: pendingSchedule.time,
+            duration: pendingSchedule.duration,
+            endDate: pendingSchedule.endDate,
+            missingFields: pendingSchedule.missingFields,
+          } : undefined,
         }),
       })
 
@@ -340,39 +376,46 @@ export default function SessionPage() {
           .update({ raw_conversation: updatedMessages })
           .eq('id', sessionId)
 
-        // Handle detected schedules
-        if (isCalendarConnected && data.detectedSchedules && data.detectedSchedules.length > 0) {
-          const highConfidence = (data.detectedSchedules as ParsedSchedule[]).filter(
-            (s: ParsedSchedule) => s.confidence >= 0.8
-          )
-          if (highConfidence.length > 0) {
-            // Add schedules to calendar
-            for (const schedule of highConfidence) {
-              try {
-                await fetch('/api/calendar/create-event', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    title: schedule.title,
-                    date: schedule.date,
-                    time: schedule.time,
-                  }),
-                })
-              } catch (err) {
-                console.error('Failed to add schedule to calendar:', err)
+        // Handle calendar integration
+        if (isCalendarConnected) {
+          // First, check if pending schedule was completed
+          if (data.updatedPendingSchedule && data.updatedPendingSchedule.isComplete) {
+            await addScheduleToCalendar(data.updatedPendingSchedule)
+            setPendingSchedule(null)
+          }
+
+          // Handle newly detected schedules
+          if (data.detectedSchedules && data.detectedSchedules.length > 0) {
+            for (const schedule of data.detectedSchedules as ParsedSchedule[]) {
+              if (schedule.confidence >= 0.8) {
+                if (schedule.isComplete) {
+                  // Complete schedule - add to calendar immediately
+                  await addScheduleToCalendar(schedule)
+                } else if (schedule.missingFields && schedule.missingFields.length > 0) {
+                  // Incomplete schedule - set as pending for follow-up
+                  setPendingSchedule({
+                    ...schedule,
+                    id: `schedule-${Date.now()}`,
+                    status: 'pending',
+                  })
+                  // Show info toast
+                  setToast({
+                    message: `"${schedule.title}" 일정 정보를 확인 중이에요`,
+                    type: 'info',
+                  })
+                }
               }
             }
-            // Show toast
-            const scheduleNames = highConfidence.map(s => s.title).join(', ')
-            setToast({
-              message: `"${scheduleNames}" 일정이 캘린더에 추가되었어요!`,
-              type: 'success',
-            })
           }
         }
       }
 
       if (data.shouldEnd) {
+        // Add any pending schedule before ending
+        if (pendingSchedule && isCalendarConnected) {
+          await addScheduleToCalendar(pendingSchedule)
+          setPendingSchedule(null)
+        }
         await handleSessionComplete(currentMessages)
       }
     } catch (error) {

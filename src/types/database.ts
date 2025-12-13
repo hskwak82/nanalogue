@@ -268,11 +268,21 @@ export interface CalendarEvent {
 export interface ParsedSchedule {
   title: string
   date: string           // YYYY-MM-DD
+  endDate?: string       // YYYY-MM-DD (for multi-day events)
   time?: string          // HH:mm
+  duration?: number      // minutes
   confidence: number     // 0-1
+  isComplete: boolean    // true if all required info is provided
+  missingFields?: ('time' | 'duration' | 'endDate')[]  // what info is missing
+}
+
+export interface PendingSchedule extends ParsedSchedule {
+  id: string             // unique id for tracking
+  status: 'pending' | 'confirmed' | 'cancelled'
 }
 
 export interface ScheduleDetectionResult {
   hasSchedule: boolean
   schedules: ParsedSchedule[]
+  followUpQuestion?: string  // question to ask for missing info
 }
