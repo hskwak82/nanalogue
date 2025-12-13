@@ -154,24 +154,27 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
 
         setCurrentSchedule(mergedSchedule)
 
-        // Check if we need more info
-        if (data.followUpQuestion && !mergedSchedule.isComplete) {
-          // Ask follow-up question
+        // Check if schedule is complete (has date) - if so, save immediately
+        if (mergedSchedule.date && mergedSchedule.title) {
+          // Schedule is complete - save and close
+          await saveScheduleToCalendar(mergedSchedule)
+        } else if (data.followUpQuestion) {
+          // Ask follow-up question for missing info
           setConversation(prev => [...prev, { role: 'assistant', content: data.followUpQuestion }])
           setWaitingForAnswer(true)
           ttsRef.current.speak(data.followUpQuestion)
-        } else if (mergedSchedule.date) {
-          // Schedule is complete enough
-          const confirmMsg = `${mergedSchedule.title}${mergedSchedule.date ? `, ${formatDate(mergedSchedule.date)}` : ''}${mergedSchedule.time ? ` ${formatTime(mergedSchedule.time)}` : ' 종일'}로 추가할까요?`
-          setConversation(prev => [...prev, { role: 'assistant', content: confirmMsg }])
-          ttsRef.current.speak(confirmMsg)
-          setWaitingForAnswer(true)
-        } else {
+        } else if (!mergedSchedule.date) {
           // Still need date at minimum
           const askDate = '언제 일정인가요?'
           setConversation(prev => [...prev, { role: 'assistant', content: askDate }])
           setWaitingForAnswer(true)
           ttsRef.current.speak(askDate)
+        } else if (!mergedSchedule.title) {
+          // Still need title
+          const askTitle = '무슨 일정인가요?'
+          setConversation(prev => [...prev, { role: 'assistant', content: askTitle }])
+          setWaitingForAnswer(true)
+          ttsRef.current.speak(askTitle)
         }
       } else {
         // Could not detect schedule
@@ -187,22 +190,9 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
     }
   }
 
-  // Handle confirmation (네/아니오)
-  const handleConfirmation = async (confirmed: boolean) => {
-    if (confirmed && currentSchedule && currentSchedule.date) {
-      await addToCalendar()
-    } else {
-      const retryMsg = '다시 말씀해 주세요. 언제 무슨 일정인가요?'
-      setConversation(prev => [...prev, { role: 'assistant', content: retryMsg }])
-      setCurrentSchedule(null)
-      setWaitingForAnswer(true)
-      tts.speak(retryMsg)
-    }
-  }
-
-  // Add to calendar
-  const addToCalendar = async () => {
-    if (!currentSchedule || !currentSchedule.date) return
+  // Save schedule to calendar and close
+  const saveScheduleToCalendar = async (schedule: ParsedSchedule) => {
+    if (!schedule.date || !schedule.title) return
 
     setIsLoading(true)
     try {
@@ -210,20 +200,20 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: currentSchedule.title,
-          date: currentSchedule.date,
-          time: currentSchedule.time,
-          duration: currentSchedule.duration,
+          title: schedule.title,
+          date: schedule.date,
+          time: schedule.time,
+          duration: schedule.duration,
         }),
       })
       if (response.ok) {
-        const successMsg = '일정이 추가되었어요!'
+        const successMsg = `${schedule.title}, ${formatDate(schedule.date)}${schedule.time ? ` ${formatTime(schedule.time)}` : ' 종일'}에 추가했어요!`
         setConversation(prev => [...prev, { role: 'assistant', content: successMsg }])
         ttsRef.current.speak(successMsg)
         setTimeout(() => {
           onEventAdded()
           onClose()
-        }, 1500)
+        }, 2000)
       } else {
         throw new Error('Failed to create event')
       }
@@ -398,23 +388,6 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
               )}
             </div>
 
-            {/* Confirm Buttons (when schedule is ready) */}
-            {currentSchedule?.date && !isLoading && !stt.isListening && !tts.isSpeaking && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleConfirmation(false)}
-                  className="px-3 py-1.5 text-sm rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100"
-                >
-                  아니오
-                </button>
-                <button
-                  onClick={() => handleConfirmation(true)}
-                  className="px-3 py-1.5 text-sm rounded-full bg-pastel-purple text-white hover:bg-pastel-purple-dark"
-                >
-                  네
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
