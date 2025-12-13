@@ -14,6 +14,8 @@ interface DiaryEntry {
 interface GoogleEvent {
   date: string
   title: string
+  time?: string      // HH:mm for timed events
+  isAllDay: boolean
 }
 
 interface CalendarWidgetProps {
@@ -112,10 +114,28 @@ export function CalendarWidget({
     }
   }
 
-  // Get events for selected date
+  // Get events for selected date (sorted: all-day first, then by time)
   const selectedDateEvents = selectedDate
-    ? googleEvents.filter((e) => e.date === selectedDate)
+    ? googleEvents
+        .filter((e) => e.date === selectedDate)
+        .sort((a, b) => {
+          // All-day events first
+          if (a.isAllDay && !b.isAllDay) return -1
+          if (!a.isAllDay && b.isAllDay) return 1
+          // Then sort by time
+          if (a.time && b.time) return a.time.localeCompare(b.time)
+          return 0
+        })
     : []
+
+  // Format time for display
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':')
+    const hour = parseInt(hours)
+    const ampm = hour >= 12 ? '오후' : '오전'
+    const hour12 = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+    return `${ampm} ${hour12}:${minutes}`
+  }
 
   // Get diary entry for selected date
   const selectedDateDiary = selectedDate
@@ -255,8 +275,15 @@ export function CalendarWidget({
                   key={`${event.date}-${idx}`}
                   className="flex items-start gap-2 text-sm p-2 rounded-lg bg-pastel-peach-light/50"
                 >
-                  <span className="w-2 h-2 rounded-full bg-pastel-peach mt-1 flex-shrink-0" />
-                  <span className="text-gray-700">{event.title}</span>
+                  <span className="w-2 h-2 rounded-full bg-pastel-peach mt-1.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700 truncate">{event.title}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {event.isAllDay ? '종일' : event.time ? formatTime(event.time) : ''}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -283,6 +310,17 @@ export function CalendarWidget({
           <div className="space-y-2">
             {googleEvents
               .filter((e) => e.date >= new Date().toISOString().split('T')[0])
+              .sort((a, b) => {
+                // Sort by date first
+                const dateCompare = a.date.localeCompare(b.date)
+                if (dateCompare !== 0) return dateCompare
+                // Then all-day events first
+                if (a.isAllDay && !b.isAllDay) return -1
+                if (!a.isAllDay && b.isAllDay) return 1
+                // Then by time
+                if (a.time && b.time) return a.time.localeCompare(b.time)
+                return 0
+              })
               .slice(0, 5)
               .map((event, idx) => (
                 <div
@@ -298,6 +336,8 @@ export function CalendarWidget({
                         day: 'numeric',
                         weekday: 'short',
                       })}
+                      {' · '}
+                      {event.isAllDay ? '종일' : event.time ? formatTime(event.time) : ''}
                     </p>
                   </div>
                 </div>

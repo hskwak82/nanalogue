@@ -47,7 +47,7 @@ export default async function DashboardPage() {
   const isCalendarConnected = !!calendarToken
 
   // Get Google Calendar events for current month if connected
-  let googleEvents: { date: string; title: string }[] = []
+  let googleEvents: { date: string; title: string; time?: string; isAllDay: boolean }[] = []
   if (isCalendarConnected) {
     const now = new Date()
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())

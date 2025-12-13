@@ -16,6 +16,8 @@ interface CalendarToken {
 interface CalendarEvent {
   date: string
   title: string
+  time?: string      // HH:mm for timed events
+  isAllDay: boolean
   description?: string
 }
 
@@ -204,14 +206,30 @@ export async function getMonthEvents(
       // Skip 나날로그 diary events (we show them differently)
       if (event.summary?.includes('나날로그')) continue
 
-      const start = event.start?.date || event.start?.dateTime?.split('T')[0]
-      if (start) {
-        events.push({
-          date: start,
-          title: event.summary || 'Untitled',
-          description: event.description || undefined,
-        })
+      const isAllDay = !!event.start?.date // All-day events have 'date', timed events have 'dateTime'
+      let date: string
+      let time: string | undefined
+
+      if (isAllDay) {
+        date = event.start!.date!
+      } else if (event.start?.dateTime) {
+        // Extract date and time from dateTime (e.g., "2024-12-17T14:00:00+09:00")
+        const dateTime = event.start.dateTime
+        date = dateTime.split('T')[0]
+        // Extract HH:mm from the time part
+        const timePart = dateTime.split('T')[1]
+        time = timePart.substring(0, 5) // "14:00"
+      } else {
+        continue
       }
+
+      events.push({
+        date,
+        title: event.summary || 'Untitled',
+        time,
+        isAllDay,
+        description: event.description || undefined,
+      })
     }
 
     return events
