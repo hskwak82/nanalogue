@@ -16,6 +16,7 @@ export default function SessionPage() {
   const [initialized, setInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [userVoice, setUserVoice] = useState<string | undefined>(undefined)
+  const [isCompleting, setIsCompleting] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -61,6 +62,9 @@ export default function SessionPage() {
 
   // TTS 자동 재생: AI 메시지가 추가되면 자동 재생
   useEffect(() => {
+    // Don't auto-play if completing session (about to redirect)
+    if (isCompleting) return
+
     if (messages.length > 0 && tts.isEnabled) {
       const lastMessage = messages[messages.length - 1]
       if (lastMessage.role === 'assistant' && !loading) {
@@ -68,7 +72,7 @@ export default function SessionPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, loading])
+  }, [messages.length, loading, isCompleting])
 
   // STT 결과를 입력창에 반영
   useEffect(() => {
@@ -346,6 +350,9 @@ export default function SessionPage() {
   }
 
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
+    // Mark as completing to prevent TTS auto-play
+    setIsCompleting(true)
+
     // Stop TTS if speaking
     tts.stop()
     stt.stopListening()
@@ -368,6 +375,7 @@ export default function SessionPage() {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         setError(errorData.error || `일기 생성 실패 (${response.status}). API 할당량 초과일 수 있습니다. 1분 후 다시 시도해주세요.`)
+        setIsCompleting(false) // Reset so user can retry
         return
       }
 
@@ -389,10 +397,12 @@ export default function SessionPage() {
       } else {
         // Show error message
         setError(data.error || '일기 생성에 실패했습니다.')
+        setIsCompleting(false) // Reset so user can retry
       }
     } catch (error) {
       console.error('Failed to complete session:', error)
       setError('일기 생성에 실패했습니다. 네트워크 오류가 발생했습니다.')
+      setIsCompleting(false) // Reset so user can retry
     } finally {
       setLoading(false)
     }
