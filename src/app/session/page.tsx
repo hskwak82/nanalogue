@@ -100,12 +100,22 @@ export default function SessionPage() {
     [playingMessageIndex, tts]
   )
 
-  // TTS가 끝나면 재생 상태 초기화
+  // TTS가 끝나면 재생 상태 초기화 및 자동으로 STT 시작
+  const wasSpeakingRef = useRef(false)
   useEffect(() => {
-    if (!tts.isSpeaking && playingMessageIndex !== null) {
-      setPlayingMessageIndex(null)
+    // TTS가 끝났을 때 (speaking -> not speaking)
+    if (wasSpeakingRef.current && !tts.isSpeaking) {
+      // 재생 상태 초기화
+      if (playingMessageIndex !== null) {
+        setPlayingMessageIndex(null)
+      }
+      // 자동으로 마이크 입력 시작 (TTS 활성화 상태이고, 로딩 중이 아닐 때)
+      if (tts.isEnabled && stt.isSupported && !loading && !stt.isListening) {
+        stt.startListening()
+      }
     }
-  }, [tts.isSpeaking, playingMessageIndex])
+    wasSpeakingRef.current = tts.isSpeaking
+  }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
 
   const initializeSession = useCallback(async () => {
     if (initialized) return
