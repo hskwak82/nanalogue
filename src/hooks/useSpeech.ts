@@ -82,7 +82,15 @@ export function useTTS(options: UseTTSOptions = {}) {
           audioRef.current = null
         }
 
-        await audio.play()
+        // Handle autoplay policy - may fail if user hasn't interacted yet
+        try {
+          await audio.play()
+        } catch (playError) {
+          // NotAllowedError: user hasn't interacted with the document
+          console.warn('Autoplay blocked:', playError)
+          setIsLoading(false)
+          // Keep audio ready for manual play later
+        }
       } catch (error) {
         console.error('TTS Error:', error)
         setIsLoading(false)

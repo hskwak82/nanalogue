@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 interface VoiceInputProps {
   isListening: boolean
   isSupported: boolean
@@ -13,6 +15,19 @@ export function VoiceInput({
   disabled = false,
   onToggle,
 }: VoiceInputProps) {
+  // Always render a placeholder on server, real content on client
+  // This prevents hydration mismatch
+  const [isClient, setIsClient] = useState(false)
+
+  // Standard pattern for hydration fix in Next.js
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setIsClient(true), [])
+
+  // Show placeholder until we know we're on the client
+  if (!isClient) {
+    return <div className="w-11 h-11" /> // Placeholder to prevent layout shift
+  }
+
   if (!isSupported) {
     return null
   }
@@ -72,6 +87,17 @@ export function SpeakerToggle({
   isSpeaking = false,
   onToggle,
 }: SpeakerToggleProps) {
+  const [isClient, setIsClient] = useState(false)
+
+  // Standard pattern for hydration fix in Next.js
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setIsClient(true), [])
+
+  // Show placeholder until we know we're on the client
+  if (!isClient) {
+    return <div className="w-9 h-9" /> // Placeholder
+  }
+
   if (!isSupported) {
     return null
   }
