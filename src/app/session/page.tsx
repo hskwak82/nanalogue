@@ -15,6 +15,7 @@ export default function SessionPage() {
   const [questionCount, setQuestionCount] = useState(0)
   const [initialized, setInitialized] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [userVoice, setUserVoice] = useState<string | undefined>(undefined)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -24,8 +25,8 @@ export default function SessionPage() {
   // Ref to store sendMessage function for voice callback
   const sendMessageRef = useRef<(text: string) => void>(() => {})
 
-  // TTS hook
-  const tts = useTTS()
+  // TTS hook with user's voice preference
+  const tts = useTTS({ voice: userVoice })
 
   // STT hook with auto-send on silence (2 seconds)
   const stt = useSTT({
@@ -135,6 +136,17 @@ export default function SessionPage() {
       .select('id')
       .eq('id', user.id)
       .single()
+
+    // Fetch user's voice preference
+    const { data: preferences } = await supabase
+      .from('user_preferences')
+      .select('tts_voice')
+      .eq('user_id', user.id)
+      .single()
+
+    if (preferences?.tts_voice) {
+      setUserVoice(preferences.tts_voice)
+    }
 
     if (!profile) {
       // Create profile manually

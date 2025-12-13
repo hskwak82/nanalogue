@@ -16,7 +16,12 @@ function checkSTTSupport(): boolean {
 }
 
 // TTS Hook - Google Cloud Text to Speech
-export function useTTS() {
+interface UseTTSOptions {
+  voice?: string
+}
+
+export function useTTS(options: UseTTSOptions = {}) {
+  const { voice } = options
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isEnabled, setIsEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -49,7 +54,7 @@ export function useTTS() {
         const response = await fetch('/api/audio/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify({ text, voice }),
         })
 
         if (!response.ok) {
@@ -84,7 +89,7 @@ export function useTTS() {
         setIsSpeaking(false)
       }
     },
-    [isEnabled]
+    [isEnabled, voice]
   )
 
   const stop = useCallback(() => {

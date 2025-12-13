@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
+import { VoiceSettings } from './VoiceSettings'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -73,6 +74,17 @@ export default async function SettingsPage() {
               </p>
             </div>
           </div>
+        </section>
+
+        {/* Voice Settings Section */}
+        <section className="mb-8 rounded-2xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">음성 설정</h2>
+          {user && (
+            <VoiceSettings
+              userId={user.id}
+              currentVoice={preferences?.tts_voice || null}
+            />
+          )}
         </section>
 
         {/* Calendar Integration (Coming Soon) */}

@@ -24,9 +24,20 @@ function removeEmojis(text: string): string {
     .trim()
 }
 
+const DEFAULT_VOICE = 'ko-KR-Neural2-A'
+const VALID_VOICES = [
+  'ko-KR-Neural2-A',
+  'ko-KR-Neural2-B',
+  'ko-KR-Neural2-C',
+  'ko-KR-Wavenet-A',
+  'ko-KR-Wavenet-B',
+  'ko-KR-Wavenet-C',
+  'ko-KR-Wavenet-D',
+]
+
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json()
+    const { text, voice } = await request.json()
 
     if (!text) {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 })
@@ -38,6 +49,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No text to speak' }, { status: 400 })
     }
 
+    // Validate and select voice
+    const selectedVoice = VALID_VOICES.includes(voice) ? voice : DEFAULT_VOICE
+
     const client = getClient()
 
     // Build the voice request
@@ -45,12 +59,7 @@ export async function POST(request: Request) {
       input: { text: cleanText },
       voice: {
         languageCode: 'ko-KR',
-        name: 'ko-KR-Neural2-C', // Female Neural2 voice (natural)
-        // Alternative voices:
-        // 'ko-KR-Neural2-A' - Female
-        // 'ko-KR-Neural2-B' - Female
-        // 'ko-KR-Neural2-C' - Male
-        // 'ko-KR-Wavenet-A/B/C/D' - WaveNet voices
+        name: selectedVoice,
       },
       audioConfig: {
         audioEncoding: 'MP3',
