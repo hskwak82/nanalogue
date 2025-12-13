@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useTTS, useSTT } from '@/hooks/useSpeech'
+import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
 import type { ConversationMessage } from '@/types/database'
 
 export default function SessionPage() {
@@ -18,6 +20,11 @@ export default function SessionPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
   const supabase = createClient()
+
+  // TTS/STT hooks
+  const tts = useTTS()
+  const stt = useSTT()
+  const [playingMessageIndex, setPlayingMessageIndex] = useState<number | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -37,6 +44,55 @@ export default function SessionPage() {
       focusInput()
     }
   }, [loading])
+
+  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생
+  useEffect(() => {
+    if (messages.length > 0 && tts.isEnabled) {
+      const lastMessage = messages[messages.length - 1]
+      if (lastMessage.role === 'assistant' && !loading) {
+        tts.speak(lastMessage.content)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, loading])
+
+  // STT 결과를 입력창에 반영
+  useEffect(() => {
+    if (stt.transcript) {
+      setInput(stt.transcript)
+    }
+  }, [stt.transcript])
+
+  // 마이크 토글 핸들러
+  const handleMicToggle = useCallback(() => {
+    if (stt.isListening) {
+      stt.stopListening()
+    } else {
+      stt.startListening()
+    }
+  }, [stt])
+
+  // 개별 메시지 재생
+  const handlePlayMessage = useCallback(
+    (index: number, content: string) => {
+      if (playingMessageIndex === index && tts.isSpeaking) {
+        tts.stop()
+        setPlayingMessageIndex(null)
+      } else {
+        tts.stop()
+        setPlayingMessageIndex(index)
+        tts.speak(content)
+      }
+    },
+    [playingMessageIndex, tts]
+  )
+
+  // TTS가 끝나면 재생 상태 초기화
+  useEffect(() => {
+    if (!tts.isSpeaking && playingMessageIndex !== null) {
+      setPlayingMessageIndex(null)
+    }
+  }, [tts.isSpeaking, playingMessageIndex])
 
   const initializeSession = useCallback(async () => {
     if (initialized) return
@@ -292,9 +348,17 @@ export default function SessionPage() {
       <header className="border-b border-gray-200 bg-white px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900">오늘의 대화</h1>
-          <span className="text-sm text-gray-500">
-            {questionCount}/7 질문
-          </span>
+          <div className="flex items-center gap-3">
+            <SpeakerToggle
+              isEnabled={tts.isEnabled}
+              isSupported={tts.isSupported}
+              isSpeaking={tts.isSpeaking}
+              onToggle={tts.toggle}
+            />
+            <span className="text-sm text-gray-500">
+              {questionCount}/7 질문
+            </span>
+          </div>
         </div>
       </header>
 
@@ -330,7 +394,15 @@ export default function SessionPage() {
                     : 'bg-white text-gray-900 shadow-sm'
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <div className="flex items-start gap-1">
+                  <p className="whitespace-pre-wrap flex-1">{message.content}</p>
+                  {message.role === 'assistant' && tts.isSupported && (
+                    <PlayButton
+                      isPlaying={playingMessageIndex === index && tts.isSpeaking}
+                      onClick={() => handlePlayMessage(index, message.content)}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -354,7 +426,15 @@ export default function SessionPage() {
       {/* Input */}
       <div className="border-t border-gray-200 bg-white p-4">
         <div className="mx-auto max-w-2xl">
-          <div className="flex space-x-4 items-end">
+          {/* 녹음 중 표시 */}
+          {stt.isListening && (
+            <div className="mb-2 flex items-center justify-center gap-2 text-red-500">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              <span className="text-sm font-medium">녹음 중...</span>
+            </div>
+          )}
+
+          <div className="flex space-x-3 items-end">
             <textarea
               ref={inputRef}
               value={input}
@@ -366,10 +446,16 @@ export default function SessionPage() {
                   handleSend()
                 }
               }}
-              placeholder="메시지를 입력하세요... (Cmd+Enter로 전송)"
+              placeholder={stt.isListening ? '말씀하세요...' : '메시지를 입력하세요... (Cmd+Enter로 전송)'}
               disabled={loading}
               rows={2}
               className="flex-1 resize-none rounded-2xl border-2 border-gray-300 bg-white px-4 py-3 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-500"
+            />
+            <VoiceInput
+              isListening={stt.isListening}
+              isSupported={stt.isSupported}
+              disabled={loading}
+              onToggle={handleMicToggle}
             />
             <button
               onClick={handleSend}
