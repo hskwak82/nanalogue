@@ -10,10 +10,10 @@ export async function POST(request: Request) {
   try {
     const { messages, questionCount } = await request.json()
 
-    // First greeting
+    // First greeting (no emoji for TTS)
     if (questionCount === 0) {
       return NextResponse.json({
-        question: '안녕하세요! 오늘 하루는 어떠셨나요? 편하게 이야기해 주세요 😊',
+        question: '안녕하세요! 오늘 하루는 어떠셨나요? 편하게 이야기해 주세요.',
         purpose: 'greeting',
         shouldEnd: false,
       })
@@ -57,18 +57,19 @@ export async function POST(request: Request) {
 2. 그 다음 자연스럽게 이어지는 질문을 해주세요
 3. 마치 친한 친구와 대화하듯 편안하고 자연스럽게 대화하세요
 4. 너무 형식적이거나 딱딱하지 않게, 구어체로 말하세요
-5. 이모지는 적절히 사용해도 됩니다
+5. 이모지나 특수문자는 사용하지 마세요 (음성으로 읽힙니다)
 
 응답 형식:
 - 공감/반응 (1-2문장) + 자연스러운 연결 질문 (1문장)
 - 전체 2-3문장으로 짧게 유지
+- 순수 텍스트만 사용 (이모지 없이)
 
 ${phaseGuidance}
 
 지금까지의 대화:
 ${conversationContext}
 
-다음 응답을 생성하세요 (공감 + 질문):`
+다음 응답을 생성하세요 (공감 + 질문, 이모지 없이):`
 
     const result = await model.generateContent(prompt)
     const response = await result.response
