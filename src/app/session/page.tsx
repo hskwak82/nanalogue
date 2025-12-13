@@ -213,6 +213,28 @@ export default function SessionPage() {
 
       if (error) {
         console.error('Failed to create session:', JSON.stringify(error, null, 2))
+        // If duplicate key error, try to fetch existing session again
+        if (error.code === '23505') {
+          const { data: retrySession } = await supabase
+            .from('daily_sessions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('session_date', today)
+            .single()
+
+          if (retrySession?.status === 'completed') {
+            router.push(`/diary/${today}`)
+            return
+          } else if (retrySession) {
+            setSessionId(retrySession.id)
+            const conversation = retrySession.raw_conversation as ConversationMessage[]
+            setMessages(conversation || [])
+            setQuestionCount(
+              conversation?.filter((m) => m.role === 'assistant').length || 0
+            )
+            return
+          }
+        }
         setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
         return
       }
