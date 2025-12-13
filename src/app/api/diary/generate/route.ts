@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { createClient } from '@/lib/supabase/server'
+import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import type { ConversationMessage } from '@/types/database'
 
 function getGeminiClient() {
@@ -147,6 +148,17 @@ ${conversationText}
     if (insertError) {
       console.error('Failed to save diary:', insertError)
       throw insertError
+    }
+
+    // Sync to Google Calendar if connected
+    try {
+      const hasCalendar = await isCalendarConnected(user.id)
+      if (hasCalendar) {
+        await createDiaryEvent(user.id, today, diary.summary)
+      }
+    } catch (calendarError) {
+      // Log but don't fail the request if calendar sync fails
+      console.error('Failed to sync to calendar:', calendarError)
     }
 
     return NextResponse.json({

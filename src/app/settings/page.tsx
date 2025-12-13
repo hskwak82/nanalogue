@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { VoiceSettings } from './VoiceSettings'
+import { CalendarSettings } from './CalendarSettings'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -20,6 +21,16 @@ export default async function SettingsPage() {
     .select('*')
     .eq('user_id', user?.id)
     .single()
+
+  // Check if Google Calendar is connected
+  const { data: calendarToken } = await supabase
+    .from('calendar_tokens')
+    .select('id')
+    .eq('user_id', user?.id)
+    .eq('provider', 'google')
+    .maybeSingle()
+
+  const isCalendarConnected = !!calendarToken
 
   return (
     <div className="min-h-screen bg-pastel-cream">
@@ -87,20 +98,12 @@ export default async function SettingsPage() {
           )}
         </section>
 
-        {/* Calendar Integration (Coming Soon) */}
+        {/* Calendar Integration */}
         <section className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
           <h2 className="mb-4 text-lg font-semibold text-gray-700">
             캘린더 연동
           </h2>
-          <p className="text-gray-500">
-            Google Calendar와 연동하여 일정 기반 회고를 할 수 있습니다.
-          </p>
-          <button
-            disabled
-            className="mt-4 rounded-full bg-pastel-warm px-4 py-2 text-sm font-medium text-gray-500 cursor-not-allowed"
-          >
-            준비 중
-          </button>
+          <CalendarSettings isConnected={isCalendarConnected} />
         </section>
       </main>
     </div>
