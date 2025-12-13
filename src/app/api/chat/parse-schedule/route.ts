@@ -43,36 +43,47 @@ export async function POST(request: Request): Promise<NextResponse<ParseSchedule
 오늘 날짜: ${referenceDate}
 
 규칙:
-1. 상대적 날짜를 절대 날짜로 변환하세요:
+1. 일정 관련 키워드가 있으면 무조건 감지하세요 (회의, 약속, 미팅, 출장, 병원, 면접 등)
+2. 날짜가 없어도 일정으로 감지하고 date를 null로 설정
+3. 상대적 날짜를 절대 날짜로 변환:
    - "내일" → 오늘 + 1일
    - "모레" → 오늘 + 2일
    - "다음주 월요일" → 다음 주 월요일 날짜
-   - "이번 주말" → 이번 주 토요일 또는 일요일
-2. 시간이 명시되지 않으면 time을 null로 설정
-3. 시간 해석:
-   - "3시" → 문맥에 따라 "15:00" 또는 "03:00" (보통 오후로 추정)
+4. 시간이 명시되지 않으면 time을 null로 설정
+5. 시간 해석:
+   - "3시" → "15:00" (보통 오후로 추정)
    - "오전 10시" → "10:00"
    - "오후 3시" → "15:00"
    - "저녁" → "18:00"
    - "점심" → "12:00"
    - "아침" → "09:00"
-4. 일정이 없으면 빈 배열 반환
-5. confidence 점수:
-   - 0.9+: 명확한 일정 ("내일 3시에 회의")
-   - 0.7-0.9: 대략적인 일정 ("다음주에 미팅 있어")
-   - 0.5-0.7: 불확실한 언급 ("언젠가 만나자")
+6. 부족한 정보 식별:
+   - date가 null이면 missingFields에 "date" 추가
+   - time이 null이면 missingFields에 "time" 추가
+7. 부족한 정보가 있으면 자연스러운 추가 질문 생성
 
 사용자 메시지: "${text}"
 
-반드시 아래 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+반드시 아래 JSON 형식으로만 응답하세요:
 {
   "schedules": [
-    {"title": "일정 제목", "date": "YYYY-MM-DD", "time": "HH:mm" 또는 null, "confidence": 0.9}
-  ]
+    {
+      "title": "일정 제목",
+      "date": "YYYY-MM-DD" 또는 null,
+      "time": "HH:mm" 또는 null,
+      "duration": 분 단위 숫자 또는 null,
+      "confidence": 0.9,
+      "isComplete": true/false,
+      "missingFields": ["date", "time", "duration"] 중 부족한 것들
+    }
+  ],
+  "followUpQuestion": "부족한 정보를 묻는 자연스러운 질문" 또는 null
 }
 
-일정이 없으면:
-{"schedules": []}`
+예시:
+- "회의 약속 있어" → date, time 모두 없음 → followUpQuestion: "회의가 언제 있으세요?"
+- "내일 점심 약속" → time 없음 → followUpQuestion: "몇 시에 만나기로 하셨어요?"
+- "내일 3시 회의" → 모든 정보 있음 → followUpQuestion: null`
 
     const result = await model.generateContent(prompt)
     const response = await result.response
@@ -94,25 +105,33 @@ export async function POST(request: Request): Promise<NextResponse<ParseSchedule
       const parsed = JSON.parse(responseText)
       const schedules: ParsedSchedule[] = (parsed.schedules || []).map((s: {
         title: string
-        date: string
+        date?: string | null
         time?: string | null
+        duration?: number | null
         confidence: number
+        isComplete?: boolean
+        missingFields?: string[]
       }) => ({
         title: s.title,
-        date: s.date,
+        date: s.date || '',
         time: s.time || undefined,
+        duration: s.duration || undefined,
         confidence: s.confidence,
+        isComplete: s.isComplete ?? false,
+        missingFields: s.missingFields || [],
       }))
 
       return NextResponse.json({
         hasSchedule: schedules.length > 0,
         schedules,
+        followUpQuestion: parsed.followUpQuestion || null,
       })
     } catch {
       console.error('Failed to parse AI response:', responseText)
       return NextResponse.json({
         hasSchedule: false,
         schedules: [],
+        followUpQuestion: null,
       })
     }
   } catch (error) {

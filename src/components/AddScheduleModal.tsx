@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
-import { useSTT } from '@/hooks/useSpeech'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useSTT, useTTS } from '@/hooks/useSpeech'
 import type { ParsedSchedule } from '@/types/database'
 
 interface AddScheduleModalProps {
@@ -10,22 +10,30 @@ interface AddScheduleModalProps {
   onEventAdded: () => void
 }
 
+interface ConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleModalProps) {
-  const [input, setInput] = useState('')
-  const [parsedSchedules, setParsedSchedules] = useState<ParsedSchedule[]>([])
+  const [conversation, setConversation] = useState<ConversationMessage[]>([])
+  const [currentSchedule, setCurrentSchedule] = useState<ParsedSchedule | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isParsing, setIsParsing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [waitingForAnswer, setWaitingForAnswer] = useState(false)
+  const conversationEndRef = useRef<HTMLDivElement>(null)
+
+  const tts = useTTS()
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Handle STT silence end
   const handleSilenceEnd = useCallback((transcript: string) => {
     if (transcript.trim()) {
-      setInput(transcript)
-      parseSchedule(transcript)
+      handleUserInput(transcript.trim())
     }
   }, [])
 
@@ -37,60 +45,156 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
   // Reset state when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
-      setInput('')
-      setParsedSchedules([])
+      setConversation([])
+      setCurrentSchedule(null)
       setError(null)
+      setWaitingForAnswer(false)
       stt.resetTranscript()
+      tts.stop()
+    } else {
+      // Start with a greeting
+      const greeting = '어떤 일정을 추가할까요?'
+      setConversation([{ role: 'assistant', content: greeting }])
+      // Auto-play greeting and start listening
+      setTimeout(() => {
+        tts.speak(greeting)
+      }, 300)
     }
   }, [isOpen])
 
-  const parseSchedule = async (text: string) => {
-    setIsParsing(true)
+  // Auto scroll to bottom
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [conversation])
+
+  // Auto-start listening after TTS ends
+  const wasSpeakingRef = useRef(false)
+  useEffect(() => {
+    if (wasSpeakingRef.current && !tts.isSpeaking && waitingForAnswer) {
+      if (stt.isSupported && !stt.isListening) {
+        setTimeout(() => stt.startListening(), 300)
+      }
+    }
+    wasSpeakingRef.current = tts.isSpeaking
+  }, [tts.isSpeaking, waitingForAnswer, stt])
+
+  // Process user input
+  const handleUserInput = async (text: string) => {
+    stt.stopListening()
+    setWaitingForAnswer(false)
+
+    // Add user message to conversation
+    setConversation(prev => [...prev, { role: 'user', content: text }])
+
+    setIsLoading(true)
     setError(null)
+
     try {
+      // Build context from current schedule if exists
+      let contextText = text
+      if (currentSchedule) {
+        contextText = `기존 일정: ${currentSchedule.title}${currentSchedule.date ? `, 날짜: ${currentSchedule.date}` : ''}${currentSchedule.time ? `, 시간: ${currentSchedule.time}` : ''}. 추가 정보: ${text}`
+      }
+
       const response = await fetch('/api/chat/parse-schedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
+          text: contextText,
           referenceDate: new Date().toISOString().split('T')[0],
         }),
       })
       const data = await response.json()
+
       if (data.schedules?.length > 0) {
-        setParsedSchedules(data.schedules)
+        const schedule = data.schedules[0]
+
+        // Merge with existing schedule info
+        const mergedSchedule: ParsedSchedule = {
+          title: schedule.title || currentSchedule?.title || '',
+          date: schedule.date || currentSchedule?.date || '',
+          time: schedule.time || currentSchedule?.time,
+          duration: schedule.duration || currentSchedule?.duration,
+          confidence: schedule.confidence,
+          isComplete: schedule.isComplete,
+          missingFields: schedule.missingFields || [],
+        }
+
+        setCurrentSchedule(mergedSchedule)
+
+        // Check if we need more info
+        if (data.followUpQuestion && !mergedSchedule.isComplete) {
+          // Ask follow-up question
+          setConversation(prev => [...prev, { role: 'assistant', content: data.followUpQuestion }])
+          setWaitingForAnswer(true)
+          tts.speak(data.followUpQuestion)
+        } else if (mergedSchedule.date) {
+          // Schedule is complete enough
+          const confirmMsg = `${mergedSchedule.title}${mergedSchedule.date ? `, ${formatDate(mergedSchedule.date)}` : ''}${mergedSchedule.time ? ` ${formatTime(mergedSchedule.time)}` : ' 종일'}로 추가할까요?`
+          setConversation(prev => [...prev, { role: 'assistant', content: confirmMsg }])
+          tts.speak(confirmMsg)
+          setWaitingForAnswer(true)
+        } else {
+          // Still need date at minimum
+          const askDate = '언제 일정인가요?'
+          setConversation(prev => [...prev, { role: 'assistant', content: askDate }])
+          setWaitingForAnswer(true)
+          tts.speak(askDate)
+        }
       } else {
-        setError('일정을 감지하지 못했어요. 다시 말씀해 주세요.')
+        // Could not detect schedule
+        const retryMsg = '일정 정보를 잘 이해하지 못했어요. 언제 무슨 일정인지 다시 말씀해 주세요.'
+        setConversation(prev => [...prev, { role: 'assistant', content: retryMsg }])
+        setWaitingForAnswer(true)
+        tts.speak(retryMsg)
       }
     } catch {
       setError('일정 파싱 중 오류가 발생했어요.')
     } finally {
-      setIsParsing(false)
+      setIsLoading(false)
     }
   }
 
-  const handleAddToCalendar = async () => {
-    if (parsedSchedules.length === 0) return
+  // Handle confirmation (네/아니오)
+  const handleConfirmation = async (confirmed: boolean) => {
+    if (confirmed && currentSchedule && currentSchedule.date) {
+      await addToCalendar()
+    } else {
+      const retryMsg = '다시 말씀해 주세요. 언제 무슨 일정인가요?'
+      setConversation(prev => [...prev, { role: 'assistant', content: retryMsg }])
+      setCurrentSchedule(null)
+      setWaitingForAnswer(true)
+      tts.speak(retryMsg)
+    }
+  }
+
+  // Add to calendar
+  const addToCalendar = async () => {
+    if (!currentSchedule || !currentSchedule.date) return
 
     setIsLoading(true)
-    setError(null)
     try {
-      for (const schedule of parsedSchedules) {
-        const response = await fetch('/api/calendar/create-event', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: schedule.title,
-            date: schedule.date,
-            time: schedule.time,
-          }),
-        })
-        if (!response.ok) {
-          throw new Error('Failed to create event')
-        }
+      const response = await fetch('/api/calendar/create-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: currentSchedule.title,
+          date: currentSchedule.date,
+          time: currentSchedule.time,
+          duration: currentSchedule.duration,
+        }),
+      })
+      if (response.ok) {
+        const successMsg = '일정이 추가되었어요!'
+        setConversation(prev => [...prev, { role: 'assistant', content: successMsg }])
+        tts.speak(successMsg)
+        setTimeout(() => {
+          onEventAdded()
+          onClose()
+        }, 1500)
+      } else {
+        throw new Error('Failed to create event')
       }
-      onEventAdded()
-      onClose()
     } catch {
       setError('캘린더에 추가하는 중 오류가 발생했어요.')
     } finally {
@@ -102,29 +206,24 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
     if (stt.isListening) {
       stt.stopListening()
     } else {
-      setParsedSchedules([])
-      setError(null)
+      tts.stop()
       stt.startListening()
     }
   }
 
-  const handleTextSubmit = () => {
-    if (input.trim()) {
-      parseSchedule(input.trim())
-    }
-  }
-
-  const removeSchedule = (index: number) => {
-    setParsedSchedules((prev) => prev.filter((_, i) => i !== index))
-  }
-
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + 'T00:00:00')
-    return date.toLocaleDateString('ko-KR', {
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    })
+    if (!dateStr) return '날짜 미정'
+    try {
+      const date = new Date(dateStr + 'T00:00:00')
+      if (isNaN(date.getTime())) return '날짜 미정'
+      return date.toLocaleDateString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short',
+      })
+    } catch {
+      return '날짜 미정'
+    }
   }
 
   const formatTime = (timeStr?: string) => {
@@ -147,7 +246,7 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-xl overflow-hidden max-h-[80vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-pastel-pink/30">
           <h2 className="text-lg font-semibold text-gray-800">일정 추가</h2>
@@ -161,21 +260,78 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
           </button>
         </div>
 
-        {/* Content */}
-        <div className="px-6 py-6 space-y-6">
-          {/* Voice Input Section */}
-          <div className="text-center space-y-4">
+        {/* Conversation Area */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 min-h-[200px]">
+          {conversation.map((msg, idx) => (
+            <div
+              key={idx}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                  msg.role === 'user'
+                    ? 'bg-pastel-purple text-white'
+                    : 'bg-pastel-warm text-gray-700'
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl bg-pastel-warm px-4 py-2">
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60 [animation-delay:0.2s]" />
+                  <div className="h-2 w-2 animate-bounce rounded-full bg-pastel-purple/60 [animation-delay:0.4s]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={conversationEndRef} />
+        </div>
+
+        {/* Current Schedule Preview */}
+        {currentSchedule && currentSchedule.title && (
+          <div className="px-6 py-3 bg-pastel-mint-light border-t border-pastel-mint/30">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-pastel-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-700">{currentSchedule.title}</span>
+              <span className="text-xs text-gray-500">
+                {currentSchedule.date ? formatDate(currentSchedule.date) : '날짜 미정'}
+                {currentSchedule.time ? ` ${formatTime(currentSchedule.time)}` : ''}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="px-6 py-2 bg-pastel-peach-light">
+            <p className="text-sm text-center text-red-500">{error}</p>
+          </div>
+        )}
+
+        {/* Voice Input Section */}
+        <div className="px-6 py-4 border-t border-pastel-pink/30 bg-pastel-warm/30">
+          <div className="flex items-center gap-4">
+            {/* Mic Button */}
             <button
               onClick={handleMicClick}
-              disabled={!mounted || !stt.isSupported}
-              className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center transition-all ${
+              disabled={!mounted || !stt.isSupported || isLoading}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${
                 stt.isListening
                   ? 'bg-pastel-peach animate-pulse'
-                  : 'bg-pastel-warm hover:bg-pastel-peach-light'
-              } ${!stt.isSupported ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  : 'bg-white border-2 border-pastel-purple hover:bg-pastel-purple-light'
+              } ${(!stt.isSupported || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <svg
-                className={`w-8 h-8 ${stt.isListening ? 'text-white' : 'text-gray-600'}`}
+                className={`w-6 h-6 ${stt.isListening ? 'text-white' : 'text-pastel-purple'}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -188,95 +344,38 @@ export function AddScheduleModal({ isOpen, onClose, onEventAdded }: AddScheduleM
                 />
               </svg>
             </button>
-            <p className="text-sm text-gray-500">
-              {stt.isListening
-                ? stt.transcript || '듣고 있어요...'
-                : mounted && stt.isSupported
-                ? '마이크를 눌러 말씀해 주세요'
-                : '음성 인식을 지원하지 않아요'}
-            </p>
-          </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-pastel-pink/30" />
-            <span className="text-xs text-gray-400">또는</span>
-            <div className="flex-1 h-px bg-pastel-pink/30" />
-          </div>
-
-          {/* Text Input */}
-          <div className="space-y-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleTextSubmit()}
-              placeholder="예: 내일 3시에 회의"
-              className="w-full px-4 py-3 rounded-xl border border-pastel-pink/50 bg-pastel-warm/50 focus:outline-none focus:ring-2 focus:ring-pastel-purple/50 text-gray-700 placeholder-gray-400"
-            />
-            <button
-              onClick={handleTextSubmit}
-              disabled={!input.trim() || isParsing}
-              className="w-full py-2 text-sm text-pastel-purple hover:text-pastel-purple-dark disabled:text-gray-400 transition-colors"
-            >
-              {isParsing ? '분석 중...' : '텍스트로 입력'}
-            </button>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <p className="text-sm text-center text-red-500">{error}</p>
-          )}
-
-          {/* Parsed Schedules */}
-          {parsedSchedules.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-700">감지된 일정</h3>
-              <div className="space-y-2">
-                {parsedSchedules.map((schedule, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-pastel-mint-light border border-pastel-mint"
-                  >
-                    <svg className="w-5 h-5 text-pastel-purple flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 truncate">{schedule.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {formatDate(schedule.date)} {formatTime(schedule.time)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeSchedule(idx)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
+            {/* Status Text */}
+            <div className="flex-1 text-sm text-gray-500">
+              {stt.isListening ? (
+                <span className="text-pastel-peach font-medium">
+                  {stt.transcript || '듣고 있어요...'}
+                </span>
+              ) : tts.isSpeaking ? (
+                <span className="text-pastel-purple">말하는 중...</span>
+              ) : (
+                <span>마이크를 눌러 말씀해 주세요</span>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 px-6 py-4 border-t border-pastel-pink/30 bg-pastel-warm/30">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 rounded-xl border border-pastel-pink text-gray-600 hover:bg-pastel-pink-light transition-colors"
-          >
-            취소
-          </button>
-          <button
-            onClick={handleAddToCalendar}
-            disabled={parsedSchedules.length === 0 || isLoading}
-            className="flex-1 py-3 rounded-xl bg-pastel-purple text-white hover:bg-pastel-purple-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? '추가 중...' : '캘린더에 추가'}
-          </button>
+            {/* Confirm Buttons (when schedule is ready) */}
+            {currentSchedule?.date && !isLoading && !stt.isListening && !tts.isSpeaking && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleConfirmation(false)}
+                  className="px-3 py-1.5 text-sm rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100"
+                >
+                  아니오
+                </button>
+                <button
+                  onClick={() => handleConfirmation(true)}
+                  className="px-3 py-1.5 text-sm rounded-full bg-pastel-purple text-white hover:bg-pastel-purple-dark"
+                >
+                  네
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
