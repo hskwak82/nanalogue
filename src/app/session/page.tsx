@@ -398,7 +398,18 @@ export default function SessionPage() {
       {/* Header */}
       <header className="border-b border-gray-200 bg-white px-4 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <h1 className="text-lg font-semibold text-gray-900">오늘의 대화</h1>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              title="홈으로"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+              </svg>
+            </button>
+            <h1 className="text-lg font-semibold text-gray-900">오늘의 대화</h1>
+          </div>
           <div className="flex items-center gap-3">
             <SpeakerToggle
               isEnabled={tts.isEnabled}

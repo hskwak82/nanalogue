@@ -33,15 +33,17 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
     try {
       const { error } = await supabase
         .from('user_preferences')
-        .update({ tts_voice: selectedVoice })
-        .eq('user_id', userId)
+        .upsert(
+          { user_id: userId, tts_voice: selectedVoice },
+          { onConflict: 'user_id' }
+        )
 
       if (error) throw error
 
       setMessage({ type: 'success', text: '저장되었습니다.' })
     } catch (error) {
       console.error('Failed to save voice setting:', error)
-      setMessage({ type: 'error', text: '저장에 실패했습니다.' })
+      setMessage({ type: 'error', text: '저장에 실패했습니다. DB에 tts_voice 컬럼이 있는지 확인해주세요.' })
     } finally {
       setSaving(false)
     }
