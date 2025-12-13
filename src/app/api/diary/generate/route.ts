@@ -74,22 +74,30 @@ ${conversationText}
     }
     diaryContent = diaryContent.trim()
 
-    // Sanitize JSON - fix control characters in string values
-    // Replace unescaped newlines within strings with escaped version
-    diaryContent = diaryContent.replace(/[\x00-\x1F\x7F]/g, (char) => {
-      if (char === '\n') return '\\n'
-      if (char === '\r') return '\\r'
-      if (char === '\t') return '\\t'
-      return ''
-    })
-
+    // Parse JSON with error handling - Gemini sometimes returns newlines in strings
     let diary
     try {
       diary = JSON.parse(diaryContent)
-    } catch (parseError) {
-      console.error('JSON parse error:', parseError)
-      console.error('Raw content:', diaryContent.substring(0, 500))
-      throw new Error('일기 생성 결과를 파싱할 수 없습니다.')
+    } catch {
+      // Try to fix common JSON issues - newlines inside string values
+      try {
+        // Replace newlines inside strings only (between quotes, using [\s\S] to match newlines)
+        const fixedContent = diaryContent.replace(
+          /"([\s\S]*?)"/g,
+          (match, content) => {
+            const fixed = content
+              .replace(/\n/g, '\\n')
+              .replace(/\r/g, '\\r')
+              .replace(/\t/g, '\\t')
+            return `"${fixed}"`
+          }
+        )
+        diary = JSON.parse(fixedContent)
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError)
+        console.error('Raw content:', diaryContent.substring(0, 500))
+        throw new Error('일기 생성 결과를 파싱할 수 없습니다.')
+      }
     }
     const today = new Date().toISOString().split('T')[0]
 
