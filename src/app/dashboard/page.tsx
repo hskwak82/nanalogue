@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { getMonthEvents } from '@/lib/google-calendar'
+import { DiaryCoverPreview } from '@/components/DiaryCoverPreview'
+import type { CoverTemplate, PlacedDecoration } from '@/types/customization'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -53,6 +55,16 @@ export default async function DashboardPage() {
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
   }
 
+  // Get diary customization
+  const { data: customization } = await supabase
+    .from('diary_customization')
+    .select('*, cover_templates(*)')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const coverTemplate = customization?.cover_templates as CoverTemplate | null
+  const coverDecorations = (customization?.cover_decorations || []) as PlacedDecoration[]
+
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -94,6 +106,12 @@ export default async function DashboardPage() {
 
           {/* Right: Main Content (2/3) */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Diary Cover Preview - Click to enter diary */}
+            <DiaryCoverPreview
+              template={coverTemplate}
+              decorations={coverDecorations}
+              userName={profile?.name || undefined}
+            />
             {/* Today's Session Card */}
             <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
               <h2 className="mb-4 text-lg font-semibold text-gray-700">
