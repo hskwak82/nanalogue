@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { getMonthEvents } from '@/lib/google-calendar'
-import { DiaryCoverPreview } from '@/components/DiaryCoverPreview'
-import type { CoverTemplate, PlacedDecoration } from '@/types/customization'
+import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
+import type { DiaryWithTemplates } from '@/types/diary'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -55,15 +55,22 @@ export default async function DashboardPage() {
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
   }
 
-  // Get diary customization
-  const { data: customization } = await supabase
-    .from('diary_customization')
+  // Get all diaries with templates
+  const { data: diariesData } = await supabase
+    .from('diaries')
     .select('*, cover_templates(*)')
     .eq('user_id', user.id)
-    .maybeSingle()
+    .order('volume_number', { ascending: true })
 
-  const coverTemplate = customization?.cover_templates as CoverTemplate | null
-  const coverDecorations = (customization?.cover_decorations || []) as PlacedDecoration[]
+  // Transform to DiaryWithTemplates format
+  const diaries: DiaryWithTemplates[] = (diariesData || []).map(d => ({
+    ...d,
+    cover_template: d.cover_templates,
+    paper_template: null,
+  }))
+
+  // Find active diary
+  const activeDiary = diaries.find(d => d.status === 'active') || null
 
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
@@ -106,10 +113,10 @@ export default async function DashboardPage() {
 
           {/* Right: Main Content (2/3) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Diary Cover Preview - Click to enter diary */}
-            <DiaryCoverPreview
-              template={coverTemplate}
-              decorations={coverDecorations}
+            {/* Diary Shelf - Shows cover + other diaries as spines */}
+            <DiaryShelfSection
+              diaries={diaries}
+              activeDiaryId={activeDiary?.id || null}
               userName={profile?.name || undefined}
             />
             {/* Today's Session Card */}

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type {
   CoverTemplate,
@@ -9,9 +9,11 @@ import type {
   CustomizationLoadResponse,
 } from '@/types/customization'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url)
+    const diaryId = searchParams.get('diaryId')
 
     // Check authentication
     const {
@@ -22,39 +24,28 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch all data in parallel
+    // Fetch templates and items
     const [
       profileResult,
-      customizationResult,
       coverTemplatesResult,
       paperTemplatesResult,
       decorationItemsResult,
     ] = await Promise.all([
-      // User profile
       supabase
         .from('profiles')
         .select('name')
         .eq('id', user.id)
         .single(),
-      // User's customization
-      supabase
-        .from('diary_customization')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle(),
-      // Cover templates
       supabase
         .from('cover_templates')
         .select('*')
         .eq('is_active', true)
         .order('sort_order'),
-      // Paper templates
       supabase
         .from('paper_templates')
         .select('*')
         .eq('is_active', true)
         .order('sort_order'),
-      // Decoration items
       supabase
         .from('decoration_items')
         .select('*')
@@ -62,6 +53,70 @@ export async function GET() {
         .order('category')
         .order('sort_order'),
     ])
+
+    // Load diary customization (from diaries table or fallback to diary_customization)
+    let customization: DiaryCustomization | null = null
+    let currentDiaryId: string | null = null
+
+    if (diaryId) {
+      // Load specific diary
+      const { data: diary } = await supabase
+        .from('diaries')
+        .select('*')
+        .eq('id', diaryId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (diary) {
+        currentDiaryId = diary.id
+        customization = {
+          id: diary.id,
+          user_id: diary.user_id,
+          cover_template_id: diary.cover_template_id,
+          paper_template_id: diary.paper_template_id,
+          cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
+          created_at: diary.created_at,
+          updated_at: diary.updated_at,
+        }
+      }
+    } else {
+      // Load active diary first, then fallback to diary_customization
+      const { data: activeDiary } = await supabase
+        .from('diaries')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('volume_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (activeDiary) {
+        currentDiaryId = activeDiary.id
+        customization = {
+          id: activeDiary.id,
+          user_id: activeDiary.user_id,
+          cover_template_id: activeDiary.cover_template_id,
+          paper_template_id: activeDiary.paper_template_id,
+          cover_decorations: (activeDiary.cover_decorations || []) as PlacedDecoration[],
+          created_at: activeDiary.created_at,
+          updated_at: activeDiary.updated_at,
+        }
+      } else {
+        // Fallback to old diary_customization table
+        const { data: oldCustomization } = await supabase
+          .from('diary_customization')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (oldCustomization) {
+          customization = {
+            ...oldCustomization,
+            cover_decorations: (oldCustomization.cover_decorations || []) as PlacedDecoration[],
+          }
+        }
+      }
+    }
 
     // Check for errors
     if (coverTemplatesResult.error) {
@@ -74,16 +129,7 @@ export async function GET() {
       console.error('Error fetching decoration items:', decorationItemsResult.error)
     }
 
-    // Transform customization data
-    let customization: DiaryCustomization | null = null
-    if (customizationResult.data) {
-      customization = {
-        ...customizationResult.data,
-        cover_decorations: (customizationResult.data.cover_decorations || []) as PlacedDecoration[],
-      }
-    }
-
-    const response: CustomizationLoadResponse = {
+    const response: CustomizationLoadResponse & { diaryId?: string } = {
       user: {
         email: user.email || '',
         name: profileResult.data?.name || null,
@@ -92,6 +138,7 @@ export async function GET() {
       coverTemplates: (coverTemplatesResult.data || []) as CoverTemplate[],
       paperTemplates: (paperTemplatesResult.data || []) as PaperTemplate[],
       decorationItems: (decorationItemsResult.data || []) as DecorationItem[],
+      diaryId: currentDiaryId || undefined,
     }
 
     return NextResponse.json(response)

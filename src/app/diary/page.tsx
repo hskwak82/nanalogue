@@ -2,8 +2,13 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 
-export default async function DiaryListPage() {
+interface DiaryListPageProps {
+  searchParams: Promise<{ diary?: string }>
+}
+
+export default async function DiaryListPage({ searchParams }: DiaryListPageProps) {
   const supabase = await createClient()
+  const { diary: diaryId } = await searchParams
 
   const {
     data: { user },
@@ -15,12 +20,33 @@ export default async function DiaryListPage() {
     .eq('id', user?.id)
     .single()
 
-  // Get all diary entries
-  const { data: entries } = await supabase
+  // Get diary info if diaryId is provided
+  let diaryTitle: string | null = null
+  if (diaryId) {
+    const { data: diary } = await supabase
+      .from('diaries')
+      .select('title, volume_number')
+      .eq('id', diaryId)
+      .eq('user_id', user?.id)
+      .single()
+
+    if (diary) {
+      diaryTitle = diary.title || `${diary.volume_number}권`
+    }
+  }
+
+  // Get diary entries filtered by diary_id if provided
+  let query = supabase
     .from('diary_entries')
     .select('*')
     .eq('user_id', user?.id)
     .order('entry_date', { ascending: false })
+
+  if (diaryId) {
+    query = query.eq('diary_id', diaryId)
+  }
+
+  const { data: entries } = await query
 
   // Group by month
   const entriesByMonth: Record<string, typeof entries> = {}
@@ -39,7 +65,21 @@ export default async function DiaryListPage() {
       />
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-2xl font-bold text-gray-700">나의 일기</h1>
+        <div className="flex items-center gap-3 mb-8">
+          {diaryId && (
+            <Link
+              href="/dashboard"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+          )}
+          <h1 className="text-2xl font-bold text-gray-700">
+            {diaryTitle ? `${diaryTitle}` : '나의 일기'}
+          </h1>
+        </div>
 
         {entries && entries.length > 0 ? (
           <div className="space-y-8">
