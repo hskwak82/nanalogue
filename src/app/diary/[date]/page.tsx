@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { DiaryActions } from './DiaryActions'
+import { DiaryPaper } from '@/components/diary/DiaryPaper'
+import type { PaperTemplate } from '@/types/customization'
 
 interface DiaryDetailPageProps {
   params: Promise<{ date: string }>
@@ -36,6 +38,15 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
   if (!entry) {
     return notFound()
   }
+
+  // Get diary customization for paper template
+  const { data: customization } = await supabase
+    .from('diary_customization')
+    .select('*, paper_templates(*)')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const paperTemplate = customization?.paper_templates as PaperTemplate | null
 
   const formattedDate = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -107,7 +118,10 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           )}
 
         {/* Diary Content */}
-        <div className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+        <DiaryPaper
+          template={paperTemplate}
+          className="mb-8 shadow-sm border border-pastel-pink/30"
+        >
           <div className="prose prose-gray max-w-none">
             {(entry.content as string).split('\n').map((paragraph: string, idx: number) => (
               <p key={idx} className="mb-4 last:mb-0 text-gray-700 leading-relaxed">
@@ -115,7 +129,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
               </p>
             ))}
           </div>
-        </div>
+        </DiaryPaper>
 
         {/* Gratitude */}
         {entry.gratitude &&

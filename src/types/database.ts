@@ -225,6 +225,149 @@ export interface Database {
           updated_at?: string
         }
       }
+      cover_templates: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          thumbnail_url: string | null
+          image_url: string
+          category: string
+          is_free: boolean
+          sort_order: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          thumbnail_url?: string | null
+          image_url: string
+          category?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          thumbnail_url?: string | null
+          image_url?: string
+          category?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      paper_templates: {
+        Row: {
+          id: string
+          name: string
+          thumbnail_url: string | null
+          background_color: string
+          background_image_url: string | null
+          line_style: string
+          line_color: string
+          is_free: boolean
+          sort_order: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          thumbnail_url?: string | null
+          background_color?: string
+          background_image_url?: string | null
+          line_style?: string
+          line_color?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          thumbnail_url?: string | null
+          background_color?: string
+          background_image_url?: string | null
+          line_style?: string
+          line_color?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      decoration_items: {
+        Row: {
+          id: string
+          name: string
+          item_type: string
+          content: string
+          category: string
+          is_free: boolean
+          sort_order: number
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          item_type: string
+          content: string
+          category?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          item_type?: string
+          content?: string
+          category?: string
+          is_free?: boolean
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+        }
+      }
+      diary_customization: {
+        Row: {
+          id: string
+          user_id: string
+          cover_template_id: string | null
+          paper_template_id: string | null
+          cover_decorations: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          cover_template_id?: string | null
+          paper_template_id?: string | null
+          cover_decorations?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          cover_template_id?: string | null
+          paper_template_id?: string | null
+          cover_decorations?: Json
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

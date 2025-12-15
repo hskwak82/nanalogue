@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { getMonthEvents } from '@/lib/google-calendar'
+import { DiaryCoverPreview } from '@/components/DiaryCoverPreview'
+import type { CoverTemplate, PlacedDecoration } from '@/types/customization'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -53,6 +55,16 @@ export default async function DashboardPage() {
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
   }
 
+  // Get diary customization
+  const { data: customization } = await supabase
+    .from('diary_customization')
+    .select('*, cover_templates(*)')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const coverTemplate = customization?.cover_templates as CoverTemplate | null
+  const coverDecorations = (customization?.cover_decorations || []) as PlacedDecoration[]
+
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
     timeZone: 'Asia/Seoul',
@@ -83,12 +95,19 @@ export default async function DashboardPage() {
 
         {/* 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Calendar (1/3) */}
-          <div className="lg:col-span-1">
+          {/* Left: Calendar + Cover Preview (1/3) */}
+          <div className="lg:col-span-1 space-y-6">
             <CalendarWidget
               entries={diaryEntries?.map((e) => ({ entry_date: e.entry_date })) || []}
               isConnected={isCalendarConnected}
               googleEvents={googleEvents}
+            />
+
+            {/* Diary Cover Preview */}
+            <DiaryCoverPreview
+              template={coverTemplate}
+              decorations={coverDecorations}
+              userName={profile?.name || undefined}
             />
           </div>
 
