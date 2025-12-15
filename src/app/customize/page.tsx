@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { CoverEditor } from '@/components/editor/CoverEditor'
@@ -20,8 +20,11 @@ import type {
 
 type TabType = 'cover' | 'paper'
 
-export default function CustomizePage() {
+function CustomizePageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const diaryIdParam = searchParams.get('diary')
+
   const [activeTab, setActiveTab] = useState<TabType>('cover')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -32,6 +35,7 @@ export default function CustomizePage() {
   const [coverTemplates, setCoverTemplates] = useState<CoverTemplate[]>([])
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
   const [decorationItems, setDecorationItems] = useState<DecorationItem[]>([])
+  const [diaryId, setDiaryId] = useState<string | null>(null)
 
   // Editor state
   const {
@@ -50,7 +54,10 @@ export default function CustomizePage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const response = await fetch('/api/customization/load')
+        const url = diaryIdParam
+          ? `/api/customization/load?diaryId=${diaryIdParam}`
+          : '/api/customization/load'
+        const response = await fetch(url)
         if (!response.ok) {
           if (response.status === 401) {
             router.push('/login')
@@ -59,12 +66,15 @@ export default function CustomizePage() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string } = await response.json()
 
         setUser(data.user)
         setCoverTemplates(data.coverTemplates)
         setPaperTemplates(data.paperTemplates)
         setDecorationItems(data.decorationItems)
+        if (data.diaryId) {
+          setDiaryId(data.diaryId)
+        }
 
         // Load existing customization
         if (data.customization) {
@@ -89,7 +99,7 @@ export default function CustomizePage() {
     }
 
     loadData()
-  }, [router, loadState, setCover])
+  }, [router, loadState, setCover, diaryIdParam])
 
   // Save customization
   const handleSave = async () => {
@@ -101,6 +111,7 @@ export default function CustomizePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          diary_id: diaryId,
           cover_template_id: state.selectedCover?.id || null,
           paper_template_id: state.selectedPaper?.id || null,
           cover_decorations: state.decorations,
@@ -280,5 +291,17 @@ export default function CustomizePage() {
         </div>
       </main>
     </div>
+  )
+}
+
+export default function CustomizePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-pastel-cream flex items-center justify-center">
+        <div className="text-pastel-purple">로딩 중...</div>
+      </div>
+    }>
+      <CustomizePageContent />
+    </Suspense>
   )
 }

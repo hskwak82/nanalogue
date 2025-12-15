@@ -9,10 +9,11 @@ interface DiarySpineProps {
   diary: DiaryWithTemplates
   index: number
   isSelected?: boolean
+  isActive?: boolean
   onClick?: () => void
 }
 
-export function DiarySpine({ diary, index, isSelected, onClick }: DiarySpineProps) {
+export function DiarySpine({ diary, index, isSelected, isActive, onClick }: DiarySpineProps) {
   const { width, height, color, gradient, textColor } = useSpineCalculations(diary)
 
   const background = gradient || color
@@ -60,36 +61,40 @@ export function DiarySpine({ diary, index, isSelected, onClick }: DiarySpineProp
 
       {/* Content container */}
       <div
-        className="absolute inset-0 flex flex-col items-center justify-between py-3 px-1 overflow-hidden"
-        style={{
-          writingMode: 'vertical-rl',
-          textOrientation: 'mixed',
-        }}
+        className="absolute inset-0 flex items-center justify-center overflow-hidden"
       >
-        {/* Volume number at top */}
+        {/* Title - vertical text */}
         <span
-          className="text-xs font-bold opacity-70 shrink-0"
+          className="font-medium text-sm text-center leading-tight"
+          style={{
+            color: textColor,
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            letterSpacing: '0.1em',
+          }}
+        >
+          {diary.title || `${diary.volume_number}권`}
+        </span>
+      </div>
+
+      {/* Volume number at top */}
+      <div
+        className="absolute top-2 left-0 right-0 flex justify-center"
+      >
+        <span
+          className="text-[10px] font-bold opacity-70"
           style={{ color: textColor }}
         >
           {diary.volume_number}
         </span>
+      </div>
 
-        {/* Title in middle */}
+      {/* Year at bottom */}
+      <div
+        className="absolute bottom-2 left-0 right-0 flex justify-center"
+      >
         <span
-          className="font-medium text-sm flex-1 flex items-center overflow-hidden"
-          style={{
-            color: textColor,
-            maxHeight: height - 80,
-          }}
-        >
-          <span className="truncate">
-            {diary.title || `${diary.volume_number}권`}
-          </span>
-        </span>
-
-        {/* Date range at bottom */}
-        <span
-          className="text-[9px] opacity-60 shrink-0 whitespace-nowrap"
+          className="text-[9px] opacity-60"
           style={{ color: textColor }}
         >
           {new Date(diary.start_date).getFullYear()}
@@ -97,7 +102,7 @@ export function DiarySpine({ diary, index, isSelected, onClick }: DiarySpineProp
       </div>
 
       {/* Status indicator for active diary */}
-      {diary.status === 'active' && (
+      {isActive && (
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}

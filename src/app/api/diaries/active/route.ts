@@ -1,7 +1,64 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DiaryWithTemplates } from '@/types/diary'
 import type { PlacedDecoration } from '@/types/customization'
+
+// POST /api/diaries/active - Set a diary as active
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { diary_id } = await request.json()
+
+    if (!diary_id) {
+      return NextResponse.json({ error: 'diary_id is required' }, { status: 400 })
+    }
+
+    // Verify diary belongs to user
+    const { data: diary } = await supabase
+      .from('diaries')
+      .select('id')
+      .eq('id', diary_id)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!diary) {
+      return NextResponse.json({ error: 'Diary not found' }, { status: 404 })
+    }
+
+    // Set all other diaries to non-active (keep completed ones as completed)
+    await supabase
+      .from('diaries')
+      .update({ status: 'completed', updated_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .neq('id', diary_id)
+
+    // Set the selected diary as active
+    const { error } = await supabase
+      .from('diaries')
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq('id', diary_id)
+
+    if (error) {
+      console.error('Error setting diary as active:', error)
+      return NextResponse.json({ error: 'Failed to activate diary' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error in POST /api/diaries/active:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
 
 // GET /api/diaries/active - Get current active diary (or create first one)
 export async function GET() {

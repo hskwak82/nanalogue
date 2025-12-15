@@ -65,14 +65,12 @@ export function DiaryCoverPreview({
           )}
         </div>
         <div className="flex items-center gap-3">
-          {totalDiaries && totalDiaries > 1 && (
-            <Link
-              href="/bookshelf"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              책장 ({totalDiaries})
-            </Link>
-          )}
+          <Link
+            href="/bookshelf"
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            📚 책장{totalDiaries && totalDiaries > 1 ? ` (${totalDiaries})` : ''}
+          </Link>
           <Link
             href="/customize"
             className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"

@@ -13,6 +13,7 @@ interface BookshelfProps {
   onSelectDiary?: (diary: DiaryWithTemplates) => void
   onCreateNew?: () => void
   onComplete?: (diary: DiaryWithTemplates) => void
+  onEdit?: (diary: DiaryWithTemplates) => void
 }
 
 export function Bookshelf({
@@ -21,6 +22,7 @@ export function Bookshelf({
   onSelectDiary,
   onCreateNew,
   onComplete,
+  onEdit,
 }: BookshelfProps) {
   const [viewMode, setViewMode] = useState<BookshelfViewMode>('covers')
   const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null)
@@ -66,6 +68,15 @@ export function Bookshelf({
             <span className="text-sm text-gray-600">
               현재 사용 중: <span className="font-medium">{activeDiary.title || `${activeDiary.volume_number}권`}</span>
             </span>
+            {onEdit && (
+              <button
+                onClick={() => onEdit(activeDiary)}
+                className="text-xs text-gray-400 hover:text-pastel-purple transition-colors"
+                title="이름 수정"
+              >
+                ✏️
+              </button>
+            )}
           </div>
           {onComplete && (
             <button
@@ -92,6 +103,7 @@ export function Bookshelf({
               <CoverGrid
                 diaries={diaries}
                 selectedId={selectedDiaryId}
+                activeDiaryId={activeDiary?.id}
                 onSelect={handleSelectDiary}
               />
             </motion.div>
@@ -107,6 +119,7 @@ export function Bookshelf({
               <SpineShelf
                 diaries={diaries}
                 selectedId={selectedDiaryId}
+                activeDiaryId={activeDiary?.id}
                 onSelect={handleSelectDiary}
               />
             </motion.div>

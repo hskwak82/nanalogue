@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { getMonthEvents } from '@/lib/google-calendar'
-import { DiaryCoverPreview } from '@/components/DiaryCoverPreview'
-import type { CoverTemplate, PlacedDecoration } from '@/types/customization'
+import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
+import type { DiaryWithTemplates } from '@/types/diary'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -55,46 +55,22 @@ export default async function DashboardPage() {
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
   }
 
-  // Get active diary from diaries table (new schema)
-  const { data: activeDiary } = await supabase
+  // Get all diaries with templates
+  const { data: diariesData } = await supabase
     .from('diaries')
     .select('*, cover_templates(*)')
     .eq('user_id', user.id)
-    .eq('status', 'active')
-    .order('volume_number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .order('volume_number', { ascending: true })
 
-  // Fallback to diary_customization if no active diary (backward compatibility)
-  let coverTemplate: CoverTemplate | null = null
-  let coverDecorations: PlacedDecoration[] = []
-  let diaryTitle: string | null = null
-  let volumeNumber: number | undefined = undefined
+  // Transform to DiaryWithTemplates format
+  const diaries: DiaryWithTemplates[] = (diariesData || []).map(d => ({
+    ...d,
+    cover_template: d.cover_templates,
+    paper_template: null,
+  }))
 
-  if (activeDiary) {
-    coverTemplate = activeDiary.cover_templates as CoverTemplate | null
-    coverDecorations = (activeDiary.cover_decorations || []) as PlacedDecoration[]
-    diaryTitle = activeDiary.title
-    volumeNumber = activeDiary.volume_number
-  } else {
-    // Fallback to old customization table
-    const { data: customization } = await supabase
-      .from('diary_customization')
-      .select('*, cover_templates(*)')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (customization) {
-      coverTemplate = customization.cover_templates as CoverTemplate | null
-      coverDecorations = (customization.cover_decorations || []) as PlacedDecoration[]
-    }
-  }
-
-  // Get total diary count
-  const { count: totalDiaries } = await supabase
-    .from('diaries')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+  // Find active diary
+  const activeDiary = diaries.find(d => d.status === 'active') || null
 
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
@@ -137,14 +113,11 @@ export default async function DashboardPage() {
 
           {/* Right: Main Content (2/3) */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Diary Cover Preview - Click to enter diary */}
-            <DiaryCoverPreview
-              template={coverTemplate}
-              decorations={coverDecorations}
+            {/* Diary Shelf - Shows cover + other diaries as spines */}
+            <DiaryShelfSection
+              diaries={diaries}
+              activeDiaryId={activeDiary?.id || null}
               userName={profile?.name || undefined}
-              diaryTitle={diaryTitle}
-              volumeNumber={volumeNumber}
-              totalDiaries={totalDiaries || undefined}
             />
             {/* Today's Session Card */}
             <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">

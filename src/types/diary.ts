@@ -86,8 +86,8 @@ export interface DiaryDetailResponse {
 }
 
 // Spine calculation constants
-export const SPINE_MIN_WIDTH = 20
-export const SPINE_MAX_WIDTH = 60
+export const SPINE_MIN_WIDTH = 36
+export const SPINE_MAX_WIDTH = 70
 export const SPINE_HEIGHT = 200
 export const ENTRIES_PER_PX = 5  // 5 entries = 1px extra width
 

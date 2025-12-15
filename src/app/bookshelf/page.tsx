@@ -7,6 +7,7 @@ import { Navigation } from '@/components/Navigation'
 import { Bookshelf } from '@/components/bookshelf/Bookshelf'
 import { NewDiaryModal } from '@/components/modals/NewDiaryModal'
 import { CompleteDiaryModal } from '@/components/modals/CompleteDiaryModal'
+import { EditDiaryModal } from '@/components/modals/EditDiaryModal'
 import type { DiaryWithTemplates, DiaryListResponse } from '@/types/diary'
 
 export default function BookshelfPage() {
@@ -19,6 +20,7 @@ export default function BookshelfPage() {
   // Modal states
   const [showNewModal, setShowNewModal] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedDiary, setSelectedDiary] = useState<DiaryWithTemplates | null>(null)
 
   // Load diaries
@@ -106,6 +108,23 @@ export default function BookshelfPage() {
     await loadDiaries()
   }
 
+  // Handle edit diary title
+  const handleEditTitle = async (title: string) => {
+    if (!selectedDiary) return
+
+    const response = await fetch(`/api/diaries/${selectedDiary.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to update diary')
+    }
+
+    await loadDiaries()
+  }
+
   // Calculate next volume number
   const nextVolumeNumber = diaries.length > 0
     ? Math.max(...diaries.map(d => d.volume_number)) + 1
@@ -147,6 +166,10 @@ export default function BookshelfPage() {
             setSelectedDiary(diary)
             setShowCompleteModal(true)
           }}
+          onEdit={(diary) => {
+            setSelectedDiary(diary)
+            setShowEditModal(true)
+          }}
         />
       </main>
 
@@ -163,6 +186,13 @@ export default function BookshelfPage() {
         onClose={() => setShowCompleteModal(false)}
         onConfirm={handleComplete}
         diary={activeDiary}
+      />
+
+      <EditDiaryModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        onConfirm={handleEditTitle}
+        diary={selectedDiary}
       />
     </div>
   )

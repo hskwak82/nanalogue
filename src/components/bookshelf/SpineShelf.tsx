@@ -7,10 +7,11 @@ import { DiarySpine } from './DiarySpine'
 interface SpineShelfProps {
   diaries: DiaryWithTemplates[]
   selectedId?: string | null
+  activeDiaryId?: string | null
   onSelect?: (diary: DiaryWithTemplates) => void
 }
 
-export function SpineShelf({ diaries, selectedId, onSelect }: SpineShelfProps) {
+export function SpineShelf({ diaries, selectedId, activeDiaryId, onSelect }: SpineShelfProps) {
   // Sort by volume number
   const sortedDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
 
@@ -32,6 +33,7 @@ export function SpineShelf({ diaries, selectedId, onSelect }: SpineShelfProps) {
             diary={diary}
             index={index}
             isSelected={selectedId === diary.id}
+            isActive={activeDiaryId === diary.id}
             onClick={() => onSelect?.(diary)}
           />
         ))}

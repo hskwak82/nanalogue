@@ -9,10 +9,11 @@ import { DiaryCover } from '@/components/diary/DiaryCover'
 interface CoverGridProps {
   diaries: DiaryWithTemplates[]
   selectedId?: string | null
+  activeDiaryId?: string | null
   onSelect?: (diary: DiaryWithTemplates) => void
 }
 
-export function CoverGrid({ diaries, selectedId, onSelect }: CoverGridProps) {
+export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: CoverGridProps) {
   // Sort by volume number descending (newest first)
   const sortedDiaries = [...diaries].sort((a, b) => b.volume_number - a.volume_number)
 
@@ -36,11 +37,11 @@ export function CoverGrid({ diaries, selectedId, onSelect }: CoverGridProps) {
           whileHover={{ scale: 1.05, y: -5 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onSelect?.(diary)}
-          className={`cursor-pointer group ${
+          className={`cursor-pointer group flex flex-col items-center ${
             selectedId === diary.id ? 'ring-2 ring-pastel-purple ring-offset-2 rounded-lg' : ''
           }`}
         >
-          <div className="relative">
+          <div className="relative w-fit">
             {/* Cover */}
             <DiaryCover
               template={diary.cover_template}
@@ -49,13 +50,11 @@ export function CoverGrid({ diaries, selectedId, onSelect }: CoverGridProps) {
             />
 
             {/* Title overlay */}
-            {diary.title && (
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-lg">
-                <p className="text-white text-xs font-medium truncate text-center">
-                  {diary.title}
-                </p>
-              </div>
-            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 rounded-b-lg">
+              <p className="text-white text-xs font-semibold truncate text-center drop-shadow-md">
+                {diary.title || `${diary.volume_number}권`}
+              </p>
+            </div>
 
             {/* Volume badge */}
             <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm">
@@ -63,7 +62,7 @@ export function CoverGrid({ diaries, selectedId, onSelect }: CoverGridProps) {
             </div>
 
             {/* Active indicator */}
-            {diary.status === 'active' && (
+            {activeDiaryId === diary.id && (
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
