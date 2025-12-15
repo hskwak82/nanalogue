@@ -95,24 +95,23 @@ export default async function DashboardPage() {
 
         {/* 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Calendar + Cover Preview (1/3) */}
-          <div className="lg:col-span-1 space-y-6">
+          {/* Left: Calendar (1/3) */}
+          <div className="lg:col-span-1">
             <CalendarWidget
               entries={diaryEntries?.map((e) => ({ entry_date: e.entry_date })) || []}
               isConnected={isCalendarConnected}
               googleEvents={googleEvents}
             />
+          </div>
 
-            {/* Diary Cover Preview */}
+          {/* Right: Main Content (2/3) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Diary Cover Preview - Click to enter diary */}
             <DiaryCoverPreview
               template={coverTemplate}
               decorations={coverDecorations}
               userName={profile?.name || undefined}
             />
-          </div>
-
-          {/* Right: Main Content (2/3) */}
-          <div className="lg:col-span-2 space-y-6">
             {/* Today's Session Card */}
             <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
               <h2 className="mb-4 text-lg font-semibold text-gray-700">

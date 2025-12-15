@@ -58,48 +58,57 @@ export function DiaryCoverPreview({
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        {/* Cover */}
-        <div
-          className="relative rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-          style={{
-            width: 120,
-            height: 160,
-            ...coverStyle,
-          }}
-        >
-          {/* Decorations */}
-          {decorations.map((decoration, index) => (
-            <div
-              key={index}
-              className="absolute select-none pointer-events-none"
-              style={{
-                left: `${decoration.x}%`,
-                top: `${decoration.y}%`,
-                transform: `translate(-50%, -50%) scale(${decoration.scale * 0.6}) rotate(${decoration.rotation}deg)`,
-                zIndex: decoration.z_index,
-                fontSize: '1.2rem',
-              }}
-            >
-              {decoration.type === 'emoji' ? (
-                <span>{decoration.content}</span>
-              ) : (
-                <span
-                  className="block text-pastel-purple-dark"
-                  style={{ width: '20px', height: '20px' }}
-                  dangerouslySetInnerHTML={{ __html: decoration.content }}
-                />
-              )}
-            </div>
-          ))}
-
-          {/* Book spine effect */}
+        {/* Cover - Click to enter diary */}
+        <Link href="/diary" className="group">
           <div
-            className="absolute left-0 top-0 bottom-0 w-2 opacity-20"
+            className="relative rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-200"
             style={{
-              background: 'linear-gradient(to right, rgba(0,0,0,0.3), transparent)',
+              width: 120,
+              height: 160,
+              ...coverStyle,
             }}
-          />
-        </div>
+          >
+            {/* Decorations */}
+            {decorations.map((decoration, index) => (
+              <div
+                key={index}
+                className="absolute select-none pointer-events-none"
+                style={{
+                  left: `${decoration.x}%`,
+                  top: `${decoration.y}%`,
+                  transform: `translate(-50%, -50%) scale(${decoration.scale * 0.6}) rotate(${decoration.rotation}deg)`,
+                  zIndex: decoration.z_index,
+                  fontSize: '1.2rem',
+                }}
+              >
+                {decoration.type === 'emoji' ? (
+                  <span>{decoration.content}</span>
+                ) : (
+                  <span
+                    className="block text-pastel-purple-dark"
+                    style={{ width: '20px', height: '20px' }}
+                    dangerouslySetInnerHTML={{ __html: decoration.content }}
+                  />
+                )}
+              </div>
+            ))}
+
+            {/* Book spine effect */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-2 opacity-20"
+              style={{
+                background: 'linear-gradient(to right, rgba(0,0,0,0.3), transparent)',
+              }}
+            />
+
+            {/* Hover overlay */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium drop-shadow-lg">
+                열기
+              </span>
+            </div>
+          </div>
+        </Link>
 
         {/* Label */}
         {userName && (
