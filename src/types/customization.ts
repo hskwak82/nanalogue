@@ -129,5 +129,5 @@ export const DECORATION_CATEGORIES: DecorationCategory[] = [
 // Default values
 export const DEFAULT_DECORATION_SCALE = 1.0
 export const DEFAULT_DECORATION_ROTATION = 0
-export const MIN_SCALE = 0.5
-export const MAX_SCALE = 3.0
+export const MIN_SCALE = 0.3
+export const MAX_SCALE = 10.0
