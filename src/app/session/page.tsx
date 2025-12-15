@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
+import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 
@@ -59,10 +60,14 @@ export default function SessionPage() {
     scrollToBottom()
   }, [messages])
 
-  // AI 응답 후 입력창에 포커스
+  // AI 응답 후 입력창에 포커스 (데스크톱만)
   useEffect(() => {
     if (!loading) {
-      focusInput()
+      // 모바일에서는 키보드 자동 팝업 방지
+      const isMobile = window.innerWidth < 768 || 'ontouchstart' in window
+      if (!isMobile) {
+        focusInput()
+      }
     }
   }, [loading])
 
@@ -92,6 +97,10 @@ export default function SessionPage() {
     if (stt.isListening) {
       stt.stopListening()
     } else {
+      // 이전 녹음이 전송된 경우 입력창 초기화
+      if (stt.wasSent()) {
+        setInput('')
+      }
       stt.startListening()
     }
   }, [stt])
@@ -122,6 +131,10 @@ export default function SessionPage() {
       }
       // 자동으로 마이크 입력 시작 (TTS 활성화 상태이고, 로딩 중이 아닐 때)
       if (tts.isEnabled && stt.isSupported && !loading && !stt.isListening) {
+        // 이전 녹음이 전송된 경우 입력창 초기화
+        if (stt.wasSent()) {
+          setInput('')
+        }
         stt.startListening()
       }
     }
@@ -698,7 +711,17 @@ export default function SessionPage() {
                 }`}
               >
                 <div className="flex items-start gap-1">
-                  <p className="whitespace-pre-wrap flex-1">{message.content}</p>
+                  <p className="whitespace-pre-wrap flex-1">
+                    {message.role === 'assistant' && tts.currentText === message.content ? (
+                      <SpeakingText
+                        text={message.content}
+                        progress={tts.progress}
+                        isSpeaking={tts.isSpeaking}
+                      />
+                    ) : (
+                      message.content
+                    )}
+                  </p>
                   {message.role === 'assistant' && tts.isSupported && (
                     <PlayButton
                       isPlaying={playingMessageIndex === index && tts.isSpeaking}

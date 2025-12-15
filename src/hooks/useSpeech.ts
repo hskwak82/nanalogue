@@ -25,6 +25,8 @@ export function useTTS(options: UseTTSOptions = {}) {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [isEnabled, setIsEnabled] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+  const [progress, setProgress] = useState(0) // 0 to 1 progress through text
+  const [currentText, setCurrentText] = useState('') // Currently speaking text
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Cleanup audio on unmount
@@ -48,6 +50,8 @@ export function useTTS(options: UseTTSOptions = {}) {
       }
 
       setIsLoading(true)
+      setProgress(0)
+      setCurrentText(text)
 
       try {
         // Call Google Cloud TTS API
@@ -68,17 +72,26 @@ export function useTTS(options: UseTTSOptions = {}) {
         const audio = new Audio(audioData)
         audioRef.current = audio
 
+        audio.ontimeupdate = () => {
+          // Update progress on every time update (most reliable)
+          if (audio.duration && audio.duration > 0) {
+            const currentProgress = audio.currentTime / audio.duration
+            setProgress(Math.min(currentProgress, 1))
+          }
+        }
         audio.onplay = () => {
           setIsSpeaking(true)
           setIsLoading(false)
         }
         audio.onended = () => {
           setIsSpeaking(false)
+          setProgress(1) // Complete
           audioRef.current = null
         }
         audio.onerror = () => {
           setIsSpeaking(false)
           setIsLoading(false)
+          setProgress(0)
           audioRef.current = null
         }
 
@@ -95,6 +108,7 @@ export function useTTS(options: UseTTSOptions = {}) {
         console.error('TTS Error:', error)
         setIsLoading(false)
         setIsSpeaking(false)
+        setProgress(0)
       }
     },
     [isEnabled, voice]
@@ -107,6 +121,7 @@ export function useTTS(options: UseTTSOptions = {}) {
     }
     setIsSpeaking(false)
     setIsLoading(false)
+    setProgress(0)
   }, [])
 
   const toggle = useCallback(() => {
@@ -121,6 +136,8 @@ export function useTTS(options: UseTTSOptions = {}) {
     isLoading,
     isEnabled,
     isSupported: checkAudioSupport(),
+    progress, // 0 to 1 progress through speech
+    currentText, // Text currently being spoken
   }
 }
 
@@ -138,6 +155,10 @@ export function useSTT(options: UseSTTOptions = {}) {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const onSilenceEndRef = useRef(onSilenceEnd)
+  const accumulatedTranscriptRef = useRef('')
+  const hasSentRef = useRef(false) // Track if we've already sent to prevent double-send
+  const maxFinalTextRef = useRef('') // Track max final text seen (PC: results array may reset)
+  const isMobileRef = useRef(false) // Track device type for onend handler
 
   // Keep callback ref updated
   useEffect(() => {
@@ -154,20 +175,20 @@ export function useSTT(options: UseSTTOptions = {}) {
 
   // Start silence timer
   const startSilenceTimer = useCallback(
-    (currentTranscript: string) => {
+    () => {
       clearSilenceTimer()
-      if (currentTranscript.trim()) {
-        silenceTimerRef.current = setTimeout(() => {
-          // Auto-stop and send on silence
-          if (recognitionRef.current && currentTranscript.trim()) {
-            recognitionRef.current.stop()
-            setIsListening(false)
-            if (onSilenceEndRef.current) {
-              onSilenceEndRef.current(currentTranscript.trim())
-            }
+      silenceTimerRef.current = setTimeout(() => {
+        // Auto-stop and send on silence using accumulated transcript
+        const fullTranscript = accumulatedTranscriptRef.current.trim()
+        if (recognitionRef.current && fullTranscript && !hasSentRef.current) {
+          hasSentRef.current = true
+          recognitionRef.current.stop()
+          setIsListening(false)
+          if (onSilenceEndRef.current) {
+            onSilenceEndRef.current(fullTranscript)
           }
-        }, silenceTimeout)
-      }
+        }
+      }, silenceTimeout)
     },
     [silenceTimeout, clearSilenceTimer]
   )
@@ -182,32 +203,83 @@ export function useSTT(options: UseSTTOptions = {}) {
     recognitionRef.current.continuous = true
     recognitionRef.current.interimResults = true
 
+    // Detect mobile device
+    const isMobile = typeof navigator !== 'undefined' &&
+      (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 'ontouchstart' in window)
+    isMobileRef.current = isMobile
+
     recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
-      let final = ''
-      let interim = ''
+      const results = event.results
+      let transcript = ''
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i]
-        if (result.isFinal) {
-          final += result[0].transcript
-        } else {
-          interim += result[0].transcript
+      if (isMobile) {
+        // Mobile: results are cumulative, just use the last result
+        const lastResult = results[results.length - 1]
+        transcript = lastResult[0].transcript
+        setFinalTranscript(lastResult.isFinal ? transcript : '')
+      } else {
+        // Desktop: results are segments, concatenate all finals + all interims
+        // Browser may reset results array between segments, so we track max final text
+        let currentFinalText = ''
+        let interimText = ''
+
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].isFinal) {
+            currentFinalText += results[i][0].transcript
+          } else {
+            interimText += results[i][0].transcript
+          }
         }
+
+        // Keep the maximum final text we've seen (prevents losing text on array reset)
+        if (currentFinalText.length >= maxFinalTextRef.current.length) {
+          maxFinalTextRef.current = currentFinalText
+        }
+
+        transcript = maxFinalTextRef.current + interimText
+        setFinalTranscript(maxFinalTextRef.current)
       }
 
-      const currentTranscript = final || interim
-      setTranscript(currentTranscript)
-      if (final) {
-        setFinalTranscript((prev) => prev + final)
-      }
+      setTranscript(transcript)
+      accumulatedTranscriptRef.current = transcript
 
-      // Reset silence timer on new speech
-      startSilenceTimer(currentTranscript)
+      // Reset silence timer on any speech activity
+      if (transcript.trim()) {
+        startSilenceTimer()
+      }
     }
 
     recognitionRef.current.onend = () => {
       setIsListening(false)
-      clearSilenceTimer()
+
+      // On mobile, recognition may auto-stop on silence before our timer fires
+      // Instead of sending immediately, wait for the silence timeout
+      const fullTranscript = accumulatedTranscriptRef.current.trim()
+      if (fullTranscript && !hasSentRef.current) {
+        if (isMobileRef.current) {
+          // Mobile: Start/continue silence timer - gives user time to tap mic to continue
+          // Don't clear existing timer, let it continue counting
+          if (!silenceTimerRef.current) {
+            silenceTimerRef.current = setTimeout(() => {
+              if (!hasSentRef.current) {
+                hasSentRef.current = true
+                if (onSilenceEndRef.current) {
+                  onSilenceEndRef.current(accumulatedTranscriptRef.current.trim())
+                }
+              }
+            }, silenceTimeout)
+          }
+        } else {
+          // PC: Send immediately on recognition end
+          clearSilenceTimer()
+          hasSentRef.current = true
+          if (onSilenceEndRef.current) {
+            onSilenceEndRef.current(fullTranscript)
+          }
+        }
+      } else {
+        clearSilenceTimer()
+      }
     }
 
     recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -222,13 +294,16 @@ export function useSTT(options: UseSTTOptions = {}) {
         recognitionRef.current.abort()
       }
     }
-  }, [startSilenceTimer, clearSilenceTimer])
+  }, [startSilenceTimer, clearSilenceTimer, silenceTimeout])
 
   const startListening = useCallback(() => {
     if (!checkSTTSupport() || !recognitionRef.current) return
 
     setTranscript('')
     setFinalTranscript('')
+    accumulatedTranscriptRef.current = ''
+    maxFinalTextRef.current = ''
+    hasSentRef.current = false
     setIsListening(true)
     recognitionRef.current.start()
   }, [])
@@ -244,7 +319,12 @@ export function useSTT(options: UseSTTOptions = {}) {
   const resetTranscript = useCallback(() => {
     setTranscript('')
     setFinalTranscript('')
+    accumulatedTranscriptRef.current = ''
+    maxFinalTextRef.current = ''
   }, [])
+
+  // Check if the transcript was already sent (for external use)
+  const wasSent = useCallback(() => hasSentRef.current, [])
 
   return {
     startListening,
@@ -254,6 +334,7 @@ export function useSTT(options: UseSTTOptions = {}) {
     transcript,
     finalTranscript,
     isSupported: checkSTTSupport(),
+    wasSent,
   }
 }
 
