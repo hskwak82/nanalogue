@@ -24,11 +24,18 @@ export async function GET() {
 
     // Fetch all data in parallel
     const [
+      profileResult,
       customizationResult,
       coverTemplatesResult,
       paperTemplatesResult,
       decorationItemsResult,
     ] = await Promise.all([
+      // User profile
+      supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .single(),
       // User's customization
       supabase
         .from('diary_customization')
@@ -77,6 +84,10 @@ export async function GET() {
     }
 
     const response: CustomizationLoadResponse = {
+      user: {
+        email: user.email || '',
+        name: profileResult.data?.name || null,
+      },
       customization,
       coverTemplates: (coverTemplatesResult.data || []) as CoverTemplate[],
       paperTemplates: (paperTemplatesResult.data || []) as PaperTemplate[],

@@ -82,6 +82,10 @@ export interface CustomizationSaveRequest {
 }
 
 export interface CustomizationLoadResponse {
+  user: {
+    email: string
+    name: string | null
+  }
   customization: DiaryCustomization | null
   coverTemplates: CoverTemplate[]
   paperTemplates: PaperTemplate[]

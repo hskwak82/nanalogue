@@ -28,6 +28,7 @@ export default function CustomizePage() {
   const [error, setError] = useState<string | null>(null)
 
   // Data from API
+  const [user, setUser] = useState<{ email: string; name: string | null } | null>(null)
   const [coverTemplates, setCoverTemplates] = useState<CoverTemplate[]>([])
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
   const [decorationItems, setDecorationItems] = useState<DecorationItem[]>([])
@@ -60,6 +61,7 @@ export default function CustomizePage() {
 
         const data: CustomizationLoadResponse = await response.json()
 
+        setUser(data.user)
         setCoverTemplates(data.coverTemplates)
         setPaperTemplates(data.paperTemplates)
         setDecorationItems(data.decorationItems)
@@ -129,7 +131,7 @@ export default function CustomizePage() {
 
   return (
     <div className="min-h-screen bg-pastel-cream">
-      <Navigation user={null} />
+      <Navigation user={user ? { email: user.email, name: user.name || undefined } : null} />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
