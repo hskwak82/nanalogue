@@ -55,15 +55,46 @@ export default async function DashboardPage() {
     googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
   }
 
-  // Get diary customization
-  const { data: customization } = await supabase
-    .from('diary_customization')
+  // Get active diary from diaries table (new schema)
+  const { data: activeDiary } = await supabase
+    .from('diaries')
     .select('*, cover_templates(*)')
     .eq('user_id', user.id)
+    .eq('status', 'active')
+    .order('volume_number', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  const coverTemplate = customization?.cover_templates as CoverTemplate | null
-  const coverDecorations = (customization?.cover_decorations || []) as PlacedDecoration[]
+  // Fallback to diary_customization if no active diary (backward compatibility)
+  let coverTemplate: CoverTemplate | null = null
+  let coverDecorations: PlacedDecoration[] = []
+  let diaryTitle: string | null = null
+  let volumeNumber: number | undefined = undefined
+
+  if (activeDiary) {
+    coverTemplate = activeDiary.cover_templates as CoverTemplate | null
+    coverDecorations = (activeDiary.cover_decorations || []) as PlacedDecoration[]
+    diaryTitle = activeDiary.title
+    volumeNumber = activeDiary.volume_number
+  } else {
+    // Fallback to old customization table
+    const { data: customization } = await supabase
+      .from('diary_customization')
+      .select('*, cover_templates(*)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (customization) {
+      coverTemplate = customization.cover_templates as CoverTemplate | null
+      coverDecorations = (customization.cover_decorations || []) as PlacedDecoration[]
+    }
+  }
+
+  // Get total diary count
+  const { count: totalDiaries } = await supabase
+    .from('diaries')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
 
   // Get today's date in Korea timezone
   const today = new Date().toLocaleDateString('ko-KR', {
@@ -111,6 +142,9 @@ export default async function DashboardPage() {
               template={coverTemplate}
               decorations={coverDecorations}
               userName={profile?.name || undefined}
+              diaryTitle={diaryTitle}
+              volumeNumber={volumeNumber}
+              totalDiaries={totalDiaries || undefined}
             />
             {/* Today's Session Card */}
             <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">

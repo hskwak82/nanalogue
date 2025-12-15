@@ -7,6 +7,9 @@ interface DiaryCoverPreviewProps {
   template: CoverTemplate | null
   decorations: PlacedDecoration[]
   userName?: string
+  diaryTitle?: string | null
+  volumeNumber?: number
+  totalDiaries?: number
 }
 
 // Parse cover image_url
@@ -24,6 +27,9 @@ export function DiaryCoverPreview({
   template,
   decorations,
   userName,
+  diaryTitle,
+  volumeNumber,
+  totalDiaries,
 }: DiaryCoverPreviewProps) {
   // Default cover style
   const defaultStyle = {
@@ -48,13 +54,32 @@ export function DiaryCoverPreview({
   return (
     <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-700">나의 일기장</h2>
-        <Link
-          href="/customize"
-          className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
-        >
-          꾸미기
-        </Link>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-700">
+            {diaryTitle || '나의 일기장'}
+          </h2>
+          {volumeNumber && (
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+              {volumeNumber}권
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          {totalDiaries && totalDiaries > 1 && (
+            <Link
+              href="/bookshelf"
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              책장 ({totalDiaries})
+            </Link>
+          )}
+          <Link
+            href="/customize"
+            className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+          >
+            꾸미기
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col items-center gap-3">
