@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { CoverTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE } from '@/types/customization'
 import { DraggableItem } from './DraggableItem'
 
@@ -122,8 +122,8 @@ export function CoverEditor({
     })
   }, [decorations])
 
-  // Handle mouse move
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+  // Handle mouse move (native event for document listener)
+  const handleMouseMove = useCallback((e: MouseEvent) => {
     if (dragState.mode === 'none' || dragIndexRef.current === null) return
     if (!containerRef.current) return
 
@@ -175,11 +175,23 @@ export function CoverEditor({
     }
   }, [dragState, onUpdate, getItemCenter])
 
-  // Handle mouse up
+  // Handle mouse up (native event for document listener)
   const handleMouseUp = useCallback(() => {
     setDragState(prev => ({ ...prev, mode: 'none' }))
     dragIndexRef.current = null
   }, [])
+
+  // Document-level event listeners for drag operations
+  useEffect(() => {
+    if (dragState.mode !== 'none') {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [dragState.mode, handleMouseMove, handleMouseUp])
 
   // Handle canvas click
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
@@ -237,9 +249,6 @@ export function CoverEditor({
       <div
         className="relative mx-auto"
         style={{ width: 300, height: 400 }}
-        onMouseMove={dragState.mode !== 'none' ? handleMouseMove : undefined}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
       >
         {/* Canvas - clips decoration content */}
         <div
