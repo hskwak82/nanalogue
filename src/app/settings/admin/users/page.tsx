@@ -436,7 +436,11 @@ export default function AdminUsersPage() {
   // Excel functions
   const handleExport = async () => {
     try {
-      const response = await fetch('/api/admin/users/export')
+      const params = new URLSearchParams()
+      if (selectedIds.size > 0) {
+        params.set('userIds', Array.from(selectedIds).join(','))
+      }
+      const response = await fetch(`/api/admin/users/export?${params}`)
       if (!response.ok) throw new Error('Export failed')
 
       const blob = await response.blob()
@@ -448,7 +452,10 @@ export default function AdminUsersPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-      toast.success('사용자 목록이 다운로드되었습니다.')
+      const msg = selectedIds.size > 0
+        ? `${selectedIds.size}명의 사용자가 다운로드되었습니다.`
+        : '전체 사용자 목록이 다운로드되었습니다.'
+      toast.success(msg)
     } catch (error) {
       toast.error('내보내기 실패')
     }
@@ -587,7 +594,7 @@ export default function AdminUsersPage() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
         >
           <ArrowDownTrayIcon className="h-4 w-4" />
-          내보내기
+          {selectedIds.size > 0 ? `내보내기 (${selectedIds.size}명)` : '내보내기'}
         </button>
         <button
           onClick={handleDownloadTemplate}

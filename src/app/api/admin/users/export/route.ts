@@ -3,19 +3,29 @@ import { checkAdminAuth, getAdminServiceClient } from '@/lib/admin'
 import * as XLSX from 'xlsx'
 
 // GET /api/admin/users/export - Export users to Excel
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
+    const { searchParams } = new URL(request.url)
+    const userIdsParam = searchParams.get('userIds')
+    const selectedUserIds = userIdsParam ? userIdsParam.split(',') : null
+
     const supabase = getAdminServiceClient()
 
-    // Get all profiles
-    const { data: profiles, error: profilesError } = await supabase
+    // Get profiles (filtered if userIds provided)
+    let query = supabase
       .from('profiles')
       .select('id, email, name, created_at')
+
+    if (selectedUserIds && selectedUserIds.length > 0) {
+      query = query.in('id', selectedUserIds)
+    }
+
+    const { data: profiles, error: profilesError } = await query
       .order('created_at', { ascending: false })
 
     if (profilesError) throw profilesError
