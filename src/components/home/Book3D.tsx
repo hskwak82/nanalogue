@@ -116,15 +116,21 @@ function DecorationRenderer({
   )
 }
 
+interface LatestEntry {
+  date: string
+  content: string
+}
+
 interface Book3DProps {
   diary: DiaryWithTemplates | null
   isOpening?: boolean
   className?: string
   onClick?: () => void
+  latestEntry?: LatestEntry
 }
 
 export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
-  function Book3D({ diary, isOpening = false, className = '', onClick }, ref) {
+  function Book3D({ diary, isOpening = false, className = '', onClick, latestEntry }, ref) {
     const BOOK_WIDTH = 220
     const BOOK_HEIGHT = 300
     const BOOK_DEPTH = 24
@@ -166,11 +172,10 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
       >
         {/* Container that expands when opening */}
         <div
-          className="relative transition-all duration-700 ease-out"
+          className="relative transition-all duration-700 ease-out mx-auto"
           style={{
             width: isOpening ? BOOK_WIDTH * 2 + BOOK_DEPTH : BOOK_WIDTH,
             height: BOOK_HEIGHT,
-            transform: isOpening ? 'translateX(-50%)' : 'translateX(0)',
           }}
         >
           {/* 3D Book Container */}
@@ -250,8 +255,33 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
               {/* Paper decorations */}
               <DecorationRenderer decorations={paperDecorations} />
 
-              {/* If no decorations, show placeholder */}
-              {paperDecorations.length === 0 && (
+              {/* Latest diary entry content (blurred preview) */}
+              {latestEntry && (
+                <div className="absolute inset-0 p-6 pt-8 overflow-hidden">
+                  {/* Date */}
+                  <p className="text-xs text-pastel-purple/60 mb-3">
+                    {new Date(latestEntry.date).toLocaleDateString('ko-KR', {
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short'
+                    })}
+                  </p>
+                  {/* Content preview - blurred */}
+                  <div
+                    className="text-xs text-gray-600/40 leading-relaxed line-clamp-[12]"
+                    style={{
+                      filter: 'blur(1px)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                      maskImage: 'linear-gradient(to bottom, black 60%, transparent 100%)',
+                    }}
+                  >
+                    {latestEntry.content}
+                  </div>
+                </div>
+              )}
+
+              {/* If no entry, show placeholder */}
+              {!latestEntry && paperDecorations.length === 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6">
                   <div className="w-12 h-12 mb-3 rounded-full bg-pastel-purple-light/40 flex items-center justify-center">
                     <svg className="w-6 h-6 text-pastel-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -262,16 +292,16 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
                 </div>
               )}
 
-              {/* Page lines */}
-              <div className="absolute inset-x-8 top-12 bottom-12 pointer-events-none">
-                {Array.from({ length: 12 }).map((_, i) => (
+              {/* Page lines (behind content) */}
+              <div className="absolute inset-x-6 top-10 bottom-10 pointer-events-none -z-10">
+                {Array.from({ length: 14 }).map((_, i) => (
                   <div
                     key={i}
                     className="w-full"
                     style={{
                       height: '1px',
-                      marginBottom: '18px',
-                      background: 'rgba(0,0,0,0.03)',
+                      marginBottom: '16px',
+                      background: 'rgba(0,0,0,0.025)',
                     }}
                   />
                 ))}
@@ -344,15 +374,13 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
 
         {/* Shadow */}
         <div
-          className="transition-all duration-700"
+          className="transition-all duration-700 mx-auto"
           style={{
-            width: isOpening ? BOOK_WIDTH * 1.8 : BOOK_WIDTH * 0.85,
+            width: isOpening ? BOOK_WIDTH * 2 : BOOK_WIDTH * 0.85,
             height: 18,
             background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.2) 0%, transparent 70%)',
             filter: 'blur(8px)',
-            margin: '0 auto',
             marginTop: '15px',
-            transform: isOpening ? 'translateX(-25%)' : 'translateX(0)',
           }}
         />
       </div>

@@ -6,12 +6,18 @@ import { useRouter } from 'next/navigation'
 import { Book3D } from './Book3D'
 import type { DiaryWithTemplates } from '@/types/diary'
 
+interface LatestEntry {
+  date: string
+  content: string
+}
+
 interface BookIntroProps {
   diary: DiaryWithTemplates | null
   userName?: string
+  latestEntry?: LatestEntry
 }
 
-export function BookIntro({ diary, userName }: BookIntroProps) {
+export function BookIntro({ diary, userName, latestEntry }: BookIntroProps) {
   const router = useRouter()
   const [phase, setPhase] = useState<'enter' | 'float' | 'opening' | 'exit'>('enter')
   const [hasAnimated, setHasAnimated] = useState(false)
@@ -170,6 +176,7 @@ export function BookIntro({ diary, userName }: BookIntroProps) {
             diary={diary}
             isOpening={phase === 'opening'}
             onClick={handleBookClick}
+            latestEntry={latestEntry}
           />
         </motion.div>
 

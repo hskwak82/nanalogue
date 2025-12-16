@@ -39,12 +39,25 @@ export default async function HomePage() {
       }
     : null
 
+  // Get latest diary entry
+  const { data: latestEntry } = await supabase
+    .from('diary_entries')
+    .select('entry_date, content')
+    .eq('user_id', user.id)
+    .order('entry_date', { ascending: false })
+    .limit(1)
+    .single()
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
       <Navigation user={{ email: user.email, name: profile?.name }} />
       <BookIntro
         diary={activeDiary}
         userName={profile?.name || undefined}
+        latestEntry={latestEntry ? {
+          date: latestEntry.entry_date,
+          content: latestEntry.content
+        } : undefined}
       />
     </div>
   )
