@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, XMarkIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
 import type { AdminUser } from '@/app/api/admin/users/route'
 
@@ -184,6 +184,117 @@ function SubscriptionModal({ user, onClose, onSuccess, toast, confirm }: Subscri
   )
 }
 
+// Bulk Subscription Modal
+interface BulkSubscriptionModalProps {
+  userIds: string[]
+  onClose: () => void
+  onSuccess: () => void
+  toast: {
+    success: (message: string, duration?: number) => void
+    error: (message: string, duration?: number) => void
+  }
+}
+
+function BulkSubscriptionModal({ userIds, onClose, onSuccess, toast }: BulkSubscriptionModalProps) {
+  const [plan, setPlan] = useState('pro')
+  const [durationDays, setDurationDays] = useState(30)
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const handleBulkGrant = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch('/api/admin/subscriptions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userIds,
+          plan,
+          durationDays,
+          reason,
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to grant')
+      const data = await response.json()
+      toast.success(data.message || `${userIds.length}명에게 구독이 부여되었습니다.`)
+      onSuccess()
+      onClose()
+    } catch (error) {
+      toast.error('일괄 구독 부여 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-semibold text-gray-900">일괄 구독 부여</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="p-3 bg-indigo-50 rounded-lg">
+            <p className="text-sm text-indigo-700">
+              <span className="font-medium">{userIds.length}명</span>의 사용자에게 구독을 부여합니다.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">플랜</label>
+              <select
+                value={plan}
+                onChange={(e) => setPlan(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+              >
+                <option value="pro">프로</option>
+                <option value="free">무료</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">기간 (일)</label>
+              <select
+                value={durationDays}
+                onChange={(e) => setDurationDays(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+              >
+                <option value={7}>7일</option>
+                <option value={30}>30일</option>
+                <option value={90}>90일</option>
+                <option value={180}>180일</option>
+                <option value={365}>365일</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-1">사유 (선택)</label>
+            <input
+              type="text"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="예: 테스터 계정, 이벤트 당첨"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+            />
+          </div>
+
+          <button
+            onClick={handleBulkGrant}
+            disabled={saving}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? '처리 중...' : `${userIds.length}명에게 구독 부여`}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminUsersPage() {
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -193,6 +304,8 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('')
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [showBulkModal, setShowBulkModal] = useState(false)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -217,6 +330,7 @@ export default function AdminUsersPage() {
       const data = await response.json()
       setUsers(data.users)
       setPagination(data.pagination)
+      setSelectedIds(new Set()) // Clear selection on page change
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -242,6 +356,77 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Selection handlers
+  const toggleSelectAll = () => {
+    if (selectedIds.size === users.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(users.map(u => u.id)))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    const newSet = new Set(selectedIds)
+    if (newSet.has(id)) {
+      newSet.delete(id)
+    } else {
+      newSet.add(id)
+    }
+    setSelectedIds(newSet)
+  }
+
+  // Bulk actions
+  const handleBulkRevoke = async () => {
+    const confirmed = await confirm({
+      title: '일괄 구독 취소',
+      message: `선택한 ${selectedIds.size}명의 구독을 취소하시겠습니까?`,
+      confirmText: '취소하기',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
+    try {
+      const response = await fetch('/api/admin/subscriptions/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: Array.from(selectedIds) }),
+      })
+      if (!response.ok) throw new Error('Failed to revoke')
+      toast.success(`${selectedIds.size}명의 구독이 취소되었습니다.`)
+      setSelectedIds(new Set())
+      fetchUsers()
+    } catch (error) {
+      toast.error('일괄 구독 취소 실패')
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const confirmed = await confirm({
+      title: '사용자 삭제',
+      message: `선택한 ${selectedIds.size}명의 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+      confirmText: '삭제하기',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+
+    try {
+      const response = await fetch('/api/admin/users/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: Array.from(selectedIds) }),
+      })
+      if (!response.ok) throw new Error('Failed to delete')
+      toast.success(`${selectedIds.size}명의 사용자가 삭제되었습니다.`)
+      setSelectedIds(new Set())
+      fetchUsers()
+    } catch (error) {
+      toast.error('사용자 삭제 실패')
+    }
+  }
+
+  const isAllSelected = users.length > 0 && selectedIds.size === users.length
+  const isSomeSelected = selectedIds.size > 0
+
   return (
     <div className="space-y-6">
       {/* Subscription Modal */}
@@ -252,6 +437,19 @@ export default function AdminUsersPage() {
           onSuccess={fetchUsers}
           toast={toast}
           confirm={confirm}
+        />
+      )}
+
+      {/* Bulk Subscription Modal */}
+      {showBulkModal && (
+        <BulkSubscriptionModal
+          userIds={Array.from(selectedIds)}
+          onClose={() => setShowBulkModal(false)}
+          onSuccess={() => {
+            setSelectedIds(new Set())
+            fetchUsers()
+          }}
+          toast={toast}
         />
       )}
 
@@ -295,6 +493,42 @@ export default function AdminUsersPage() {
         </select>
       </div>
 
+      {/* Bulk Action Bar */}
+      {isSomeSelected && (
+        <div className="flex items-center gap-4 p-3 bg-indigo-50 rounded-lg">
+          <span className="text-sm font-medium text-indigo-700">
+            {selectedIds.size}명 선택됨
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBulkModal(true)}
+              className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              구독 부여
+            </button>
+            <button
+              onClick={handleBulkRevoke}
+              className="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600"
+            >
+              구독 취소
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-1"
+            >
+              <TrashIcon className="h-4 w-4" />
+              삭제
+            </button>
+          </div>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-sm text-gray-500 hover:text-gray-700"
+          >
+            선택 해제
+          </button>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
@@ -310,6 +544,14 @@ export default function AdminUsersPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     사용자
                   </th>
@@ -338,7 +580,18 @@ export default function AdminUsersPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
+                  <tr
+                    key={user.id}
+                    className={`hover:bg-gray-50 ${selectedIds.has(user.id) ? 'bg-indigo-50' : ''}`}
+                  >
+                    <td className="px-4 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(user.id)}
+                        onChange={() => toggleSelect(user.id)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm">
                       <span className="font-medium text-gray-900">{user.name || '이름 없음'}</span>
                       <span className="text-gray-400 ml-1">({user.email})</span>
@@ -350,16 +603,9 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-center">
                       {user.subscription_type === 'recurring' ? (
-                        <div>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                            정기구독
-                          </span>
-                          {user.next_billing_date && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              다음 결제: {formatDate(user.next_billing_date)}
-                            </p>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          정기구독
+                        </span>
                       ) : user.subscription_type === 'manual' ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
                           수동부여
