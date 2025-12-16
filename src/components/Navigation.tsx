@@ -22,7 +22,7 @@ export function Navigation({ user }: NavigationProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 justify-between">
           <div className="flex">
-            <Link href="/dashboard" className="flex flex-shrink-0 items-center">
+            <Link href="/home" className="flex flex-shrink-0 items-center">
               <Logo size="md" />
             </Link>
             {user && (
