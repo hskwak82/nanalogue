@@ -102,9 +102,14 @@ function SubscriptionModal({ user, onClose, onSuccess, toast, confirm }: Subscri
               {user.subscription_type === 'recurring' && <span className="ml-2 text-green-600">(정기구독)</span>}
               {user.subscription_type === 'manual' && <span className="ml-2 text-amber-600">(수동부여)</span>}
             </p>
-            {user.next_billing_date && (
+            {user.subscription_type === 'recurring' && user.next_billing_date && (
               <p className="text-sm text-gray-500">
                 다음 결제일: {formatDate(user.next_billing_date)}
+              </p>
+            )}
+            {user.subscription_type === 'manual' && user.current_period_end && (
+              <p className="text-sm text-gray-500">
+                만료일: {formatDate(user.current_period_end)}
               </p>
             )}
           </div>
@@ -303,6 +308,9 @@ export default function AdminUsersPage() {
                     구독 유형
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    만료일
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     다이어리
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -350,6 +358,15 @@ export default function AdminUsersPage() {
                         </span>
                       ) : (
                         <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {user.subscription_type === 'recurring' ? (
+                        <span className="text-green-600 font-medium">정기구독</span>
+                      ) : user.current_period_end ? (
+                        <span className="text-gray-900">{formatDate(user.current_period_end)}</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

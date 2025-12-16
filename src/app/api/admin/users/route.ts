@@ -10,6 +10,7 @@ export interface AdminUser {
   status: string
   subscription_type: 'recurring' | 'manual' | 'none' // 정기구독/수동부여/없음
   next_billing_date: string | null
+  current_period_end: string | null // 만료일
   diary_count: number
   entry_count: number
 }
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
     const userIds = profiles.map((p) => p.id)
     const { data: subscriptions } = await supabase
       .from('subscriptions')
-      .select('user_id, plan, status, toss_billing_key, next_billing_date')
+      .select('user_id, plan, status, toss_billing_key, next_billing_date, current_period_end')
       .in('user_id', userIds)
 
     // Get diary counts for these users
@@ -81,7 +82,8 @@ export async function GET(request: Request) {
         plan: s.plan,
         status: s.status,
         toss_billing_key: s.toss_billing_key,
-        next_billing_date: s.next_billing_date
+        next_billing_date: s.next_billing_date,
+        current_period_end: s.current_period_end
       }])
     )
 
@@ -140,6 +142,7 @@ export async function GET(request: Request) {
         status: sub?.status || 'none',
         subscription_type: subscriptionType,
         next_billing_date: sub?.next_billing_date || null,
+        current_period_end: sub?.current_period_end || null,
         diary_count: diaryCountMap.get(p.id) || 0,
         entry_count: entryCountMap.get(p.id) || 0,
       }
