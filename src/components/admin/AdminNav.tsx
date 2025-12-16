@@ -10,6 +10,7 @@ import {
   ArrowLeftIcon,
   SwatchIcon,
   SparklesIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
   { href: '/settings/admin/plans', label: '플랜', icon: CubeIcon },
   { href: '/settings/admin/templates', label: '템플릿', icon: SwatchIcon },
   { href: '/settings/admin/decorations', label: '데코레이션', icon: SparklesIcon },
+  { href: '/settings/admin/announcements', label: '공지사항', icon: MegaphoneIcon },
 ]
 
 export function AdminNav() {
