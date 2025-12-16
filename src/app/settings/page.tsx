@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { VoiceSettings } from './VoiceSettings'
 import { CalendarSettings } from './CalendarSettings'
+import { SubscriptionSection } from './SubscriptionSection'
+import type { UserSubscription } from '@/types/payment'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -32,6 +34,15 @@ export default async function SettingsPage() {
 
   const isCalendarConnected = !!calendarToken
 
+  // Get subscription info
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', user?.id)
+    .single()
+
+  const userSubscription = subscription as UserSubscription | null
+
   return (
     <div className="min-h-screen bg-pastel-cream">
       <Navigation
@@ -40,6 +51,9 @@ export default async function SettingsPage() {
 
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="mb-8 text-2xl font-bold text-gray-700">설정</h1>
+
+        {/* Subscription Section */}
+        <SubscriptionSection subscription={userSubscription} />
 
         {/* Profile Section */}
         <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">

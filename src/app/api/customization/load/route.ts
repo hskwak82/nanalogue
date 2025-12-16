@@ -24,12 +24,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch templates and items
+    // Fetch templates, items, and subscription status
     const [
       profileResult,
       coverTemplatesResult,
       paperTemplatesResult,
       decorationItemsResult,
+      subscriptionResult,
     ] = await Promise.all([
       supabase
         .from('profiles')
@@ -52,7 +53,18 @@ export async function GET(request: NextRequest) {
         .eq('is_active', true)
         .order('category')
         .order('sort_order'),
+      supabase
+        .from('subscriptions')
+        .select('plan, status, current_period_end')
+        .eq('user_id', user.id)
+        .single(),
     ])
+
+    // Check if user has premium subscription
+    const subscription = subscriptionResult.data
+    const isPremium = subscription?.plan === 'pro' &&
+      subscription?.status === 'active' &&
+      (!subscription?.current_period_end || new Date(subscription.current_period_end) > new Date())
 
     // Load diary customization (from diaries table or fallback to diary_customization)
     let customization: DiaryCustomization | null = null
@@ -132,7 +144,7 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching decoration items:', decorationItemsResult.error)
     }
 
-    const response: CustomizationLoadResponse & { diaryId?: string } = {
+    const response: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean } = {
       user: {
         email: user.email || '',
         name: profileResult.data?.name || null,
@@ -142,6 +154,7 @@ export async function GET(request: NextRequest) {
       paperTemplates: (paperTemplatesResult.data || []) as PaperTemplate[],
       decorationItems: (decorationItemsResult.data || []) as DecorationItem[],
       diaryId: currentDiaryId || undefined,
+      isPremium,
     }
 
     return NextResponse.json(response)

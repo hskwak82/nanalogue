@@ -34,14 +34,15 @@ export function PhotoCropModal({
   const [error, setError] = useState<string | null>(null)
   const [showPremiumNotice, setShowPremiumNotice] = useState(false)
 
-  // TODO: 나중에 isPremium 체크로 변경
-  const canUseLasso = true // 테스트를 위해 임시로 true
+  // Premium users can use lasso crop
+  const canUseLasso = isPremium
 
   const handleTabChange = (tab: CropTab) => {
     if (tab === 'lasso' && !isPremium) {
-      // 프리미엄이 아니면 알림 표시 (하지만 사용은 허용)
+      // Show premium notice for non-premium users
       setShowPremiumNotice(true)
       setTimeout(() => setShowPremiumNotice(false), 3000)
+      return // Don't switch tab for non-premium users
     }
     setActiveTab(tab)
     setError(null)

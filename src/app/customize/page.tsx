@@ -37,6 +37,7 @@ function CustomizePageContent() {
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
   const [decorationItems, setDecorationItems] = useState<DecorationItem[]>([])
   const [diaryId, setDiaryId] = useState<string | null>(null)
+  const [isPremium, setIsPremium] = useState(false)
 
   // Editor state
   const {
@@ -73,12 +74,13 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean } = await response.json()
 
         setUser(data.user)
         setCoverTemplates(data.coverTemplates)
         setPaperTemplates(data.paperTemplates)
         setDecorationItems(data.decorationItems)
+        setIsPremium(data.isPremium || false)
         if (data.diaryId) {
           setDiaryId(data.diaryId)
         }
@@ -252,6 +254,7 @@ function CustomizePageContent() {
                 <ItemPalette
                   items={decorationItems}
                   onSelectItem={addDecoration}
+                  isPremium={isPremium}
                 />
               </div>
             </>
@@ -280,6 +283,7 @@ function CustomizePageContent() {
                 <ItemPalette
                   items={decorationItems}
                   onSelectItem={addDecoration}
+                  isPremium={isPremium}
                 />
               </div>
             </>

@@ -16,31 +16,38 @@ export function ShapeMaskSelector({
   return (
     <div className="grid grid-cols-5 gap-2">
       {SHAPE_MASKS.map((shape) => {
-        // TODO: 나중에 실제 프리미엄 체크로 변경
-        // const isLocked = !shape.is_free && !isPremium
-        const isLocked = false // 테스트를 위해 모두 잠금 해제
-        const isPremiumShape = !shape.is_free && !isPremium
+        const isLocked = !shape.is_free && !isPremium
         const isSelected = selectedShape === shape.id
 
         return (
           <button
             key={shape.id}
-            onClick={() => onSelectShape(shape.id)}
+            onClick={() => !isLocked && onSelectShape(shape.id)}
+            disabled={isLocked}
             className={`
               relative w-14 h-14 rounded-xl flex flex-col items-center justify-center
-              transition-all cursor-pointer
-              ${isSelected
-                ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              transition-all
+              ${isLocked
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+                : isSelected
+                  ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2 cursor-pointer'
+                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
               }
             `}
-            title={isPremiumShape ? '프리미엄 기능 (테스트 중 무료)' : shape.name}
+            title={isLocked ? '프리미엄 구독 필요' : shape.name}
           >
             <span className="text-2xl">{shape.icon}</span>
             <span className="text-[10px] mt-0.5">{shape.name}</span>
 
-            {/* Premium indicator (but not locked) */}
-            {isPremiumShape && (
+            {/* Lock indicator for premium shapes */}
+            {isLocked && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+                <span className="text-xs">🔒</span>
+              </div>
+            )}
+
+            {/* Premium indicator (unlocked) */}
+            {!shape.is_free && isPremium && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
                 <span className="text-xs">✨</span>
               </div>
