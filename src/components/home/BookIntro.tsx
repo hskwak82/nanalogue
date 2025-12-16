@@ -41,13 +41,13 @@ export function BookIntro({ diary, userName }: BookIntroProps) {
 
     setPhase('opening')
 
-    // Wait for opening animation then navigate
+    // Wait for opening animation, show opened state, then navigate
     setTimeout(() => {
       setPhase('exit')
       setTimeout(() => {
         router.push('/dashboard')
-      }, 300)
-    }, 700)
+      }, 400)
+    }, 1800)
   }
 
   // Skip animation on quick tap
