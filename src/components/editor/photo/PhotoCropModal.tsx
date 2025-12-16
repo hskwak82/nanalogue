@@ -32,13 +32,16 @@ export function PhotoCropModal({
   const [lassoPath, setLassoPath] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPremiumNotice, setShowPremiumNotice] = useState(false)
 
-  const canUseLasso = isPremium
+  // TODO: 나중에 isPremium 체크로 변경
+  const canUseLasso = true // 테스트를 위해 임시로 true
 
   const handleTabChange = (tab: CropTab) => {
-    if (tab === 'lasso' && !canUseLasso) {
-      setError('자유형 오리기는 프리미엄 기능입니다.')
-      return
+    if (tab === 'lasso' && !isPremium) {
+      // 프리미엄이 아니면 알림 표시 (하지만 사용은 허용)
+      setShowPremiumNotice(true)
+      setTimeout(() => setShowPremiumNotice(false), 3000)
     }
     setActiveTab(tab)
     setError(null)
@@ -184,6 +187,26 @@ export function PhotoCropModal({
               )}
             </button>
           </div>
+
+          {/* Premium Notice Toast */}
+          <AnimatePresence>
+            {showPremiumNotice && (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="absolute top-20 left-4 right-4 z-10 p-3 bg-gradient-to-r from-amber-400 to-orange-400 text-white rounded-xl shadow-lg"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">✨</span>
+                  <div>
+                    <p className="font-medium text-sm">프리미엄 기능입니다</p>
+                    <p className="text-xs opacity-90">테스트 기간 동안 무료로 사용해보세요!</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Content */}
           <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 200px)' }}>

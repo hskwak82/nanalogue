@@ -16,32 +16,33 @@ export function ShapeMaskSelector({
   return (
     <div className="grid grid-cols-5 gap-2">
       {SHAPE_MASKS.map((shape) => {
-        const isLocked = !shape.is_free && !isPremium
+        // TODO: 나중에 실제 프리미엄 체크로 변경
+        // const isLocked = !shape.is_free && !isPremium
+        const isLocked = false // 테스트를 위해 모두 잠금 해제
+        const isPremiumShape = !shape.is_free && !isPremium
         const isSelected = selectedShape === shape.id
 
         return (
           <button
             key={shape.id}
-            onClick={() => !isLocked && onSelectShape(shape.id)}
-            disabled={isLocked}
+            onClick={() => onSelectShape(shape.id)}
             className={`
               relative w-14 h-14 rounded-xl flex flex-col items-center justify-center
-              transition-all
+              transition-all cursor-pointer
               ${isSelected
                 ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2'
                 : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
               }
-              ${isLocked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
             `}
-            title={isLocked ? '프리미엄 기능' : shape.name}
+            title={isPremiumShape ? '프리미엄 기능 (테스트 중 무료)' : shape.name}
           >
             <span className="text-2xl">{shape.icon}</span>
             <span className="text-[10px] mt-0.5">{shape.name}</span>
 
-            {/* Lock indicator for premium shapes */}
-            {isLocked && (
+            {/* Premium indicator (but not locked) */}
+            {isPremiumShape && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
-                <span className="text-xs">🔒</span>
+                <span className="text-xs">✨</span>
               </div>
             )}
           </button>
