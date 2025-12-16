@@ -50,7 +50,9 @@ export async function POST(request: Request) {
       const email = row['이메일']?.toString().trim()
       const name = row['이름']?.toString().trim()
       const password = row['비밀번호']?.toString()
-      const plan = row['플랜']?.toString().toLowerCase() || 'free'
+      const planRaw = row['플랜']?.toString().toLowerCase().trim() || 'free'
+      // Accept both "pro" and "프로" as pro plan
+      const plan = (planRaw === 'pro' || planRaw === '프로') ? 'pro' : 'free'
       const durationDays = parseInt(row['구독기간(일)']?.toString() || '30') || 30
 
       // Validate required fields
