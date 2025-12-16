@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useToast, useConfirm } from '@/components/ui'
 import type { AdminUser } from '@/app/api/admin/users/route'
 
 function formatDate(dateString: string): string {
@@ -16,9 +17,14 @@ interface SubscriptionModalProps {
   user: AdminUser | null
   onClose: () => void
   onSuccess: () => void
+  toast: {
+    success: (message: string, duration?: number) => void
+    error: (message: string, duration?: number) => void
+  }
+  confirm: (options: { title: string; message: string; confirmText?: string; variant?: 'danger' | 'warning' | 'default' }) => Promise<boolean>
 }
 
-function SubscriptionModal({ user, onClose, onSuccess }: SubscriptionModalProps) {
+function SubscriptionModal({ user, onClose, onSuccess, toast, confirm }: SubscriptionModalProps) {
   const [plan, setPlan] = useState('pro')
   const [durationDays, setDurationDays] = useState(30)
   const [reason, setReason] = useState('')
@@ -41,18 +47,24 @@ function SubscriptionModal({ user, onClose, onSuccess }: SubscriptionModalProps)
       })
       if (!response.ok) throw new Error('Failed to grant')
       const data = await response.json()
-      alert(data.message || '구독이 부여되었습니다.')
+      toast.success(data.message || '구독이 부여되었습니다.')
       onSuccess()
       onClose()
     } catch (error) {
-      alert('구독 부여 실패')
+      toast.error('구독 부여 실패')
     } finally {
       setSaving(false)
     }
   }
 
   const handleRevoke = async () => {
-    if (!confirm('정말 구독을 취소하시겠습니까?')) return
+    const confirmed = await confirm({
+      title: '구독 취소',
+      message: '정말 구독을 취소하시겠습니까?',
+      confirmText: '취소하기',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     setSaving(true)
     try {
@@ -60,11 +72,11 @@ function SubscriptionModal({ user, onClose, onSuccess }: SubscriptionModalProps)
         method: 'DELETE',
       })
       if (!response.ok) throw new Error('Failed to revoke')
-      alert('구독이 취소되었습니다.')
+      toast.success('구독이 취소되었습니다.')
       onSuccess()
       onClose()
     } catch (error) {
-      alert('구독 취소 실패')
+      toast.error('구독 취소 실패')
     } finally {
       setSaving(false)
     }
@@ -161,6 +173,8 @@ function SubscriptionModal({ user, onClose, onSuccess }: SubscriptionModalProps)
 }
 
 export default function AdminUsersPage() {
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -224,6 +238,8 @@ export default function AdminUsersPage() {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
           onSuccess={fetchUsers}
+          toast={toast}
+          confirm={confirm}
         />
       )}
 

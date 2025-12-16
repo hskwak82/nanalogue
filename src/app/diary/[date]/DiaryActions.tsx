@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useToast, useConfirm } from '@/components/ui'
 
 interface DiaryActionsProps {
   date: string
@@ -13,6 +14,8 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
 
   // 대화 이어하기 - 기존 세션을 active로 변경하고 대화 계속
   async function handleContinue() {
@@ -28,7 +31,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
       router.push('/session')
     } catch (error) {
       console.error('Failed to continue session:', error)
-      alert('대화를 이어가는데 실패했습니다.')
+      toast.error('대화를 이어가는데 실패했습니다.')
     } finally {
       setLoading(false)
     }
@@ -36,7 +39,13 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
 
   // 새로 작성하기 - 기존 세션과 일기 삭제 후 새로 시작
   async function handleRewrite() {
-    if (!confirm('기존 일기가 삭제됩니다. 새로 작성하시겠습니까?')) return
+    const confirmed = await confirm({
+      title: '새로 작성하기',
+      message: '기존 일기가 삭제됩니다. 새로 작성하시겠습니까?',
+      confirmText: '새로 작성',
+      variant: 'warning',
+    })
+    if (!confirmed) return
     setLoading(true)
 
     try {
@@ -60,7 +69,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
       router.push('/session')
     } catch (error) {
       console.error('Failed to rewrite:', error)
-      alert('새로 작성하기에 실패했습니다.')
+      toast.error('새로 작성하기에 실패했습니다.')
     } finally {
       setLoading(false)
     }

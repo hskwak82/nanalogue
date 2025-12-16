@@ -12,6 +12,7 @@ import {
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
 import { useEditorState } from '@/lib/editor/useEditorState'
+import { useToast } from '@/components/ui'
 import type {
   CoverTemplate,
   PaperTemplate,
@@ -25,6 +26,7 @@ function CustomizePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const diaryIdParam = searchParams.get('diary')
+  const { toast } = useToast()
 
   const [activeTab, setActiveTab] = useState<TabType>('cover')
   const [isLoading, setIsLoading] = useState(true)
@@ -138,7 +140,7 @@ function CustomizePageContent() {
       }
 
       markSaved()
-      alert('저장되었습니다!')
+      toast.success('저장되었습니다!')
     } catch (err) {
       console.error('Error saving:', err)
       setError('저장에 실패했습니다.')

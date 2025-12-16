@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useToast, useConfirm } from '@/components/ui'
 import type { Announcement } from '@/app/api/admin/announcements/route'
 
 const typeLabels: Record<string, { label: string; class: string }> = {
@@ -38,6 +39,8 @@ const defaultFormData: FormData = {
 }
 
 export default function AdminAnnouncementsPage() {
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -85,7 +88,7 @@ export default function AdminAnnouncementsPage() {
       setEditingId(null)
       setFormData(defaultFormData)
     } catch (error) {
-      alert('저장 실패')
+      toast.error('저장 실패')
     } finally {
       setSaving(false)
     }
@@ -106,7 +109,13 @@ export default function AdminAnnouncementsPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return
+    const confirmed = await confirm({
+      title: '삭제 확인',
+      message: '정말 삭제하시겠습니까?',
+      confirmText: '삭제',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     try {
       const response = await fetch(`/api/admin/announcements?id=${id}`, {
@@ -115,7 +124,7 @@ export default function AdminAnnouncementsPage() {
       if (!response.ok) throw new Error('Failed to delete')
       await fetchAnnouncements()
     } catch (error) {
-      alert('삭제 실패')
+      toast.error('삭제 실패')
     }
   }
 
@@ -129,7 +138,7 @@ export default function AdminAnnouncementsPage() {
       if (!response.ok) throw new Error('Failed to update')
       await fetchAnnouncements()
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     }
   }
 

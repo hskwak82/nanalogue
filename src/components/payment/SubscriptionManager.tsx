@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { PlanCard } from './PlanCard'
 import { TossPayment } from './TossPayment'
+import { useToast, useConfirm } from '@/components/ui'
 import type { SubscriptionPlan, UserSubscription } from '@/types/payment'
 
 type PaymentMode = 'billing' | 'onetime'
@@ -14,6 +15,8 @@ interface SubscriptionManagerProps {
 
 export function SubscriptionManager({ currentSubscription }: SubscriptionManagerProps) {
   const searchParams = useSearchParams()
+  const { toast } = useToast()
+  const { confirm } = useConfirm()
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -133,9 +136,13 @@ export function SubscriptionManager({ currentSubscription }: SubscriptionManager
   }
 
   const handleCancelSubscription = async () => {
-    if (!confirm('정말 구독을 취소하시겠습니까? 현재 결제 기간이 끝날 때까지는 프리미엄 기능을 계속 사용할 수 있습니다.')) {
-      return
-    }
+    const confirmed = await confirm({
+      title: '구독 취소',
+      message: '정말 구독을 취소하시겠습니까? 현재 결제 기간이 끝날 때까지는 프리미엄 기능을 계속 사용할 수 있습니다.',
+      confirmText: '취소하기',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     setIsProcessing(true)
     setError(null)
@@ -151,7 +158,7 @@ export function SubscriptionManager({ currentSubscription }: SubscriptionManager
         throw new Error(data.error || 'Failed to cancel subscription')
       }
 
-      alert(data.message)
+      toast.success(data.message)
       window.location.reload()
     } catch (err) {
       setError(err instanceof Error ? err.message : '구독 취소에 실패했습니다.')
@@ -161,9 +168,13 @@ export function SubscriptionManager({ currentSubscription }: SubscriptionManager
   }
 
   const handleRemoveCard = async () => {
-    if (!confirm('등록된 카드를 삭제하시겠습니까?')) {
-      return
-    }
+    const confirmed = await confirm({
+      title: '카드 삭제',
+      message: '등록된 카드를 삭제하시겠습니까?',
+      confirmText: '삭제',
+      variant: 'danger',
+    })
+    if (!confirmed) return
 
     setIsProcessing(true)
     setError(null)

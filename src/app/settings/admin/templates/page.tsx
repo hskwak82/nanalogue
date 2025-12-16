@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { PencilIcon, TrashIcon, PlusIcon } from '@heroicons/react/24/outline'
+import { useToast } from '@/components/ui'
 
 interface CoverTemplate {
   id: string
@@ -31,6 +32,7 @@ interface PaperTemplate {
 type TemplateType = 'cover' | 'paper'
 
 export default function AdminTemplatesPage() {
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<TemplateType>('cover')
   const [coverTemplates, setCoverTemplates] = useState<CoverTemplate[]>([])
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
@@ -70,7 +72,7 @@ export default function AdminTemplatesPage() {
       if (!response.ok) throw new Error('Failed to update')
       await fetchTemplates(type)
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     } finally {
       setSaving(false)
     }
@@ -87,7 +89,7 @@ export default function AdminTemplatesPage() {
       if (!response.ok) throw new Error('Failed to update')
       await fetchTemplates(type)
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     } finally {
       setSaving(false)
     }

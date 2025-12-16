@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckIcon, PencilIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { useToast } from '@/components/ui'
 import type { SubscriptionPlan } from '@/app/api/admin/plans/route'
 
 function formatCurrency(amount: number): string {
@@ -19,6 +20,7 @@ interface EditingPlan {
 }
 
 export default function AdminPlansPage() {
+  const { toast } = useToast()
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -75,7 +77,7 @@ export default function AdminPlansPage() {
       await fetchPlans()
       setEditing(null)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to save')
+      toast.error(err instanceof Error ? err.message : '저장 실패')
     } finally {
       setSaving(false)
     }

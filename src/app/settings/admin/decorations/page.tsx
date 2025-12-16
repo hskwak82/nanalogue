@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useToast } from '@/components/ui'
 
 interface DecorationItem {
   id: string
@@ -14,6 +15,7 @@ interface DecorationItem {
 }
 
 export default function AdminDecorationsPage() {
+  const { toast } = useToast()
   const [items, setItems] = useState<DecorationItem[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -56,7 +58,7 @@ export default function AdminDecorationsPage() {
       if (!response.ok) throw new Error('Failed to update')
       await fetchItems()
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     } finally {
       setSaving(false)
     }
@@ -73,7 +75,7 @@ export default function AdminDecorationsPage() {
       if (!response.ok) throw new Error('Failed to update')
       await fetchItems()
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     } finally {
       setSaving(false)
     }
@@ -81,7 +83,7 @@ export default function AdminDecorationsPage() {
 
   const bulkTogglePremium = async (isFree: boolean) => {
     if (selectedIds.size === 0) {
-      alert('항목을 선택해주세요.')
+      toast.warning('항목을 선택해주세요.')
       return
     }
 
@@ -96,7 +98,7 @@ export default function AdminDecorationsPage() {
       await fetchItems()
       setSelectedIds(new Set())
     } catch (error) {
-      alert('업데이트 실패')
+      toast.error('업데이트 실패')
     } finally {
       setSaving(false)
     }

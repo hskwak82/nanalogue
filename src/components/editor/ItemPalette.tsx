@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useToast } from '@/components/ui'
 import { DecorationItem, DECORATION_CATEGORIES, ItemType, PhotoMeta } from '@/types/customization'
 import { PhotoUploader } from './photo/PhotoUploader'
 import { PhotoCropModal } from './photo/PhotoCropModal'
@@ -23,6 +24,7 @@ export function ItemPalette({
   photoCount = 0,
   isPremium = false,
 }: ItemPaletteProps) {
+  const { toast } = useToast()
   const [selectedCategory, setSelectedCategory] = useState<string>('photo')
   const [planTab, setPlanTab] = useState<PlanTab>('free')
   const [pendingPhoto, setPendingPhoto] = useState<{ file: File; thumbnailUrl: string } | null>(null)
@@ -90,7 +92,7 @@ export function ItemPalette({
       })
     } catch (error) {
       console.error('Photo upload error:', error)
-      alert('사진 업로드에 실패했습니다. 다시 시도해주세요.')
+      toast.error('사진 업로드에 실패했습니다. 다시 시도해주세요.')
     }
 
     // Clean up
