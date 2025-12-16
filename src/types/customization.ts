@@ -96,6 +96,7 @@ export interface DiaryCustomization {
   cover_template_id: string | null
   paper_template_id: string | null
   cover_decorations: PlacedDecoration[]
+  paper_decorations: PlacedDecoration[]
   created_at: string
   updated_at: string
 }
@@ -111,6 +112,7 @@ export interface CustomizationSaveRequest {
   cover_template_id?: string | null
   paper_template_id?: string | null
   cover_decorations?: PlacedDecoration[]
+  paper_decorations?: PlacedDecoration[]
 }
 
 export interface CustomizationLoadResponse {
@@ -128,19 +130,25 @@ export interface CustomizationLoadResponse {
 export interface EditorState {
   selectedCover: CoverTemplate | null
   selectedPaper: PaperTemplate | null
-  decorations: PlacedDecoration[]
+  coverDecorations: PlacedDecoration[]
+  paperDecorations: PlacedDecoration[]
   selectedItemIndex: number | null
+  activeEditor: 'cover' | 'paper'
   isDirty: boolean
 }
 
 export type EditorAction =
   | { type: 'SET_COVER'; payload: CoverTemplate | null }
   | { type: 'SET_PAPER'; payload: PaperTemplate | null }
-  | { type: 'ADD_DECORATION'; payload: PlacedDecoration }
-  | { type: 'UPDATE_DECORATION'; payload: { index: number; decoration: Partial<PlacedDecoration> } }
-  | { type: 'REMOVE_DECORATION'; payload: number }
+  | { type: 'ADD_COVER_DECORATION'; payload: PlacedDecoration }
+  | { type: 'UPDATE_COVER_DECORATION'; payload: { index: number; decoration: Partial<PlacedDecoration> } }
+  | { type: 'REMOVE_COVER_DECORATION'; payload: number }
+  | { type: 'ADD_PAPER_DECORATION'; payload: PlacedDecoration }
+  | { type: 'UPDATE_PAPER_DECORATION'; payload: { index: number; decoration: Partial<PlacedDecoration> } }
+  | { type: 'REMOVE_PAPER_DECORATION'; payload: number }
   | { type: 'SELECT_ITEM'; payload: number | null }
-  | { type: 'LOAD_STATE'; payload: { cover: CoverTemplate | null; paper: PaperTemplate | null; decorations: PlacedDecoration[] } }
+  | { type: 'SET_ACTIVE_EDITOR'; payload: 'cover' | 'paper' }
+  | { type: 'LOAD_STATE'; payload: { cover: CoverTemplate | null; paper: PaperTemplate | null; coverDecorations: PlacedDecoration[]; paperDecorations: PlacedDecoration[] } }
   | { type: 'RESET' }
   | { type: 'MARK_SAVED' }
 

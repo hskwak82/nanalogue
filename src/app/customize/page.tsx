@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { CoverEditor } from '@/components/editor/CoverEditor'
+import { PaperEditor } from '@/components/editor/PaperEditor'
 import { ItemPalette } from '@/components/editor/ItemPalette'
 import {
   CoverTemplateSelector,
@@ -42,6 +43,7 @@ function CustomizePageContent() {
     state,
     setCover,
     setPaper,
+    setActiveEditor,
     addDecoration,
     updateDecoration,
     removeDecoration,
@@ -49,6 +51,11 @@ function CustomizePageContent() {
     loadState,
     markSaved,
   } = useEditorState()
+
+  // Sync active tab with active editor
+  useEffect(() => {
+    setActiveEditor(activeTab)
+  }, [activeTab, setActiveEditor])
 
   // Load data on mount
   useEffect(() => {
@@ -85,7 +92,12 @@ function CustomizePageContent() {
             (t) => t.id === data.customization?.paper_template_id
           ) || null
 
-          loadState(cover, paper, data.customization.cover_decorations)
+          loadState(
+            cover,
+            paper,
+            data.customization.cover_decorations || [],
+            data.customization.paper_decorations || []
+          )
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -114,7 +126,8 @@ function CustomizePageContent() {
           diary_id: diaryId,
           cover_template_id: state.selectedCover?.id || null,
           paper_template_id: state.selectedPaper?.id || null,
-          cover_decorations: state.decorations,
+          cover_decorations: state.coverDecorations,
+          paper_decorations: state.paperDecorations,
         }),
       })
 
@@ -204,11 +217,11 @@ function CustomizePageContent() {
             onClick={() => setActiveTab('paper')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === 'paper'
-                ? 'bg-pastel-purple text-white'
+                ? 'bg-pastel-mint text-white'
                 : 'bg-white/70 text-gray-600 hover:bg-white'
             }`}
           >
-            속지 선택
+            속지 꾸미기
           </button>
         </div>
 
@@ -220,7 +233,7 @@ function CustomizePageContent() {
               <div className="flex justify-center">
                 <CoverEditor
                   template={state.selectedCover}
-                  decorations={state.decorations}
+                  decorations={state.coverDecorations}
                   selectedIndex={state.selectedItemIndex}
                   onUpdate={updateDecoration}
                   onSelect={selectItem}
@@ -244,47 +257,30 @@ function CustomizePageContent() {
             </>
           ) : (
             <>
-              {/* Paper Selection */}
-              <div className="lg:col-span-2">
+              {/* Left: Paper Editor */}
+              <div className="flex justify-center">
+                <PaperEditor
+                  template={state.selectedPaper}
+                  decorations={state.paperDecorations}
+                  selectedIndex={state.selectedItemIndex}
+                  onUpdate={updateDecoration}
+                  onSelect={selectItem}
+                  onRemove={removeDecoration}
+                />
+              </div>
+
+              {/* Right: Controls */}
+              <div className="space-y-4">
                 <PaperTemplateSelector
                   templates={paperTemplates}
                   selectedId={state.selectedPaper?.id || null}
                   onSelect={setPaper}
                 />
 
-                {/* Preview */}
-                {state.selectedPaper && (
-                  <div className="mt-6 p-6 rounded-xl border border-pastel-pink/30">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-4">
-                      미리보기
-                    </h3>
-                    <div
-                      className="min-h-[200px] p-4 rounded-lg"
-                      style={{
-                        backgroundColor: state.selectedPaper.background_color,
-                        backgroundImage:
-                          state.selectedPaper.line_style === 'lined'
-                            ? `repeating-linear-gradient(transparent, transparent 27px, ${state.selectedPaper.line_color} 27px, ${state.selectedPaper.line_color} 28px)`
-                            : state.selectedPaper.line_style === 'grid'
-                            ? `linear-gradient(${state.selectedPaper.line_color} 1px, transparent 1px), linear-gradient(90deg, ${state.selectedPaper.line_color} 1px, transparent 1px)`
-                            : state.selectedPaper.line_style === 'dotted'
-                            ? `radial-gradient(circle, ${state.selectedPaper.line_color} 1px, transparent 1px)`
-                            : 'none',
-                        backgroundSize:
-                          state.selectedPaper.line_style === 'grid' ||
-                          state.selectedPaper.line_style === 'dotted'
-                            ? '28px 28px'
-                            : 'auto',
-                      }}
-                    >
-                      <p className="text-gray-600 leading-relaxed">
-                        오늘 하루는 정말 좋았다. 아침에 일어나서 창문을 열었더니
-                        시원한 바람이 불어왔다. 커피 한 잔을 마시며 하루를
-                        시작했다. 오후에는 친구와 함께 카페에 갔다...
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <ItemPalette
+                  items={decorationItems}
+                  onSelectItem={addDecoration}
+                />
               </div>
             </>
           )}

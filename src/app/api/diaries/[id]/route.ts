@@ -64,6 +64,7 @@ export async function GET(
       cover_template_id: diary.cover_template_id,
       paper_template_id: diary.paper_template_id,
       cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
+      paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
       spine_color: diary.spine_color,
       spine_gradient: diary.spine_gradient,
       created_at: diary.created_at,
@@ -111,6 +112,7 @@ export async function PATCH(
     if (body.cover_template_id !== undefined) updateData.cover_template_id = body.cover_template_id
     if (body.paper_template_id !== undefined) updateData.paper_template_id = body.paper_template_id
     if (body.cover_decorations !== undefined) updateData.cover_decorations = body.cover_decorations
+    if (body.paper_decorations !== undefined) updateData.paper_decorations = body.paper_decorations
     if (body.spine_color !== undefined) updateData.spine_color = body.spine_color
     if (body.spine_gradient !== undefined) updateData.spine_gradient = body.spine_gradient
 
@@ -138,6 +140,7 @@ export async function PATCH(
     const response: DiaryWithTemplates = {
       ...diary,
       cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
+      paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
       cover_template: diary.cover_templates || null,
       paper_template: diary.paper_templates || null,
     }

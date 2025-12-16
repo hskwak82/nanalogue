@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { DiaryActions } from './DiaryActions'
 import { DiaryPaper } from '@/components/diary/DiaryPaper'
-import type { PaperTemplate } from '@/types/customization'
+import type { PaperTemplate, PlacedDecoration } from '@/types/customization'
 
 interface DiaryDetailPageProps {
   params: Promise<{ date: string }>
@@ -39,14 +39,38 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     return notFound()
   }
 
-  // Get diary customization for paper template
-  const { data: customization } = await supabase
-    .from('diary_customization')
-    .select('*, paper_templates(*)')
-    .eq('user_id', user.id)
-    .maybeSingle()
+  // Get diary customization for paper template and decorations
+  // First try to get from the diary associated with this entry
+  let paperTemplate: PaperTemplate | null = null
+  let paperDecorations: PlacedDecoration[] = []
 
-  const paperTemplate = customization?.paper_templates as PaperTemplate | null
+  if (entry.diary_id) {
+    const { data: diary } = await supabase
+      .from('diaries')
+      .select('paper_template_id, paper_decorations, paper_templates(*)')
+      .eq('id', entry.diary_id)
+      .single()
+
+    if (diary) {
+      // paper_templates is returned as a single object (or null) from foreign key join
+      paperTemplate = (diary.paper_templates as unknown as PaperTemplate) || null
+      paperDecorations = (diary.paper_decorations || []) as PlacedDecoration[]
+    }
+  }
+
+  // Fallback to diary_customization if no diary found
+  if (!paperTemplate) {
+    const { data: customization } = await supabase
+      .from('diary_customization')
+      .select('*, paper_templates(*)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (customization) {
+      paperTemplate = (customization.paper_templates as unknown as PaperTemplate) || null
+      paperDecorations = (customization.paper_decorations || []) as PlacedDecoration[]
+    }
+  }
 
   const formattedDate = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -120,6 +144,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
         {/* Diary Content */}
         <DiaryPaper
           template={paperTemplate}
+          decorations={paperDecorations}
           className="mb-8 shadow-sm border border-pastel-pink/30"
         >
           <div className="prose prose-gray max-w-none">

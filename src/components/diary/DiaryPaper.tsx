@@ -1,10 +1,29 @@
 'use client'
 
-import { PaperTemplate, LineStyle } from '@/types/customization'
+import { PaperTemplate, LineStyle, PlacedDecoration, ShapeType } from '@/types/customization'
 import { ReactNode } from 'react'
+
+// Helper function to get CSS clip-path for shape types
+function getClipPathForShape(shapeType: ShapeType): string {
+  switch (shapeType) {
+    case 'circle':
+      return 'circle(50% at 50% 50%)'
+    case 'square':
+      return 'inset(0)'
+    case 'diamond':
+      return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+    case 'heart':
+      return 'polygon(50% 90%, 15% 55%, 0% 35%, 0% 20%, 15% 0%, 35% 0%, 50% 15%, 65% 0%, 85% 0%, 100% 20%, 100% 35%, 85% 55%)'
+    case 'star':
+      return 'polygon(50% 0%, 61% 38%, 100% 38%, 69% 62%, 80% 100%, 50% 76%, 20% 100%, 31% 62%, 0% 38%, 39% 38%)'
+    default:
+      return 'none'
+  }
+}
 
 interface DiaryPaperProps {
   template: PaperTemplate | null
+  decorations?: PlacedDecoration[]
   children: ReactNode
   className?: string
 }
@@ -53,6 +72,7 @@ const DEFAULT_PAPER: Pick<PaperTemplate, 'background_color' | 'line_style' | 'li
 
 export function DiaryPaper({
   template,
+  decorations = [],
   children,
   className = '',
 }: DiaryPaperProps) {
@@ -66,19 +86,59 @@ export function DiaryPaper({
 
   return (
     <div
-      className={`relative min-h-[400px] p-6 rounded-lg ${className}`}
+      className={`relative min-h-[400px] p-6 rounded-lg overflow-hidden ${className}`}
       style={{
         backgroundColor: paper.background_color,
         backgroundImage: linePattern,
         backgroundSize: backgroundSize,
       }}
     >
+      {/* Paper decorations layer */}
+      {decorations.length > 0 && (
+        <div className="absolute inset-0 pointer-events-none z-0">
+          {decorations.map((decoration, index) => (
+            <div
+              key={index}
+              className="absolute select-none"
+              style={{
+                left: `${decoration.x}%`,
+                top: `${decoration.y}%`,
+                transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
+                zIndex: decoration.z_index,
+                opacity: 0.6, // Make decorations subtle on paper
+              }}
+            >
+              {decoration.type === 'emoji' ? (
+                <span className="text-3xl">{decoration.content}</span>
+              ) : decoration.type === 'photo' ? (
+                <img
+                  src={decoration.content}
+                  alt="Decoration"
+                  className="w-16 h-16 object-cover"
+                  style={{
+                    clipPath: decoration.photo_meta?.shape_type
+                      ? getClipPathForShape(decoration.photo_meta.shape_type)
+                      : undefined,
+                  }}
+                  draggable={false}
+                />
+              ) : (
+                <span
+                  className="block w-8 h-8 text-pastel-purple-dark"
+                  dangerouslySetInnerHTML={{ __html: decoration.content }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Content */}
       <div className="relative z-10">{children}</div>
 
       {/* Paper texture overlay */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-5"
+        className="absolute inset-0 pointer-events-none opacity-5 z-20"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
         }}

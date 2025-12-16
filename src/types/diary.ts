@@ -17,6 +17,7 @@ export interface Diary {
   cover_template_id: string | null
   paper_template_id: string | null
   cover_decorations: PlacedDecoration[]
+  paper_decorations: PlacedDecoration[]
   spine_color: string | null
   spine_gradient: string | null
   created_at: string
@@ -44,6 +45,7 @@ export interface UpdateDiaryRequest {
   cover_template_id?: string | null
   paper_template_id?: string | null
   cover_decorations?: PlacedDecoration[]
+  paper_decorations?: PlacedDecoration[]
   spine_color?: string
   spine_gradient?: string
 }

@@ -21,21 +21,27 @@ export async function POST(request: Request) {
 
     const body: SaveRequestWithDiary = await request.json()
 
-    // Validate cover_decorations if provided
-    if (body.cover_decorations) {
-      for (const decoration of body.cover_decorations) {
+    // Validate decorations if provided
+    const validateDecorations = (decorations: typeof body.cover_decorations) => {
+      if (!decorations) return true
+      for (const decoration of decorations) {
         if (
           typeof decoration.x !== 'number' ||
           typeof decoration.y !== 'number' ||
           typeof decoration.scale !== 'number' ||
           typeof decoration.rotation !== 'number'
         ) {
-          return NextResponse.json(
-            { error: 'Invalid decoration data' },
-            { status: 400 }
-          )
+          return false
         }
       }
+      return true
+    }
+
+    if (!validateDecorations(body.cover_decorations) || !validateDecorations(body.paper_decorations)) {
+      return NextResponse.json(
+        { error: 'Invalid decoration data' },
+        { status: 400 }
+      )
     }
 
     // If diary_id is provided, update the diaries table
@@ -46,6 +52,7 @@ export async function POST(request: Request) {
           cover_template_id: body.cover_template_id,
           paper_template_id: body.paper_template_id,
           cover_decorations: body.cover_decorations || [],
+          paper_decorations: body.paper_decorations || [],
           updated_at: new Date().toISOString(),
         })
         .eq('id', body.diary_id)
@@ -77,6 +84,7 @@ export async function POST(request: Request) {
           cover_template_id: body.cover_template_id,
           paper_template_id: body.paper_template_id,
           cover_decorations: body.cover_decorations || [],
+          paper_decorations: body.paper_decorations || [],
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
@@ -95,6 +103,7 @@ export async function POST(request: Request) {
         cover_template_id: body.cover_template_id,
         paper_template_id: body.paper_template_id,
         cover_decorations: body.cover_decorations || [],
+        paper_decorations: body.paper_decorations || [],
       })
 
       if (error) {

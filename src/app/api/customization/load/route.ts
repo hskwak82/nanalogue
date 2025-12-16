@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
           cover_template_id: diary.cover_template_id,
           paper_template_id: diary.paper_template_id,
           cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
+          paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
           created_at: diary.created_at,
           updated_at: diary.updated_at,
         }
@@ -98,6 +99,7 @@ export async function GET(request: NextRequest) {
           cover_template_id: activeDiary.cover_template_id,
           paper_template_id: activeDiary.paper_template_id,
           cover_decorations: (activeDiary.cover_decorations || []) as PlacedDecoration[],
+          paper_decorations: (activeDiary.paper_decorations || []) as PlacedDecoration[],
           created_at: activeDiary.created_at,
           updated_at: activeDiary.updated_at,
         }
@@ -113,6 +115,7 @@ export async function GET(request: NextRequest) {
           customization = {
             ...oldCustomization,
             cover_decorations: (oldCustomization.cover_decorations || []) as PlacedDecoration[],
+            paper_decorations: (oldCustomization.paper_decorations || []) as PlacedDecoration[],
           }
         }
       }
