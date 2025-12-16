@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { issueBillingKey, getCardCompanyName } from '@/lib/toss'
 
 // GET /api/payments/billing-callback - Handle Toss billing auth callback
@@ -48,8 +49,14 @@ export async function GET(request: Request) {
       cardNumber = billingResponse.card.number.slice(-4)
     }
 
+    // Use service role client to bypass RLS
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // Update subscription with billing key
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('subscriptions')
       .update({
         toss_billing_key: billingKey,

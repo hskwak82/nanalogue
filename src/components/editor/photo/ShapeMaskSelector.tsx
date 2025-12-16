@@ -37,7 +37,7 @@ export function ShapeMaskSelector({
           relative w-14 h-14 rounded-xl flex flex-col items-center justify-center
           transition-all
           ${isLocked
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+            ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
             : isSelected
               ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2 cursor-pointer'
               : 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
@@ -48,12 +48,6 @@ export function ShapeMaskSelector({
         <span className="text-2xl">{shape.icon}</span>
         <span className="text-[10px] mt-0.5">{shape.name}</span>
 
-        {/* Lock indicator */}
-        {isLocked && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-            <span className="text-xs">🔒</span>
-          </div>
-        )}
       </button>
     )
   }

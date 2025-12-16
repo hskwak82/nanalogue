@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 
 // GET /api/payments/confirm - Handle one-time payment confirmation
 export async function GET(request: Request) {
@@ -61,8 +62,14 @@ export async function GET(request: Request) {
     const periodEnd = new Date(now)
     periodEnd.setMonth(periodEnd.getMonth() + 1)
 
+    // Use service role client to bypass RLS for admin operations
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // Record payment in history
-    await supabase.from('payment_history').insert({
+    await serviceClient.from('payment_history').insert({
       user_id: user.id,
       plan_id: 'pro',
       payment_key: paymentKey,
@@ -72,17 +79,42 @@ export async function GET(request: Request) {
       paid_at: new Date().toISOString(),
     })
 
-    // Update subscription to pro
-    const { error: updateError } = await supabase
+    // Check if subscription exists
+    const { data: existingSub } = await serviceClient
       .from('subscriptions')
-      .update({
-        plan: 'pro',
-        status: 'active',
-        current_period_start: now.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        updated_at: now.toISOString(),
-      })
+      .select('id')
       .eq('user_id', user.id)
+      .maybeSingle()
+
+    let updateError
+    if (!existingSub) {
+      // Create new subscription
+      const { error } = await serviceClient
+        .from('subscriptions')
+        .insert({
+          user_id: user.id,
+          plan: 'pro',
+          status: 'active',
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
+        })
+      updateError = error
+    } else {
+      // Update existing subscription
+      const { error } = await serviceClient
+        .from('subscriptions')
+        .update({
+          plan: 'pro',
+          status: 'active',
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          updated_at: now.toISOString(),
+        })
+        .eq('user_id', user.id)
+      updateError = error
+    }
 
     if (updateError) {
       console.error('Error updating subscription:', updateError)

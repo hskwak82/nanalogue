@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { approveBillingPayment, generateOrderId } from '@/lib/toss'
 import { getSubscriptionPlan } from '@/lib/premium'
 import { IS_TEST_MODE } from '@/types/payment'
@@ -46,9 +47,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Subscription not found' }, { status: 404 })
     }
 
+    // Use service role client to bypass RLS for subscription updates
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     // Free plan - just update the plan
     if (planId === 'free') {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await serviceClient
         .from('subscriptions')
         .update({
           plan: 'free',
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
     // In test mode, skip actual payment
     if (IS_TEST_MODE) {
       // Record test payment in history
-      await supabase.from('payment_history').insert({
+      await serviceClient.from('payment_history').insert({
         user_id: user.id,
         plan_id: planId,
         payment_key: `test_payment_${Date.now()}`,
@@ -94,7 +101,7 @@ export async function POST(request: Request) {
       })
 
       // Update subscription
-      const { error: updateError } = await supabase
+      const { error: updateError } = await serviceClient
         .from('subscriptions')
         .update({
           plan: planId,
@@ -128,7 +135,7 @@ export async function POST(request: Request) {
     )
 
     // Record payment in history
-    await supabase.from('payment_history').insert({
+    await serviceClient.from('payment_history').insert({
       user_id: user.id,
       plan_id: planId,
       payment_key: paymentResponse.paymentKey,
@@ -139,7 +146,7 @@ export async function POST(request: Request) {
     })
 
     // Update subscription
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from('subscriptions')
       .update({
         plan: planId,

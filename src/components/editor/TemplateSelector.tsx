@@ -55,7 +55,7 @@ export function CoverTemplateSelector({
         disabled={isLocked}
         className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition-all ${
           isLocked
-            ? 'opacity-60 cursor-not-allowed border-gray-200'
+            ? 'cursor-not-allowed border-gray-200'
             : selectedId === template.id
               ? 'border-pastel-purple ring-2 ring-pastel-purple/30'
               : 'border-gray-200 hover:border-pastel-purple/50'
@@ -90,14 +90,6 @@ export function CoverTemplateSelector({
           </div>
         )}
 
-        {/* Lock overlay for premium templates */}
-        {isLocked && (
-          <div className="absolute inset-0 bg-gray-900/20 flex items-center justify-center">
-            <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
-              <span className="text-xs">🔒</span>
-            </div>
-          </div>
-        )}
       </button>
     )
   }
@@ -159,14 +151,6 @@ export function PaperTemplateSelector({
           onClick={() => !isLocked && onSelect(template)}
         />
 
-        {/* Lock overlay */}
-        {isLocked && (
-          <div className="absolute inset-0 bg-gray-900/20 flex items-center justify-center rounded-lg">
-            <div className="w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center">
-              <span className="text-[10px]">🔒</span>
-            </div>
-          </div>
-        )}
       </div>
       <span className={`text-xs ${isLocked ? 'text-gray-400' : 'text-gray-500'}`}>
         {template.name}

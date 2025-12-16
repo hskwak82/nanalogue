@@ -112,7 +112,7 @@ export function ItemPalette({
       className={`
         relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors
         ${isLocked
-          ? 'opacity-60 cursor-not-allowed'
+          ? 'cursor-not-allowed'
           : 'hover:bg-pastel-pink-light cursor-pointer'
         }
       `}
@@ -127,12 +127,6 @@ export function ItemPalette({
         />
       )}
 
-      {/* Lock indicator */}
-      {isLocked && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
-          <span className="text-[8px]">🔒</span>
-        </div>
-      )}
     </button>
   )
 
