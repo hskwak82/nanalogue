@@ -495,6 +495,30 @@ export default function AdminUsersPage() {
         body: formData,
       })
 
+      const contentType = response.headers.get('content-type')
+
+      // Check if response is Excel file (failed rows)
+      if (contentType?.includes('spreadsheetml')) {
+        const successCount = response.headers.get('X-Import-Success') || '0'
+        const failedCount = response.headers.get('X-Import-Failed') || '0'
+
+        // Download the failed rows Excel file
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = '나날로그_등록실패_목록.xlsx'
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        toast.success(`${successCount}명 등록 완료, ${failedCount}명 실패 (실패 목록 다운로드됨)`)
+        fetchUsers()
+        return
+      }
+
+      // JSON response (all succeeded or error)
       const data = await response.json()
 
       if (!response.ok) {
@@ -502,11 +526,6 @@ export default function AdminUsersPage() {
       }
 
       toast.success(data.message)
-
-      if (data.failed && data.failed.length > 0) {
-        console.log('Failed imports:', data.failed)
-      }
-
       fetchUsers()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '일괄 등록 실패')

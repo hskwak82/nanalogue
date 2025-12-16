@@ -10,6 +10,10 @@ interface ImportRow {
   '구독기간(일)'?: string | number
 }
 
+interface FailedRow extends ImportRow {
+  '실패사유': string
+}
+
 // POST /api/admin/users/import - Import users from Excel
 export async function POST(request: Request) {
   const auth = await checkAdminAuth()
@@ -39,10 +43,8 @@ export async function POST(request: Request) {
     }
 
     const supabase = getAdminServiceClient()
-    const results: { success: string[]; failed: { email: string; error: string }[] } = {
-      success: [],
-      failed: [],
-    }
+    const successList: string[] = []
+    const failedRows: FailedRow[] = []
 
     for (const row of data) {
       const email = row['이메일']?.toString().trim()
@@ -53,17 +55,17 @@ export async function POST(request: Request) {
 
       // Validate required fields
       if (!email) {
-        results.failed.push({ email: '(빈 이메일)', error: '이메일 누락' })
+        failedRows.push({ ...row, '실패사유': '이메일 누락' })
         continue
       }
 
       if (!password) {
-        results.failed.push({ email, error: '비밀번호 누락' })
+        failedRows.push({ ...row, '실패사유': '비밀번호 누락' })
         continue
       }
 
       if (password.length < 6) {
-        results.failed.push({ email, error: '비밀번호 6자 이상' })
+        failedRows.push({ ...row, '실패사유': '비밀번호 6자 이상 필요' })
         continue
       }
 
@@ -80,7 +82,11 @@ export async function POST(request: Request) {
         })
 
         if (userError) {
-          results.failed.push({ email, error: userError.message })
+          let errorMsg = userError.message
+          if (errorMsg.includes('already been registered')) {
+            errorMsg = '이미 등록된 이메일'
+          }
+          failedRows.push({ ...row, '실패사유': errorMsg })
           continue
         }
 
@@ -97,19 +103,55 @@ export async function POST(request: Request) {
           })
         }
 
-        results.success.push(email)
+        successList.push(email)
       } catch (err) {
-        results.failed.push({
-          email,
-          error: err instanceof Error ? err.message : 'Unknown error',
+        failedRows.push({
+          ...row,
+          '실패사유': err instanceof Error ? err.message : 'Unknown error',
         })
       }
     }
 
+    // If there are failed rows, return as Excel file
+    if (failedRows.length > 0) {
+      const failedData = failedRows.map(row => ({
+        '이메일': row['이메일'] || '',
+        '이름': row['이름'] || '',
+        '비밀번호': row['비밀번호'] || '',
+        '플랜': row['플랜'] || '',
+        '구독기간(일)': row['구독기간(일)'] || '',
+        '실패사유': row['실패사유'],
+      }))
+
+      const failedWb = XLSX.utils.book_new()
+      const failedWs = XLSX.utils.json_to_sheet(failedData)
+      failedWs['!cols'] = [
+        { wch: 30 }, // 이메일
+        { wch: 15 }, // 이름
+        { wch: 20 }, // 비밀번호
+        { wch: 10 }, // 플랜
+        { wch: 15 }, // 구독기간
+        { wch: 30 }, // 실패사유
+      ]
+      XLSX.utils.book_append_sheet(failedWb, failedWs, '등록실패')
+
+      const buf = XLSX.write(failedWb, { type: 'buffer', bookType: 'xlsx' })
+
+      return new NextResponse(buf, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent('나날로그_등록실패_목록.xlsx')}`,
+          'X-Import-Success': successList.length.toString(),
+          'X-Import-Failed': failedRows.length.toString(),
+        },
+      })
+    }
+
+    // All succeeded
     return NextResponse.json({
-      message: `${results.success.length}명 등록 완료, ${results.failed.length}명 실패`,
-      success: results.success,
-      failed: results.failed,
+      message: `${successList.length}명 등록 완료`,
+      successCount: successList.length,
+      failedCount: 0,
     })
   } catch (error) {
     console.error('Error importing users:', error)
