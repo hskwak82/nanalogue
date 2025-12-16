@@ -1,7 +1,14 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { MagnifyingGlassIcon, XMarkIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import {
+  MagnifyingGlassIcon,
+  XMarkIcon,
+  TrashIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  DocumentArrowDownIcon,
+} from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
 import type { AdminUser } from '@/app/api/admin/users/route'
 
@@ -306,6 +313,8 @@ export default function AdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkModal, setShowBulkModal] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -424,6 +433,84 @@ export default function AdminUsersPage() {
     }
   }
 
+  // Excel functions
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/admin/users/export')
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `나날로그_사용자목록_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success('사용자 목록이 다운로드되었습니다.')
+    } catch (error) {
+      toast.error('내보내기 실패')
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch('/api/admin/users/template')
+      if (!response.ok) throw new Error('Template download failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = '나날로그_사용자등록_양식.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success('등록 양식이 다운로드되었습니다.')
+    } catch (error) {
+      toast.error('양식 다운로드 실패')
+    }
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admin/users/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Import failed')
+      }
+
+      toast.success(data.message)
+
+      if (data.failed && data.failed.length > 0) {
+        console.log('Failed imports:', data.failed)
+      }
+
+      fetchUsers()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '일괄 등록 실패')
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    }
+  }
+
   const isAllSelected = users.length > 0 && selectedIds.size === users.length
   const isSomeSelected = selectedIds.size > 0
 
@@ -491,6 +578,36 @@ export default function AdminUsersPage() {
           <option value="free">무료</option>
           <option value="pro">프로</option>
         </select>
+      </div>
+
+      {/* Excel Tools */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          <ArrowDownTrayIcon className="h-4 w-4" />
+          내보내기
+        </button>
+        <button
+          onClick={handleDownloadTemplate}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          <DocumentArrowDownIcon className="h-4 w-4" />
+          등록 양식
+        </button>
+        <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+          <ArrowUpTrayIcon className="h-4 w-4" />
+          {importing ? '등록 중...' : '일괄 등록'}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleImport}
+            disabled={importing}
+            className="hidden"
+          />
+        </label>
       </div>
 
       {/* Bulk Action Bar */}
