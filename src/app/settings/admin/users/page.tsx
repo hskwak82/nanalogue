@@ -339,13 +339,9 @@ export default function AdminUsersPage() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.name || '이름 없음'}
-                        </div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
-                      </div>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">
+                      <span className="font-medium text-gray-900">{user.name || '이름 없음'}</span>
+                      <span className="text-gray-400 ml-1">({user.email})</span>
                     </td>
                     <td className="px-4 py-2 whitespace-nowrap text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPlanBadgeClass(user.plan)}`}>
