@@ -411,7 +411,7 @@ export default function AdminUsersPage() {
             전체 <span className="font-medium text-gray-900">{pagination.total}</span>명
             {pagination.total > 0 && (
               <span className="ml-2">
-                ({(pagination.page - 1) * pagination.limit + 1}-{Math.min(pagination.page * pagination.limit, pagination.total)}명 표시)
+                ({(pagination.page - 1) * pagination.limit + 1} ~ {Math.min(pagination.page * pagination.limit, pagination.total)})
               </span>
             )}
           </p>
