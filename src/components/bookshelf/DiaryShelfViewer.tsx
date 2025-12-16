@@ -187,7 +187,7 @@ export function DiaryShelfViewer({
       </div>
 
       {/* Main content: Cover + Shelf */}
-      <div className="flex items-end gap-6">
+      <div className="flex items-start gap-6">
         {/* Cover display */}
         <div className="flex flex-col items-center gap-2">
           <AnimatePresence mode="wait">
@@ -208,12 +208,6 @@ export function DiaryShelfViewer({
                       decorations={displayedDiary.cover_decorations}
                       size="preview"
                     />
-                    {/* Title at bottom */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent p-2 rounded-b-lg">
-                      <p className="text-white text-xs font-medium text-center truncate drop-shadow">
-                        {displayedDiary.title || `${displayedDiary.volume_number}권`}
-                      </p>
-                    </div>
                     {/* Hover overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
                       <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium drop-shadow-lg">
@@ -221,6 +215,10 @@ export function DiaryShelfViewer({
                       </span>
                     </div>
                   </div>
+                  {/* Title below cover */}
+                  <p className="mt-2 text-xs text-gray-600 font-medium text-center truncate max-w-[120px]">
+                    {displayedDiary.title || `${displayedDiary.volume_number}권`}
+                  </p>
                 </Link>
               </motion.div>
             )}
@@ -233,7 +231,7 @@ export function DiaryShelfViewer({
             {/* Shelf */}
             <div className="relative pb-3">
               {/* Books */}
-              <div className="flex items-end gap-1 min-h-[140px] pt-2">
+              <div className="flex items-end gap-1 min-h-[160px]">
                 {shelfDiaries.map((diary) => (
                   <MiniSpine
                     key={diary.id}

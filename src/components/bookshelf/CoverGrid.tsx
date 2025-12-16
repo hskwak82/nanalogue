@@ -49,13 +49,6 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
               size="preview"
             />
 
-            {/* Title overlay */}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent p-3 rounded-b-lg">
-              <p className="text-white text-xs font-semibold truncate text-center drop-shadow-md">
-                {diary.title || `${diary.volume_number}권`}
-              </p>
-            </div>
-
             {/* Volume badge */}
             <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm">
               {diary.volume_number}권
@@ -87,8 +80,11 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
           </div>
 
           {/* Info below cover */}
-          <div className="mt-2 text-center">
-            <p className="text-xs text-gray-500">
+          <div className="mt-2 text-center max-w-[120px]">
+            <p className="text-xs text-gray-700 font-medium truncate">
+              {diary.title || `${diary.volume_number}권`}
+            </p>
+            <p className="text-[10px] text-gray-500">
               {formatDateRange(diary.start_date, diary.end_date)}
             </p>
             {diary.entry_count !== undefined && diary.entry_count > 0 && (
