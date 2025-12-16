@@ -114,18 +114,20 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
             width: BOOK_WIDTH,
             height: BOOK_HEIGHT,
             transformStyle: 'preserve-3d',
-            transform: isOpening
-              ? 'rotateY(-120deg) translateX(-60px)'
-              : 'rotateY(-15deg) rotateX(5deg)',
+            transform: 'rotateY(-15deg) rotateX(5deg)',
           }}
         >
-          {/* Front Cover */}
+          {/* Front Cover - Opens like a real book */}
           <div
-            className="absolute inset-0 rounded-r-lg shadow-2xl overflow-hidden"
+            className="absolute inset-0 rounded-r-lg shadow-2xl overflow-hidden transition-transform duration-700 ease-out"
             style={{
               ...coverStyle,
               backfaceVisibility: 'hidden',
-              transform: `translateZ(${BOOK_DEPTH / 2}px)`,
+              transformStyle: 'preserve-3d',
+              transformOrigin: 'left center',
+              transform: isOpening
+                ? `translateZ(${BOOK_DEPTH / 2}px) rotateY(-160deg)`
+                : `translateZ(${BOOK_DEPTH / 2}px) rotateY(0deg)`,
             }}
           >
             {/* Decorations */}
@@ -172,6 +174,45 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
               className="absolute inset-0 pointer-events-none"
               style={{
                 background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 50%, rgba(0,0,0,0.05) 100%)',
+              }}
+            />
+
+            {/* Back of front cover (visible when opened) */}
+            <div
+              className="absolute inset-0 rounded-r-lg"
+              style={{
+                background: 'linear-gradient(to right, #f8f6f0, #f0ebe0)',
+                transform: 'rotateY(180deg)',
+                backfaceVisibility: 'hidden',
+              }}
+            />
+          </div>
+
+          {/* First inside page (visible when cover opens) */}
+          <div
+            className="absolute inset-0 rounded-r-lg"
+            style={{
+              background: 'linear-gradient(to right, #fffef9, #f9f7f2)',
+              transform: `translateZ(${BOOK_DEPTH / 2 - 2}px)`,
+              boxShadow: 'inset 3px 0 8px rgba(0,0,0,0.05)',
+            }}
+          >
+            {/* Page content placeholder */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+              <div className="w-16 h-16 mb-4 rounded-full bg-pastel-purple-light/50 flex items-center justify-center">
+                <svg className="w-8 h-8 text-pastel-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+              </div>
+              <p className="text-pastel-purple-dark font-medium text-sm">오늘의 이야기</p>
+              <p className="text-gray-400 text-xs mt-1">시작하기</p>
+            </div>
+
+            {/* Page edge shadow */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-4"
+              style={{
+                background: 'linear-gradient(to right, rgba(0,0,0,0.08), transparent)',
               }}
             />
           </div>
@@ -280,10 +321,25 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
             bottom: '-30px',
             left: '50%',
             transform: isOpening
-              ? 'translateX(-80%) scaleX(1.2)'
+              ? 'translateX(-30%) scaleX(1.3)'
               : 'translateX(-50%) scaleX(1)',
           }}
         />
+
+        {/* Cover shadow when opening */}
+        {isOpening && (
+          <div
+            className="absolute transition-all duration-700"
+            style={{
+              width: BOOK_WIDTH * 0.6,
+              height: 15,
+              background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, transparent 70%)',
+              filter: 'blur(6px)',
+              bottom: '-25px',
+              left: '-20%',
+            }}
+          />
+        )}
       </div>
     )
   }
