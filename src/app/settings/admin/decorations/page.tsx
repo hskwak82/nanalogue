@@ -120,6 +120,19 @@ export default function AdminDecorationsPage() {
     }
   }
 
+  // Render decoration content (SVG or emoji)
+  const renderContent = (content: string) => {
+    if (content.trim().startsWith('<svg')) {
+      return (
+        <div
+          className="w-8 h-8 mx-auto [&>svg]:w-full [&>svg]:h-full"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      )
+    }
+    return <span>{content}</span>
+  }
+
   // Group items by category
   const groupedItems = items.reduce(
     (acc, item) => {
@@ -237,7 +250,7 @@ export default function AdminDecorationsPage() {
                 } ${!item.is_active ? 'opacity-40' : ''}`}
               >
                 {/* Content */}
-                <div className="text-3xl text-center mb-1">{item.content}</div>
+                <div className="text-3xl text-center mb-1">{renderContent(item.content)}</div>
 
                 {/* Premium Badge */}
                 {!item.is_free && (
