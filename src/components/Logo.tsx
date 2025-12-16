@@ -3,9 +3,10 @@
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg'
   showText?: boolean
+  className?: string
 }
 
-export function Logo({ size = 'md', showText = true }: LogoProps) {
+export function Logo({ size = 'md', showText = true, className = '' }: LogoProps) {
   const sizes = {
     sm: { icon: 24, text: 'text-lg' },
     md: { icon: 32, text: 'text-xl' },
@@ -15,7 +16,7 @@ export function Logo({ size = 'md', showText = true }: LogoProps) {
   const { icon, text } = sizes[size]
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className}`}>
       {/* Logo Icon - Abstract Leaf (성장과 기록) */}
       <svg
         width={icon}
