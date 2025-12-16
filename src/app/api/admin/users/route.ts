@@ -8,6 +8,8 @@ export interface AdminUser {
   created_at: string
   plan: string
   status: string
+  subscription_type: 'recurring' | 'manual' | 'none' // 정기구독/수동부여/없음
+  next_billing_date: string | null
   diary_count: number
   entry_count: number
 }
@@ -64,7 +66,7 @@ export async function GET(request: Request) {
     const userIds = profiles.map((p) => p.id)
     const { data: subscriptions } = await supabase
       .from('subscriptions')
-      .select('user_id, plan, status')
+      .select('user_id, plan, status, toss_billing_key, next_billing_date')
       .in('user_id', userIds)
 
     // Get diary counts for these users
@@ -75,7 +77,12 @@ export async function GET(request: Request) {
 
     // Create maps for quick lookup
     const subMap = new Map(
-      subscriptions?.map((s) => [s.user_id, { plan: s.plan, status: s.status }])
+      subscriptions?.map((s) => [s.user_id, {
+        plan: s.plan,
+        status: s.status,
+        toss_billing_key: s.toss_billing_key,
+        next_billing_date: s.next_billing_date
+      }])
     )
 
     // Count diaries per user
@@ -114,16 +121,29 @@ export async function GET(request: Request) {
     }
 
     // Combine data
-    let users: AdminUser[] = profiles.map((p) => ({
-      id: p.id,
-      email: p.email,
-      name: p.name,
-      created_at: p.created_at,
-      plan: subMap.get(p.id)?.plan || 'free',
-      status: subMap.get(p.id)?.status || 'none',
-      diary_count: diaryCountMap.get(p.id) || 0,
-      entry_count: entryCountMap.get(p.id) || 0,
-    }))
+    let users: AdminUser[] = profiles.map((p) => {
+      const sub = subMap.get(p.id)
+      const plan = sub?.plan || 'free'
+
+      // Determine subscription type
+      let subscriptionType: 'recurring' | 'manual' | 'none' = 'none'
+      if (plan === 'pro' && sub) {
+        subscriptionType = sub.toss_billing_key ? 'recurring' : 'manual'
+      }
+
+      return {
+        id: p.id,
+        email: p.email,
+        name: p.name,
+        created_at: p.created_at,
+        plan,
+        status: sub?.status || 'none',
+        subscription_type: subscriptionType,
+        next_billing_date: sub?.next_billing_date || null,
+        diary_count: diaryCountMap.get(p.id) || 0,
+        entry_count: entryCountMap.get(p.id) || 0,
+      }
+    })
 
     // Apply plan filter if specified
     if (planFilter) {

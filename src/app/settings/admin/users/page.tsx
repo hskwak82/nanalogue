@@ -99,7 +99,14 @@ function SubscriptionModal({ user, onClose, onSuccess, toast, confirm }: Subscri
             <p className="text-sm text-gray-500">{user.email}</p>
             <p className="text-sm text-gray-500 mt-1">
               현재 플랜: <span className={user.plan === 'pro' ? 'text-indigo-600 font-medium' : ''}>{user.plan === 'pro' ? '프로' : '무료'}</span>
+              {user.subscription_type === 'recurring' && <span className="ml-2 text-green-600">(정기구독)</span>}
+              {user.subscription_type === 'manual' && <span className="ml-2 text-amber-600">(수동부여)</span>}
             </p>
+            {user.next_billing_date && (
+              <p className="text-sm text-gray-500">
+                다음 결제일: {formatDate(user.next_billing_date)}
+              </p>
+            )}
           </div>
 
           {/* Grant Subscription */}
@@ -293,6 +300,9 @@ export default function AdminUsersPage() {
                     플랜
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    구독 유형
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     다이어리
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -321,6 +331,26 @@ export default function AdminUsersPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPlanBadgeClass(user.plan)}`}>
                         {user.plan === 'pro' ? '프로' : '무료'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.subscription_type === 'recurring' ? (
+                        <div>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            정기구독
+                          </span>
+                          {user.next_billing_date && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              다음 결제: {formatDate(user.next_billing_date)}
+                            </p>
+                          )}
+                        </div>
+                      ) : user.subscription_type === 'manual' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          수동부여
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {user.diary_count}
