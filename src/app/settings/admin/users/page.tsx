@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import type { AdminUser } from '@/app/api/admin/users/route'
 
 function formatDate(dateString: string): string {
@@ -12,12 +12,161 @@ function formatDate(dateString: string): string {
   })
 }
 
+interface SubscriptionModalProps {
+  user: AdminUser | null
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function SubscriptionModal({ user, onClose, onSuccess }: SubscriptionModalProps) {
+  const [plan, setPlan] = useState('pro')
+  const [durationDays, setDurationDays] = useState(30)
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  if (!user) return null
+
+  const handleGrant = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch('/api/admin/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          plan,
+          durationDays,
+          reason,
+        }),
+      })
+      if (!response.ok) throw new Error('Failed to grant')
+      const data = await response.json()
+      alert(data.message || '구독이 부여되었습니다.')
+      onSuccess()
+      onClose()
+    } catch (error) {
+      alert('구독 부여 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRevoke = async () => {
+    if (!confirm('정말 구독을 취소하시겠습니까?')) return
+
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/admin/subscriptions?userId=${user.id}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) throw new Error('Failed to revoke')
+      alert('구독이 취소되었습니다.')
+      onSuccess()
+      onClose()
+    } catch (error) {
+      alert('구독 취소 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="font-semibold text-gray-900">구독 관리</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* User Info */}
+          <div className="p-3 bg-gray-50 rounded-lg">
+            <p className="font-medium text-gray-900">{user.name || '이름 없음'}</p>
+            <p className="text-sm text-gray-500">{user.email}</p>
+            <p className="text-sm text-gray-500 mt-1">
+              현재 플랜: <span className={user.plan === 'pro' ? 'text-indigo-600 font-medium' : ''}>{user.plan === 'pro' ? '프로' : '무료'}</span>
+            </p>
+          </div>
+
+          {/* Grant Subscription */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-900">구독 부여</h4>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">플랜</label>
+                <select
+                  value={plan}
+                  onChange={(e) => setPlan(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                >
+                  <option value="pro">프로</option>
+                  <option value="free">무료</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">기간 (일)</label>
+                <select
+                  value={durationDays}
+                  onChange={(e) => setDurationDays(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                >
+                  <option value={7}>7일</option>
+                  <option value={30}>30일</option>
+                  <option value={90}>90일</option>
+                  <option value={180}>180일</option>
+                  <option value={365}>365일</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">사유 (선택)</label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="예: 테스터 계정, 이벤트 당첨"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+              />
+            </div>
+
+            <button
+              onClick={handleGrant}
+              disabled={saving}
+              className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {saving ? '처리 중...' : '구독 부여'}
+            </button>
+          </div>
+
+          {/* Revoke Subscription */}
+          {user.plan === 'pro' && (
+            <div className="pt-3 border-t">
+              <button
+                onClick={handleRevoke}
+                disabled={saving}
+                className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
+              >
+                구독 취소 (무료로 변경)
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('')
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -69,6 +218,15 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Subscription Modal */}
+      {selectedUser && (
+        <SubscriptionModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onSuccess={fetchUsers}
+        />
+      )}
+
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <form onSubmit={handleSearch} className="flex-1">
@@ -127,6 +285,9 @@ export default function AdminUsersPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     가입일
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    관리
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -153,6 +314,14 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(user.created_at)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => setSelectedUser(user)}
+                        className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                      >
+                        구독 관리
+                      </button>
                     </td>
                   </tr>
                 ))}
