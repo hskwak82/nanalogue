@@ -1,6 +1,24 @@
 'use client'
 
-import { CoverTemplate, PlacedDecoration } from '@/types/customization'
+import { CoverTemplate, PlacedDecoration, ShapeType } from '@/types/customization'
+
+// Helper function to get CSS clip-path for shape types
+function getClipPathForShape(shapeType: ShapeType): string {
+  switch (shapeType) {
+    case 'circle':
+      return 'circle(50% at 50% 50%)'
+    case 'square':
+      return 'inset(0)'
+    case 'diamond':
+      return 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
+    case 'heart':
+      return 'polygon(50% 90%, 15% 55%, 0% 35%, 0% 20%, 15% 0%, 35% 0%, 50% 15%, 65% 0%, 85% 0%, 100% 20%, 100% 35%, 85% 55%)'
+    case 'star':
+      return 'polygon(50% 0%, 61% 38%, 100% 38%, 69% 62%, 80% 100%, 50% 76%, 20% 100%, 31% 62%, 0% 38%, 39% 38%)'
+    default:
+      return 'none'
+  }
+}
 
 interface DiaryCoverProps {
   template: CoverTemplate | null
@@ -85,6 +103,20 @@ export function DiaryCover({
         >
           {decoration.type === 'emoji' ? (
             <span>{decoration.content}</span>
+          ) : decoration.type === 'photo' ? (
+            <img
+              src={decoration.content}
+              alt="Photo decoration"
+              style={{
+                width: size === 'preview' ? '40px' : '80px',
+                height: size === 'preview' ? '40px' : '80px',
+                objectFit: 'cover',
+                clipPath: decoration.photo_meta?.shape_type
+                  ? getClipPathForShape(decoration.photo_meta.shape_type)
+                  : undefined,
+              }}
+              draggable={false}
+            />
           ) : (
             <span
               className="block text-pastel-purple-dark"
