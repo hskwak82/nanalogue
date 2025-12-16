@@ -4,7 +4,9 @@ import { useState } from 'react'
 import { DecorationItem, DECORATION_CATEGORIES, ItemType, PhotoMeta } from '@/types/customization'
 import { PhotoUploader } from './photo/PhotoUploader'
 import { PhotoCropModal } from './photo/PhotoCropModal'
-import { PremiumSectionDivider } from './PremiumSectionDivider'
+import { PremiumTabs } from './PremiumSectionDivider'
+
+type PlanTab = 'free' | 'premium'
 
 interface ItemPaletteProps {
   items: DecorationItem[]
@@ -22,6 +24,7 @@ export function ItemPalette({
   isPremium = false,
 }: ItemPaletteProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('photo')
+  const [planTab, setPlanTab] = useState<PlanTab>('free')
   const [pendingPhoto, setPendingPhoto] = useState<{ file: File; thumbnailUrl: string } | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
 
@@ -33,6 +36,9 @@ export function ItemPalette({
   // Separate free and premium items
   const freeItems = filteredItems.filter(item => item.is_free)
   const premiumItems = filteredItems.filter(item => !item.is_free)
+
+  const displayItems = planTab === 'free' ? freeItems : premiumItems
+  const isLocked = planTab === 'premium' && !isPremium
 
   const handlePhotoSelected = (file: File, thumbnailUrl: string) => {
     setPendingPhoto({ file, thumbnailUrl })
@@ -92,7 +98,7 @@ export function ItemPalette({
     setShowCropModal(false)
   }
 
-  const renderItem = (item: DecorationItem, isLocked: boolean = false) => (
+  const renderItem = (item: DecorationItem) => (
     <button
       key={item.id}
       onClick={() =>
@@ -121,17 +127,10 @@ export function ItemPalette({
         />
       )}
 
-      {/* Lock indicator for premium items */}
+      {/* Lock indicator */}
       {isLocked && (
         <div className="absolute -top-1 -right-1 w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
           <span className="text-[8px]">🔒</span>
-        </div>
-      )}
-
-      {/* Premium indicator (unlocked) */}
-      {!item.is_free && isPremium && (
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-          <span className="text-[8px]">✨</span>
         </div>
       )}
     </button>
@@ -146,7 +145,10 @@ export function ItemPalette({
         {DECORATION_CATEGORIES.map((category) => (
           <button
             key={category.id}
-            onClick={() => setSelectedCategory(category.id)}
+            onClick={() => {
+              setSelectedCategory(category.id)
+              setPlanTab('free') // Reset to free tab when changing category
+            }}
             className={`px-2 py-1 rounded-full text-xs transition-all ${
               selectedCategory === category.id
                 ? 'bg-pastel-purple text-white'
@@ -167,31 +169,27 @@ export function ItemPalette({
           currentPhotoCount={photoCount}
         />
       ) : (
-        /* Items grid with free/premium separation */
-        <div className="max-h-48 overflow-y-auto">
-          {/* Free items */}
-          {freeItems.length > 0 && (
-            <div className="grid grid-cols-6 gap-2">
-              {freeItems.map(item => renderItem(item, false))}
-            </div>
-          )}
-
-          {/* Premium items */}
+        /* Items grid with tabs */
+        <div>
+          {/* Plan tabs - only show if there are premium items */}
           {premiumItems.length > 0 && (
-            <>
-              <PremiumSectionDivider isPremium={isPremium} itemCount={premiumItems.length} />
-              <div className="grid grid-cols-6 gap-2">
-                {premiumItems.map(item => renderItem(item, !isPremium))}
-              </div>
-            </>
+            <PremiumTabs
+              activeTab={planTab}
+              onTabChange={setPlanTab}
+              freeCount={freeItems.length}
+              premiumCount={premiumItems.length}
+              isPremium={isPremium}
+            />
           )}
 
-          {/* Empty state */}
-          {freeItems.length === 0 && premiumItems.length === 0 && (
-            <p className="text-center text-gray-400 text-sm py-4">
-              아이템이 없습니다
-            </p>
-          )}
+          <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto">
+            {displayItems.map(renderItem)}
+            {displayItems.length === 0 && (
+              <p className="col-span-6 text-center text-gray-400 text-sm py-4">
+                아이템이 없습니다
+              </p>
+            )}
+          </div>
         </div>
       )}
 

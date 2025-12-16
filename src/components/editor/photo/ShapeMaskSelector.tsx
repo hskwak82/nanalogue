@@ -1,7 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { ShapeType, SHAPE_MASKS } from '@/types/customization'
-import { PremiumSectionDivider } from '../PremiumSectionDivider'
+import { PremiumTabs } from '../PremiumSectionDivider'
+
+type PlanTab = 'free' | 'premium'
 
 interface ShapeMaskSelectorProps {
   selectedShape: ShapeType | null
@@ -14,11 +17,15 @@ export function ShapeMaskSelector({
   onSelectShape,
   isPremium = false,
 }: ShapeMaskSelectorProps) {
+  const [activeTab, setActiveTab] = useState<PlanTab>('free')
+
   const freeShapes = SHAPE_MASKS.filter(s => s.is_free)
   const premiumShapes = SHAPE_MASKS.filter(s => !s.is_free)
 
+  const displayShapes = activeTab === 'free' ? freeShapes : premiumShapes
+  const isLocked = activeTab === 'premium' && !isPremium
+
   const renderShapeButton = (shape: typeof SHAPE_MASKS[0]) => {
-    const isLocked = !shape.is_free && !isPremium
     const isSelected = selectedShape === shape.id
 
     return (
@@ -41,17 +48,10 @@ export function ShapeMaskSelector({
         <span className="text-2xl">{shape.icon}</span>
         <span className="text-[10px] mt-0.5">{shape.name}</span>
 
-        {/* Lock indicator for premium shapes */}
+        {/* Lock indicator */}
         {isLocked && (
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
             <span className="text-xs">🔒</span>
-          </div>
-        )}
-
-        {/* Premium indicator (unlocked) */}
-        {!shape.is_free && isPremium && (
-          <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
-            <span className="text-xs">✨</span>
           </div>
         )}
       </button>
@@ -60,20 +60,20 @@ export function ShapeMaskSelector({
 
   return (
     <div>
-      {/* Free shapes */}
-      <div className="grid grid-cols-3 gap-2">
-        {freeShapes.map(renderShapeButton)}
-      </div>
-
-      {/* Premium shapes */}
+      {/* Tabs - only show if there are premium shapes */}
       {premiumShapes.length > 0 && (
-        <>
-          <PremiumSectionDivider isPremium={isPremium} itemCount={premiumShapes.length} />
-          <div className="grid grid-cols-2 gap-2">
-            {premiumShapes.map(renderShapeButton)}
-          </div>
-        </>
+        <PremiumTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          freeCount={freeShapes.length}
+          premiumCount={premiumShapes.length}
+          isPremium={isPremium}
+        />
       )}
+
+      <div className="grid grid-cols-3 gap-2">
+        {displayShapes.map(renderShapeButton)}
+      </div>
     </div>
   )
 }

@@ -1,8 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { CoverTemplate, PaperTemplate } from '@/types/customization'
 import { PaperPreview } from '../diary/DiaryPaper'
-import { PremiumSectionDivider } from './PremiumSectionDivider'
+import { PremiumTabs } from './PremiumSectionDivider'
+
+type PlanTab = 'free' | 'premium'
 
 interface CoverTemplateSelectorProps {
   templates: CoverTemplate[]
@@ -28,10 +31,15 @@ export function CoverTemplateSelector({
   onSelect,
   isPremium = false,
 }: CoverTemplateSelectorProps) {
+  const [activeTab, setActiveTab] = useState<PlanTab>('free')
+
   const freeTemplates = templates.filter(t => t.is_free)
   const premiumTemplates = templates.filter(t => !t.is_free)
 
-  const renderTemplate = (template: CoverTemplate, isLocked: boolean) => {
+  const displayTemplates = activeTab === 'free' ? freeTemplates : premiumTemplates
+  const isLocked = activeTab === 'premium' && !isPremium
+
+  const renderTemplate = (template: CoverTemplate) => {
     const parsed = parseImageUrl(template.image_url)
     const style =
       parsed.type === 'gradient'
@@ -82,26 +90,12 @@ export function CoverTemplateSelector({
           </div>
         )}
 
-        {/* Free badge */}
-        {template.is_free && (
-          <div className="absolute top-1 left-1 px-1 py-0.5 bg-pastel-mint text-[10px] text-pastel-purple-dark rounded">
-            무료
-          </div>
-        )}
-
-        {/* Lock indicator for premium templates */}
+        {/* Lock overlay for premium templates */}
         {isLocked && (
           <div className="absolute inset-0 bg-gray-900/20 flex items-center justify-center">
             <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
               <span className="text-xs">🔒</span>
             </div>
-          </div>
-        )}
-
-        {/* Premium indicator (unlocked) */}
-        {!template.is_free && isPremium && (
-          <div className="absolute top-1 left-1 px-1 py-0.5 bg-amber-400 text-[10px] text-white rounded flex items-center gap-0.5">
-            <span>✨</span>
           </div>
         )}
       </button>
@@ -112,22 +106,23 @@ export function CoverTemplateSelector({
     <div className="bg-white/80 rounded-xl p-4 shadow-sm border border-pastel-pink/30">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">표지 선택</h3>
 
-      <div className="max-h-48 overflow-y-auto">
-        {/* Free templates */}
-        {freeTemplates.length > 0 && (
-          <div className="grid grid-cols-4 gap-3">
-            {freeTemplates.map(template => renderTemplate(template, false))}
-          </div>
-        )}
+      {/* Tabs */}
+      {premiumTemplates.length > 0 && (
+        <PremiumTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          freeCount={freeTemplates.length}
+          premiumCount={premiumTemplates.length}
+          isPremium={isPremium}
+        />
+      )}
 
-        {/* Premium templates */}
-        {premiumTemplates.length > 0 && (
-          <>
-            <PremiumSectionDivider isPremium={isPremium} itemCount={premiumTemplates.length} />
-            <div className="grid grid-cols-4 gap-3">
-              {premiumTemplates.map(template => renderTemplate(template, !isPremium))}
-            </div>
-          </>
+      <div className="grid grid-cols-4 gap-3 max-h-48 overflow-y-auto">
+        {displayTemplates.map(renderTemplate)}
+        {displayTemplates.length === 0 && (
+          <p className="col-span-4 text-center text-gray-400 text-sm py-4">
+            템플릿이 없습니다
+          </p>
         )}
       </div>
     </div>
@@ -147,10 +142,15 @@ export function PaperTemplateSelector({
   onSelect,
   isPremium = false,
 }: PaperTemplateSelectorProps) {
+  const [activeTab, setActiveTab] = useState<PlanTab>('free')
+
   const freeTemplates = templates.filter(t => t.is_free)
   const premiumTemplates = templates.filter(t => !t.is_free)
 
-  const renderTemplate = (template: PaperTemplate, isLocked: boolean) => (
+  const displayTemplates = activeTab === 'free' ? freeTemplates : premiumTemplates
+  const isLocked = activeTab === 'premium' && !isPremium
+
+  const renderTemplate = (template: PaperTemplate) => (
     <div key={template.id} className="flex flex-col items-center gap-1">
       <div className="relative">
         <PaperPreview
@@ -159,19 +159,12 @@ export function PaperTemplateSelector({
           onClick={() => !isLocked && onSelect(template)}
         />
 
-        {/* Lock overlay for premium templates */}
+        {/* Lock overlay */}
         {isLocked && (
           <div className="absolute inset-0 bg-gray-900/20 flex items-center justify-center rounded-lg">
             <div className="w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center">
               <span className="text-[10px]">🔒</span>
             </div>
-          </div>
-        )}
-
-        {/* Premium indicator (unlocked) */}
-        {!template.is_free && isPremium && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-            <span className="text-[8px]">✨</span>
           </div>
         )}
       </div>
@@ -185,22 +178,23 @@ export function PaperTemplateSelector({
     <div className="bg-white/80 rounded-xl p-4 shadow-sm border border-pastel-pink/30">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">속지 선택</h3>
 
-      <div className="max-h-48 overflow-y-auto">
-        {/* Free templates */}
-        {freeTemplates.length > 0 && (
-          <div className="flex flex-wrap gap-3">
-            {freeTemplates.map(template => renderTemplate(template, false))}
-          </div>
-        )}
+      {/* Tabs */}
+      {premiumTemplates.length > 0 && (
+        <PremiumTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          freeCount={freeTemplates.length}
+          premiumCount={premiumTemplates.length}
+          isPremium={isPremium}
+        />
+      )}
 
-        {/* Premium templates */}
-        {premiumTemplates.length > 0 && (
-          <>
-            <PremiumSectionDivider isPremium={isPremium} itemCount={premiumTemplates.length} />
-            <div className="flex flex-wrap gap-3">
-              {premiumTemplates.map(template => renderTemplate(template, !isPremium))}
-            </div>
-          </>
+      <div className="flex flex-wrap gap-3 max-h-48 overflow-y-auto">
+        {displayTemplates.map(renderTemplate)}
+        {displayTemplates.length === 0 && (
+          <p className="w-full text-center text-gray-400 text-sm py-4">
+            템플릿이 없습니다
+          </p>
         )}
       </div>
     </div>
