@@ -37,22 +37,50 @@ export function ItemPalette({
   const handleCropComplete = async (croppedBlob: Blob, cropMeta: Omit<PhotoMeta, 'photo_id'>) => {
     if (!pendingPhoto) return
 
-    // Create temporary URL for the cropped image
-    const croppedUrl = URL.createObjectURL(croppedBlob)
+    try {
+      // Upload to Supabase Storage via API
+      const formData = new FormData()
+      formData.append('file', pendingPhoto.file)
+      formData.append('cropped_file', croppedBlob, 'cropped.png')
+      formData.append('crop_type', cropMeta.crop_type)
+      if (cropMeta.shape_type) {
+        formData.append('shape_type', cropMeta.shape_type)
+      }
+      if (cropMeta.lasso_path) {
+        formData.append('lasso_path', cropMeta.lasso_path)
+      }
+      if (diaryId) {
+        formData.append('diary_id', diaryId)
+      }
 
-    // Generate a temporary ID (will be replaced when uploaded to server)
-    const tempId = `temp_${Date.now()}`
+      const response = await fetch('/api/photos/upload', {
+        method: 'POST',
+        body: formData,
+      })
 
-    // Add photo decoration
-    onSelectItem({
-      item_id: tempId,
-      type: 'photo',
-      content: croppedUrl,
-      photo_meta: {
-        ...cropMeta,
-        photo_id: tempId,
-      },
-    })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '업로드 실패')
+      }
+
+      const data = await response.json()
+
+      // Add photo decoration with permanent URL
+      onSelectItem({
+        item_id: data.photo_id,
+        type: 'photo',
+        content: data.cropped_url || data.original_url,
+        photo_meta: {
+          ...cropMeta,
+          photo_id: data.photo_id,
+          original_url: data.original_url,
+          cropped_url: data.cropped_url,
+        },
+      })
+    } catch (error) {
+      console.error('Photo upload error:', error)
+      alert('사진 업로드에 실패했습니다. 다시 시도해주세요.')
+    }
 
     // Clean up
     setPendingPhoto(null)
