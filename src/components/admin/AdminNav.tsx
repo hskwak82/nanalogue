@@ -8,6 +8,8 @@ import {
   CreditCardIcon,
   CubeIcon,
   ArrowLeftIcon,
+  SwatchIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 const navItems = [
@@ -15,6 +17,8 @@ const navItems = [
   { href: '/settings/admin/users', label: '사용자', icon: UsersIcon },
   { href: '/settings/admin/payments', label: '결제', icon: CreditCardIcon },
   { href: '/settings/admin/plans', label: '플랜', icon: CubeIcon },
+  { href: '/settings/admin/templates', label: '템플릿', icon: SwatchIcon },
+  { href: '/settings/admin/decorations', label: '데코레이션', icon: SparklesIcon },
 ]
 
 export function AdminNav() {
