@@ -9,6 +9,8 @@ import {
   EditorAction,
   DEFAULT_DECORATION_SCALE,
   DEFAULT_DECORATION_ROTATION,
+  ItemType,
+  PhotoMeta,
 } from '@/types/customization'
 
 const initialState: EditorState = {
@@ -110,14 +112,17 @@ export function useEditorState() {
   }, [])
 
   const addDecoration = useCallback(
-    (item: { item_id: string; type: 'emoji' | 'icon' | 'sticker'; content: string }) => {
+    (item: { item_id: string; type: ItemType; content: string; photo_meta?: PhotoMeta }) => {
       const decoration: PlacedDecoration = {
-        ...item,
+        item_id: item.item_id,
+        type: item.type,
+        content: item.content,
         x: 50, // Center
         y: 50,
         scale: DEFAULT_DECORATION_SCALE,
         rotation: DEFAULT_DECORATION_ROTATION,
         z_index: state.decorations.length + 1,
+        photo_meta: item.photo_meta,
       }
       dispatch({ type: 'ADD_DECORATION', payload: decoration })
     },

@@ -1,7 +1,38 @@
 // Diary Customization Types
 
 export type LineStyle = 'none' | 'lined' | 'grid' | 'dotted'
-export type ItemType = 'emoji' | 'icon' | 'sticker'
+export type ItemType = 'emoji' | 'icon' | 'sticker' | 'photo'
+
+// Photo Cropping Types
+export type CropType = 'none' | 'lasso' | 'shape'
+export type ShapeType = 'circle' | 'heart' | 'star' | 'square' | 'diamond'
+
+// Photo metadata for cropped images
+export interface PhotoMeta {
+  photo_id: string           // Reference to user_photos table
+  original_url: string       // Original uploaded image URL
+  cropped_url?: string       // Cropped image URL (after processing)
+  crop_type: CropType
+  shape_type?: ShapeType     // Only when crop_type === 'shape'
+  lasso_path?: string        // SVG path data for re-editing (only when crop_type === 'lasso')
+}
+
+// Shape mask definitions
+export interface ShapeMask {
+  id: ShapeType
+  name: string
+  icon: string
+  is_free: boolean
+  svg_path?: string          // SVG clip-path for complex shapes
+}
+
+export const SHAPE_MASKS: ShapeMask[] = [
+  { id: 'circle', name: '원형', icon: '⚪', is_free: true },
+  { id: 'square', name: '사각형', icon: '⬜', is_free: true },
+  { id: 'diamond', name: '다이아몬드', icon: '◇', is_free: true },
+  { id: 'heart', name: '하트', icon: '❤️', is_free: false },
+  { id: 'star', name: '별', icon: '⭐', is_free: false },
+]
 
 // Cover Template
 export interface CoverTemplate {
@@ -49,12 +80,13 @@ export interface DecorationItem {
 export interface PlacedDecoration {
   item_id: string
   type: ItemType
-  content: string
-  x: number        // position X (0-100 percentage)
-  y: number        // position Y (0-100 percentage)
-  scale: number    // 0.5 - 3.0
-  rotation: number // degrees (-180 to 180)
+  content: string            // For photos: cropped image URL
+  x: number                  // position X (0-100 percentage)
+  y: number                  // position Y (0-100 percentage)
+  scale: number              // 0.5 - 3.0
+  rotation: number           // degrees (-180 to 180)
   z_index: number
+  photo_meta?: PhotoMeta     // Only when type === 'photo'
 }
 
 // User's diary customization settings
@@ -120,6 +152,7 @@ export interface DecorationCategory {
 }
 
 export const DECORATION_CATEGORIES: DecorationCategory[] = [
+  { id: 'photo', name: '사진', icon: '📷' },
   { id: 'nature', name: '자연/꽃', icon: '🌸' },
   { id: 'hearts', name: '하트', icon: '❤️' },
   { id: 'stars', name: '별/날씨', icon: '⭐' },
