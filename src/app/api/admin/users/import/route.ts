@@ -50,10 +50,25 @@ export async function POST(request: Request) {
       const email = row['이메일']?.toString().trim()
       const name = row['이름']?.toString().trim()
       const password = row['비밀번호']?.toString()
-      const planRaw = row['플랜']?.toString().toLowerCase().trim() || 'free'
+      const planRaw = row['플랜']?.toString().trim() || 'free'
       // Accept both "pro" and "프로" as pro plan
-      const plan = (planRaw === 'pro' || planRaw === '프로') ? 'pro' : 'free'
-      const durationDays = parseInt(row['구독기간(일)']?.toString() || '30') || 30
+      const plan = (planRaw.toLowerCase() === 'pro' || planRaw === '프로') ? 'pro' : 'free'
+      console.log('Plan processing:', { planRaw, plan, email })
+
+      // Parse duration - validate for pro plan
+      const durationRaw = row['구독기간(일)']?.toString().trim()
+      let durationDays = 30
+      if (plan === 'pro') {
+        if (durationRaw) {
+          const parsed = parseInt(durationRaw)
+          if (isNaN(parsed) || parsed <= 0) {
+            failedRows.push({ ...row, '실패사유': `구독기간 오류: "${durationRaw}"` })
+            continue
+          }
+          durationDays = parsed
+        }
+        // If empty, default 30 is used
+      }
 
       // Validate required fields
       if (!email) {
@@ -94,15 +109,22 @@ export async function POST(request: Request) {
 
         // If pro plan, create subscription
         if (plan === 'pro' && userData.user) {
+          console.log('Creating pro subscription for:', email)
           const periodEnd = new Date()
           periodEnd.setDate(periodEnd.getDate() + durationDays)
 
-          await supabase.from('subscriptions').upsert({
+          const { error: subError } = await supabase.from('subscriptions').upsert({
             user_id: userData.user.id,
             plan: 'pro',
             status: 'active',
             current_period_end: periodEnd.toISOString(),
-          })
+          }, { onConflict: 'user_id' })
+
+          if (subError) {
+            console.error('Subscription error:', subError)
+          } else {
+            console.log('Subscription created successfully for:', email)
+          }
         }
 
         successList.push(email)

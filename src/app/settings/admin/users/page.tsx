@@ -606,43 +606,44 @@ export default function AdminUsersPage() {
         </select>
       </div>
 
-      {/* Excel Tools */}
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          onClick={handleExport}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          <ArrowDownTrayIcon className="h-4 w-4" />
-          {selectedIds.size > 0 ? `내보내기 (${selectedIds.size}명)` : '내보내기'}
-        </button>
-        <button
-          onClick={handleDownloadTemplate}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          <DocumentArrowDownIcon className="h-4 w-4" />
-          등록 양식
-        </button>
-        <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}>
-          <ArrowUpTrayIcon className="h-4 w-4" />
-          {importing ? '등록 중...' : '일괄 등록'}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleImport}
-            disabled={importing}
-            className="hidden"
-          />
-        </label>
-      </div>
+      {/* Tools Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* Left: Excel Tools */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            {selectedIds.size > 0 ? `내보내기 (${selectedIds.size}명)` : '내보내기'}
+          </button>
+          <button
+            onClick={handleDownloadTemplate}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            <DocumentArrowDownIcon className="h-4 w-4" />
+            등록 양식
+          </button>
+          <label className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer ${importing ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <ArrowUpTrayIcon className="h-4 w-4" />
+            {importing ? '등록 중...' : '일괄 등록'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleImport}
+              disabled={importing}
+              className="hidden"
+            />
+          </label>
+        </div>
 
-      {/* Bulk Action Bar */}
-      {isSomeSelected && (
-        <div className="flex items-center gap-4 p-3 bg-indigo-50 rounded-lg">
-          <span className="text-sm font-medium text-indigo-700">
-            {selectedIds.size}명 선택됨
-          </span>
-          <div className="flex gap-2">
+        {/* Right: Bulk Actions (when selected) */}
+        {isSomeSelected && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-indigo-700">
+              {selectedIds.size}명 선택
+            </span>
             <button
               onClick={() => setShowBulkModal(true)}
               className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -662,15 +663,15 @@ export default function AdminUsersPage() {
               <TrashIcon className="h-4 w-4" />
               삭제
             </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
           </div>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-sm text-gray-500 hover:text-gray-700"
-          >
-            선택 해제
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Users Table */}
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
