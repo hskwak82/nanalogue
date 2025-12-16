@@ -1,6 +1,7 @@
 'use client'
 
 import { ShapeType, SHAPE_MASKS } from '@/types/customization'
+import { PremiumSectionDivider } from '../PremiumSectionDivider'
 
 interface ShapeMaskSelectorProps {
   selectedShape: ShapeType | null
@@ -13,48 +14,66 @@ export function ShapeMaskSelector({
   onSelectShape,
   isPremium = false,
 }: ShapeMaskSelectorProps) {
+  const freeShapes = SHAPE_MASKS.filter(s => s.is_free)
+  const premiumShapes = SHAPE_MASKS.filter(s => !s.is_free)
+
+  const renderShapeButton = (shape: typeof SHAPE_MASKS[0]) => {
+    const isLocked = !shape.is_free && !isPremium
+    const isSelected = selectedShape === shape.id
+
+    return (
+      <button
+        key={shape.id}
+        onClick={() => !isLocked && onSelectShape(shape.id)}
+        disabled={isLocked}
+        className={`
+          relative w-14 h-14 rounded-xl flex flex-col items-center justify-center
+          transition-all
+          ${isLocked
+            ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
+            : isSelected
+              ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2 cursor-pointer'
+              : 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
+          }
+        `}
+        title={isLocked ? '프리미엄 구독 필요' : shape.name}
+      >
+        <span className="text-2xl">{shape.icon}</span>
+        <span className="text-[10px] mt-0.5">{shape.name}</span>
+
+        {/* Lock indicator for premium shapes */}
+        {isLocked && (
+          <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
+            <span className="text-xs">🔒</span>
+          </div>
+        )}
+
+        {/* Premium indicator (unlocked) */}
+        {!shape.is_free && isPremium && (
+          <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
+            <span className="text-xs">✨</span>
+          </div>
+        )}
+      </button>
+    )
+  }
+
   return (
-    <div className="grid grid-cols-5 gap-2">
-      {SHAPE_MASKS.map((shape) => {
-        const isLocked = !shape.is_free && !isPremium
-        const isSelected = selectedShape === shape.id
+    <div>
+      {/* Free shapes */}
+      <div className="grid grid-cols-3 gap-2">
+        {freeShapes.map(renderShapeButton)}
+      </div>
 
-        return (
-          <button
-            key={shape.id}
-            onClick={() => !isLocked && onSelectShape(shape.id)}
-            disabled={isLocked}
-            className={`
-              relative w-14 h-14 rounded-xl flex flex-col items-center justify-center
-              transition-all
-              ${isLocked
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60'
-                : isSelected
-                  ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple ring-offset-2 cursor-pointer'
-                  : 'bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer'
-              }
-            `}
-            title={isLocked ? '프리미엄 구독 필요' : shape.name}
-          >
-            <span className="text-2xl">{shape.icon}</span>
-            <span className="text-[10px] mt-0.5">{shape.name}</span>
-
-            {/* Lock indicator for premium shapes */}
-            {isLocked && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
-                <span className="text-xs">🔒</span>
-              </div>
-            )}
-
-            {/* Premium indicator (unlocked) */}
-            {!shape.is_free && isPremium && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
-                <span className="text-xs">✨</span>
-              </div>
-            )}
-          </button>
-        )
-      })}
+      {/* Premium shapes */}
+      {premiumShapes.length > 0 && (
+        <>
+          <PremiumSectionDivider isPremium={isPremium} itemCount={premiumShapes.length} />
+          <div className="grid grid-cols-2 gap-2">
+            {premiumShapes.map(renderShapeButton)}
+          </div>
+        </>
+      )}
     </div>
   )
 }

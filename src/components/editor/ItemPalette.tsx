@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { DecorationItem, DECORATION_CATEGORIES, ItemType, PhotoMeta } from '@/types/customization'
 import { PhotoUploader } from './photo/PhotoUploader'
 import { PhotoCropModal } from './photo/PhotoCropModal'
+import { PremiumSectionDivider } from './PremiumSectionDivider'
 
 interface ItemPaletteProps {
   items: DecorationItem[]
@@ -28,6 +29,10 @@ export function ItemPalette({
   const filteredItems = selectedCategory === 'photo'
     ? []
     : items.filter((item) => item.category === selectedCategory)
+
+  // Separate free and premium items
+  const freeItems = filteredItems.filter(item => item.is_free)
+  const premiumItems = filteredItems.filter(item => !item.is_free)
 
   const handlePhotoSelected = (file: File, thumbnailUrl: string) => {
     setPendingPhoto({ file, thumbnailUrl })
@@ -87,6 +92,51 @@ export function ItemPalette({
     setShowCropModal(false)
   }
 
+  const renderItem = (item: DecorationItem, isLocked: boolean = false) => (
+    <button
+      key={item.id}
+      onClick={() =>
+        !isLocked && onSelectItem({
+          item_id: item.id,
+          type: item.item_type,
+          content: item.content,
+        })
+      }
+      disabled={isLocked}
+      className={`
+        relative w-10 h-10 flex items-center justify-center rounded-lg transition-colors
+        ${isLocked
+          ? 'opacity-60 cursor-not-allowed'
+          : 'hover:bg-pastel-pink-light cursor-pointer'
+        }
+      `}
+      title={isLocked ? '프리미엄 구독 필요' : item.name}
+    >
+      {item.item_type === 'emoji' ? (
+        <span className="text-2xl">{item.content}</span>
+      ) : (
+        <span
+          className="w-6 h-6 text-pastel-purple-dark"
+          dangerouslySetInnerHTML={{ __html: item.content }}
+        />
+      )}
+
+      {/* Lock indicator for premium items */}
+      {isLocked && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-gray-400 rounded-full flex items-center justify-center">
+          <span className="text-[8px]">🔒</span>
+        </div>
+      )}
+
+      {/* Premium indicator (unlocked) */}
+      {!item.is_free && isPremium && (
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+          <span className="text-[8px]">✨</span>
+        </div>
+      )}
+    </button>
+  )
+
   return (
     <div className="bg-white/80 rounded-xl p-4 shadow-sm border border-pastel-pink/30">
       <h3 className="text-sm font-semibold text-gray-700 mb-3">꾸미기 아이템</h3>
@@ -117,34 +167,28 @@ export function ItemPalette({
           currentPhotoCount={photoCount}
         />
       ) : (
-        /* Items grid */
-        <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto">
-          {filteredItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() =>
-                onSelectItem({
-                  item_id: item.id,
-                  type: item.item_type,
-                  content: item.content,
-                })
-              }
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-pastel-pink-light transition-colors"
-              title={item.name}
-            >
-              {item.item_type === 'emoji' ? (
-                <span className="text-2xl">{item.content}</span>
-              ) : (
-                <span
-                  className="w-6 h-6 text-pastel-purple-dark"
-                  dangerouslySetInnerHTML={{ __html: item.content }}
-                />
-              )}
-            </button>
-          ))}
+        /* Items grid with free/premium separation */
+        <div className="max-h-48 overflow-y-auto">
+          {/* Free items */}
+          {freeItems.length > 0 && (
+            <div className="grid grid-cols-6 gap-2">
+              {freeItems.map(item => renderItem(item, false))}
+            </div>
+          )}
 
-          {filteredItems.length === 0 && (
-            <p className="col-span-6 text-center text-gray-400 text-sm py-4">
+          {/* Premium items */}
+          {premiumItems.length > 0 && (
+            <>
+              <PremiumSectionDivider isPremium={isPremium} itemCount={premiumItems.length} />
+              <div className="grid grid-cols-6 gap-2">
+                {premiumItems.map(item => renderItem(item, !isPremium))}
+              </div>
+            </>
+          )}
+
+          {/* Empty state */}
+          {freeItems.length === 0 && premiumItems.length === 0 && (
+            <p className="text-center text-gray-400 text-sm py-4">
               아이템이 없습니다
             </p>
           )}

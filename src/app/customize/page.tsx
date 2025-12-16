@@ -249,6 +249,7 @@ function CustomizePageContent() {
                   templates={coverTemplates}
                   selectedId={state.selectedCover?.id || null}
                   onSelect={setCover}
+                  isPremium={isPremium}
                 />
 
                 <ItemPalette
@@ -278,6 +279,7 @@ function CustomizePageContent() {
                   templates={paperTemplates}
                   selectedId={state.selectedPaper?.id || null}
                   onSelect={setPaper}
+                  isPremium={isPremium}
                 />
 
                 <ItemPalette
