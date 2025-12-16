@@ -137,7 +137,7 @@ export function BookIntro({ diary, userName }: BookIntroProps) {
     <AnimatePresence mode="wait">
       <motion.div
         key="book-intro"
-        className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream flex flex-col items-center justify-center px-4"
+        className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center px-4"
         variants={containerVariants}
         initial="enter"
         animate={phase === 'exit' ? 'exit' : 'visible'}
