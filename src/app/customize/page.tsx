@@ -242,7 +242,8 @@ function CustomizePageContent() {
             }
 
             // Also generate spine image from selected region
-            const spineWidthRatio = 0.25
+            // Must match DEFAULT_SPINE_WIDTH_RATIO in SpineRegionSelector (0.30)
+            const spineWidthRatio = 0.30
             const cropCoords = getSpineCropCoordinates(
               spinePosition,
               spineWidthRatio,

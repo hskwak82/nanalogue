@@ -11,8 +11,10 @@ interface SpineRegionSelectorProps {
   className?: string
 }
 
-// Spine width as ratio of cover width
-const DEFAULT_SPINE_WIDTH_RATIO = 0.1 // 10% of cover width for more realistic spine
+// Spine width as ratio of cover width - matches dashboard spine:cover ratio
+// Dashboard spine is 32x140, cover is 3:4 ratio (105x140 at that scale)
+// So spine is 32/105 ≈ 0.30 (30%) of cover width
+const DEFAULT_SPINE_WIDTH_RATIO = 0.30
 
 export function SpineRegionSelector({
   coverImageUrl,
@@ -107,34 +109,38 @@ export function SpineRegionSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isEditing])
 
+  // Dashboard spine is 32x140 - scale to match 400px height cover
+  // Width = 32 * (400/140) = 91.4 ≈ 91px
+  const SPINE_PREVIEW_WIDTH = 91
+  const SPINE_PREVIEW_HEIGHT = 400
+
   if (!coverImageUrl) {
     return (
-      <div className={`flex flex-col items-center justify-center ${className}`}>
+      <div className={`absolute -right-24 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
         <div
           className="rounded-sm bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center"
-          style={{ width: 32, height: 400 }}
+          style={{ width: SPINE_PREVIEW_WIDTH, height: SPINE_PREVIEW_HEIGHT }}
         >
           <span className="text-xs text-gray-400 writing-vertical" style={{ writingMode: 'vertical-rl' }}>
             저장 후 표시
           </span>
         </div>
+        <span className="text-[10px] text-gray-400">책장</span>
       </div>
     )
   }
 
   return (
-    <div className={`absolute -right-12 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
-      <span className="text-[10px] text-gray-400">책장</span>
-
-      {/* Spine Preview - positioned to the right of cover */}
+    <div className={`absolute -right-28 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
+      {/* Spine Preview - positioned to the right of cover, aligned at top */}
       <div
         onClick={() => setIsEditing(!isEditing)}
         className={`rounded-sm shadow-md overflow-hidden cursor-pointer transition-all ${
           isEditing ? 'ring-2 ring-pastel-purple' : 'hover:ring-2 hover:ring-gray-300'
         }`}
         style={{
-          width: 30,
-          height: 400,
+          width: SPINE_PREVIEW_WIDTH,
+          height: SPINE_PREVIEW_HEIGHT,
           backgroundImage: `url(${coverImageUrl})`,
           backgroundSize: `${100 / spineWidthRatio}% 100%`,
           backgroundPosition: `${maxPosition > 0 ? (position / maxPosition) * 100 : 0}% center`,
@@ -142,6 +148,8 @@ export function SpineRegionSelector({
         title="클릭하여 영역 조절"
       />
 
+      {/* Label below the spine */}
+      <span className="text-[10px] text-gray-400">책장</span>
       {isEditing && (
         <span className="text-[9px] text-pastel-purple whitespace-nowrap">드래그</span>
       )}
