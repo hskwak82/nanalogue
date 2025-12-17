@@ -3,6 +3,13 @@
 import { forwardRef } from 'react'
 import type { DiaryWithTemplates } from '@/types/diary'
 import type { PlacedDecoration, ShapeType } from '@/types/customization'
+import { FONT_OPTIONS } from '@/types/customization'
+
+// Helper function to get font family CSS value
+function getFontFamilyCSS(fontFamilyId: string): string {
+  const font = FONT_OPTIONS.find(f => f.id === fontFamilyId)
+  return font?.fontFamily || 'inherit'
+}
 
 // Helper function to get CSS clip-path for shape types
 function getClipPathForShape(shapeType: ShapeType): string {
@@ -69,9 +76,11 @@ function DecorationRenderer({
   decorations: PlacedDecoration[]
   size?: 'normal' | 'small'
 }) {
-  const fontSize = size === 'small' ? '1.5rem' : '2rem'
+  const emojiFontSize = size === 'small' ? '1.5rem' : '2rem'
   const imgSize = size === 'small' ? '40px' : '60px'
   const svgSize = size === 'small' ? '24px' : '36px'
+  // Text scaling factor: normal view is already smaller than editor, small is for thumbnails
+  const textScaleFactor = size === 'small' ? 0.4 : 0.7
 
   return (
     <>
@@ -84,7 +93,7 @@ function DecorationRenderer({
             top: `${decoration.y}%`,
             transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
             zIndex: decoration.z_index,
-            fontSize,
+            fontSize: emojiFontSize,
           }}
         >
           {decoration.type === 'emoji' ? (
@@ -103,6 +112,18 @@ function DecorationRenderer({
               }}
               draggable={false}
             />
+          ) : decoration.type === 'text' ? (
+            <span
+              className="whitespace-nowrap"
+              style={{
+                fontFamily: getFontFamilyCSS(decoration.text_meta?.font_family || 'default'),
+                fontSize: `${(decoration.text_meta?.font_size || 24) * textScaleFactor}px`,
+                color: decoration.text_meta?.font_color || '#333333',
+                fontWeight: decoration.text_meta?.font_weight || 'normal',
+              }}
+            >
+              {decoration.content}
+            </span>
           ) : (
             <span
               className="block text-pastel-purple-dark"
