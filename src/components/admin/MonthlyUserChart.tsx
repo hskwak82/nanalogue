@@ -50,8 +50,8 @@ export function MonthlyUserChart({ data }: MonthlyUserChartProps) {
             borderRadius: '8px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           }}
-          formatter={(value: number, name: string) => [
-            `${value}명`,
+          formatter={(value, name) => [
+            `${Number(value) || 0}명`,
             name === 'free' ? '무료' : '프로',
           ]}
           labelFormatter={(label) => `${label} 가입자`}
@@ -73,7 +73,7 @@ export function MonthlyUserChart({ data }: MonthlyUserChartProps) {
             fill="#fff"
             fontSize={11}
             fontWeight={500}
-            formatter={(value: number) => (value > 0 ? value : '')}
+            formatter={(value) => (Number(value) > 0 ? value : '')}
           />
         </Bar>
         <Bar
@@ -89,7 +89,7 @@ export function MonthlyUserChart({ data }: MonthlyUserChartProps) {
             fill="#fff"
             fontSize={11}
             fontWeight={500}
-            formatter={(value: number) => (value > 0 ? value : '')}
+            formatter={(value) => (Number(value) > 0 ? value : '')}
           />
         </Bar>
       </BarChart>

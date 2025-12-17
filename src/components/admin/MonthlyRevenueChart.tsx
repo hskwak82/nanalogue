@@ -56,7 +56,7 @@ export function MonthlyRevenueChart({ data }: MonthlyRevenueChartProps) {
             borderRadius: '8px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
           }}
-          formatter={(value: number) => [formatCurrency(value), '매출']}
+          formatter={(value) => [formatCurrency(Number(value) || 0), '매출']}
           labelFormatter={(label) => `${label} 매출`}
         />
         <Bar
@@ -71,7 +71,10 @@ export function MonthlyRevenueChart({ data }: MonthlyRevenueChartProps) {
             fill="#065F46"
             fontSize={11}
             fontWeight={500}
-            formatter={(value: number) => (value > 0 ? `${(value / 1000).toFixed(0)}K` : '')}
+            formatter={(value) => {
+              const num = Number(value) || 0
+              return num > 0 ? `${(num / 1000).toFixed(0)}K` : ''
+            }}
           />
         </Bar>
       </BarChart>
