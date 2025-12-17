@@ -669,7 +669,7 @@ export async function uploadPdfToStorage(
 ): Promise<string | null> {
   try {
     const formData = new FormData()
-    formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), 'file.pdf')
+    formData.append('file', new Blob([pdfBuffer as BlobPart], { type: 'application/pdf' }), 'file.pdf')
     formData.append('path', path)
 
     const response = await fetch('/api/admin/publishing/upload', {
@@ -737,7 +737,7 @@ export async function uploadZipToStorage(
 ): Promise<string | null> {
   try {
     const formData = new FormData()
-    formData.append('file', new Blob([zipBuffer], { type: 'application/zip' }), 'publishing.zip')
+    formData.append('file', new Blob([zipBuffer as BlobPart], { type: 'application/zip' }), 'publishing.zip')
     formData.append('path', path)
 
     const response = await fetch('/api/admin/publishing/upload', {
