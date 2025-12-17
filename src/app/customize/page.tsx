@@ -36,7 +36,6 @@ function CustomizePageContent() {
   const { toast } = useToast()
 
   const coverEditorRef = useRef<CoverEditorRef>(null)
-  const savedCoverImageRef = useRef<HTMLDivElement>(null)
 
   const [activeTab, setActiveTab] = useState<TabType>('cover')
   const [isLoading, setIsLoading] = useState(true)
@@ -480,34 +479,18 @@ function CustomizePageContent() {
                 <div className="flex items-start">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
                   <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
-                    {/* Show saved image when in spine edit mode for accurate position selection */}
-                    {isSpineEditMode && savedCoverImageUrl ? (
-                      <div
-                        ref={savedCoverImageRef}
-                        className="relative rounded-lg overflow-hidden shadow-lg"
-                        style={{ width: 300, height: 400 }}
-                      >
-                        <img
-                          src={savedCoverImageUrl}
-                          alt="Saved cover"
-                          style={{ width: 300, height: 400 }}
-                          draggable={false}
-                        />
-                      </div>
-                    ) : (
-                      <CoverEditor
-                        ref={coverEditorRef}
-                        template={state.selectedCover}
-                        decorations={state.coverDecorations}
-                        selectedIndex={state.selectedItemIndex}
-                        onUpdate={updateDecoration}
-                        onSelect={selectItem}
-                        onRemove={removeDecoration}
-                        isTextMode={isTextMode}
-                        onCanvasClick={handleCanvasClickForText}
-                        onTextDoubleClick={handleTextDoubleClick}
-                      />
-                    )}
+                    <CoverEditor
+                      ref={coverEditorRef}
+                      template={state.selectedCover}
+                      decorations={state.coverDecorations}
+                      selectedIndex={state.selectedItemIndex}
+                      onUpdate={updateDecoration}
+                      onSelect={selectItem}
+                      onRemove={removeDecoration}
+                      isTextMode={isTextMode}
+                      onCanvasClick={handleCanvasClickForText}
+                      onTextDoubleClick={handleTextDoubleClick}
+                    />
                     {/* Text Button - centered below cover */}
                     <button
                       onClick={() => {
@@ -526,10 +509,7 @@ function CustomizePageContent() {
                     {/* SpineRegionSelector overlay renders here when editing */}
                     <SpineRegionSelector
                       coverImageUrl={savedCoverImageUrl}
-                      coverRef={isSpineEditMode && savedCoverImageUrl
-                        ? savedCoverImageRef
-                        : { current: coverEditorRef.current?.getCanvasElement() || null }
-                      }
+                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
                       initialPosition={spinePosition}
                       onPositionChange={setSpinePosition}
                       isEditing={isSpineEditMode}
