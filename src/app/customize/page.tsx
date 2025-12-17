@@ -15,7 +15,7 @@ import {
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
 import { SpineRegionSelector, getSpineCropCoordinates } from '@/components/editor/SpineRegionSelector'
-import { MiniBookshelf } from '@/components/editor/MiniBookshelf'
+import { CustomizeBookshelf } from '@/components/editor/CustomizeBookshelf'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
 import type {
@@ -61,6 +61,7 @@ function CustomizePageContent() {
   const [diaryId, setDiaryId] = useState<string | null>(null)
   const [isPremium, setIsPremium] = useState(false)
   const [allDiaries, setAllDiaries] = useState<DiaryWithTemplates[]>([])
+  const [activeDiaryId, setActiveDiaryId] = useState<string | null>(null)
 
   // Editor state
   const {
@@ -204,6 +205,11 @@ function CustomizePageContent() {
         if (diariesResponse.ok) {
           const diariesData = await diariesResponse.json()
           setAllDiaries(diariesData.diaries || [])
+          // Find and set active diary ID
+          const activeOne = (diariesData.diaries || []).find((d: DiaryWithTemplates) => d.status === 'active')
+          if (activeOne) {
+            setActiveDiaryId(activeOne.id)
+          }
         }
 
         const url = diaryIdParam
@@ -451,6 +457,18 @@ function CustomizePageContent() {
           </div>
         )}
 
+        {/* Bookshelf - same as dashboard */}
+        {allDiaries.length > 0 && (
+          <div className="mb-6">
+            <CustomizeBookshelf
+              diaries={allDiaries}
+              activeDiaryId={activeDiaryId}
+              selectedDiaryId={diaryId}
+              onSelectDiary={handleSelectDiary}
+            />
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button
@@ -527,17 +545,6 @@ function CustomizePageContent() {
                     />
                   </div>
                 </div>
-
-                {/* Mini Bookshelf - below buttons, aligned with cover left to spine right */}
-                {allDiaries.length > 0 && (
-                  <div style={{ width: 300 + 112 + 91 }}> {/* cover(300) + offset(112) + spine(91) = 503, but spine starts at 300+112=412, ends at 503 */}
-                    <MiniBookshelf
-                      diaries={allDiaries}
-                      selectedDiaryId={diaryId}
-                      onSelectDiary={handleSelectDiary}
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Right: Controls */}
