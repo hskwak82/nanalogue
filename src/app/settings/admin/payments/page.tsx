@@ -325,6 +325,8 @@ export default function AdminPaymentsPage() {
         <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">
             전체 <span className="font-medium text-gray-900">{pagination.total}</span>개
+            <span className="mx-2">·</span>
+            총 <span className="font-medium text-green-600">{formatCurrency(summary.totalAmount)}</span>
             {pagination.total > 0 && (
               <span className="ml-2">
                 ({(pagination.page - 1) * pagination.limit + 1} ~ {Math.min(pagination.page * pagination.limit, pagination.total)})
