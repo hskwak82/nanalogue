@@ -6,7 +6,7 @@ const keyPoints = [
   {
     icon: '🗣️',
     title: '대화로 기록',
-    description: '질문에 답하듯 말하면 AI가 일기로 정리',
+    description: '편하게 대화하면 AI가 일기로 정리',
   },
   {
     icon: '📅',

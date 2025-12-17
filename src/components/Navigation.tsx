@@ -12,6 +12,7 @@ import {
   Cog6ToothIcon,
   Bars3Icon,
   XMarkIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline'
 
 interface NavigationProps {
@@ -92,6 +93,16 @@ export function Navigation({ user }: NavigationProps) {
           <div className="hidden sm:flex items-center space-x-4">
             {user ? (
               <>
+                <Link
+                  href="/about"
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    isActive('/about')
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
+                  }`}
+                >
+                  소개
+                </Link>
                 <Link
                   href="/settings"
                   className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
@@ -182,6 +193,18 @@ export function Navigation({ user }: NavigationProps) {
         <div className="sm:hidden border-t border-pastel-pink/50 bg-white/95 backdrop-blur-sm">
           <div className="px-4 py-3 space-y-2">
             <div className="text-xs text-gray-400 truncate mb-2">{user.email}</div>
+            <Link
+              href="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                isActive('/about')
+                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                  : 'text-gray-600 hover:bg-pastel-pink-light'
+              }`}
+            >
+              <InformationCircleIcon className="w-4 h-4" />
+              소개
+            </Link>
             <Link
               href="/settings"
               onClick={() => setMobileMenuOpen(false)}

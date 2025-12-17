@@ -87,12 +87,12 @@ export default async function DashboardPage() {
   )
 
   return (
-    <div className="min-h-screen bg-pastel-cream">
+    <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
       <Navigation
         user={user ? { email: user.email, name: profile?.name } : null}
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-6xl px-4 pt-8 pb-12 sm:px-6 sm:pt-12 lg:px-8">
         {/* Greeting */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-700">
