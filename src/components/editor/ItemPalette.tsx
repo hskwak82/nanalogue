@@ -25,7 +25,8 @@ export function ItemPalette({
   isPremium = false,
 }: ItemPaletteProps) {
   const { toast } = useToast()
-  const [selectedCategory, setSelectedCategory] = useState<string>('photo')
+  // Default to first non-photo category
+  const [selectedCategory, setSelectedCategory] = useState<string>('nature')
   const [planTab, setPlanTab] = useState<PlanTab>('free')
   const [pendingPhoto, setPendingPhoto] = useState<{ file: File; thumbnailUrl: string } | null>(null)
   const [showCropModal, setShowCropModal] = useState(false)
@@ -132,13 +133,36 @@ export function ItemPalette({
     </button>
   )
 
+  // Get photo category for the header button
+  const photoCategory = DECORATION_CATEGORIES.find(c => c.id === 'photo')
+  // Filter out photo from main category tabs
+  const mainCategories = DECORATION_CATEGORIES.filter(c => c.id !== 'photo')
+
   return (
     <div className="bg-white/80 rounded-xl p-4 shadow-sm border border-pastel-pink/30">
-      <h3 className="text-sm font-semibold text-gray-700 mb-3">꾸미기 아이템</h3>
+      {/* Header with photo button next to title */}
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-sm font-semibold text-gray-700">꾸미기 아이템</h3>
+        {photoCategory && (
+          <button
+            onClick={() => {
+              setSelectedCategory('photo')
+              setPlanTab('free')
+            }}
+            className={`px-2 py-0.5 rounded-full text-xs transition-all ${
+              selectedCategory === 'photo'
+                ? 'bg-pastel-purple text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {photoCategory.icon} {photoCategory.name}
+          </button>
+        )}
+      </div>
 
       {/* Category tabs */}
       <div className="flex flex-wrap gap-1 mb-4">
-        {DECORATION_CATEGORIES.map((category) => (
+        {mainCategories.map((category) => (
           <button
             key={category.id}
             onClick={() => {
