@@ -126,7 +126,7 @@ export function SpineRegionSelector({
         </div>
         <button
           disabled
-          className="px-2 py-1 rounded text-[10px] bg-gray-100 text-gray-400 cursor-not-allowed"
+          className="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
         >
           위치변경
         </button>
@@ -150,12 +150,12 @@ export function SpineRegionSelector({
         }}
       />
 
-      {/* Edit button below the spine */}
+      {/* Edit button below the spine - centered, same style as T텍스트 */}
       <button
         onClick={onEditButtonClick}
-        className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
           isEditing
-            ? 'bg-pastel-purple text-white'
+            ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
             : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
         }`}
       >
