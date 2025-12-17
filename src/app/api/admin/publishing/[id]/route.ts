@@ -53,10 +53,10 @@ export async function PATCH(
 
     const supabase = getAdminServiceClient()
 
-    // Check current job status
+    // Check current job status and get diary_id
     const { data: existingJob, error: fetchError } = await supabase
       .from('diary_publish_jobs')
-      .select('id, status')
+      .select('id, status, diary_id')
       .eq('id', id)
       .single()
 
@@ -71,6 +71,13 @@ export async function PATCH(
         { status: 400 }
       )
     }
+
+    // Delete any existing failed jobs for this diary to avoid unique constraint violation
+    await supabase
+      .from('diary_publish_jobs')
+      .delete()
+      .eq('diary_id', existingJob.diary_id)
+      .eq('status', 'failed')
 
     // Update job status to failed with cancel message
     const { data: job, error: updateError } = await supabase
