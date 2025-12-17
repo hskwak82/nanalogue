@@ -421,27 +421,30 @@ export async function generateInnerPagesPDF(
   return pdfDoc.save()
 }
 
-// Upload PDF to Supabase storage
+// Upload PDF via API (uses service role for storage access)
 export async function uploadPdfToStorage(
-  supabaseClient: { storage: { from: (bucket: string) => { upload: Function; getPublicUrl: Function } } },
+  _supabaseClient: unknown,
   pdfBuffer: Uint8Array,
   path: string
 ): Promise<string | null> {
   try {
-    const { error } = await supabaseClient.storage
-      .from('publishing')
-      .upload(path, pdfBuffer, {
-        contentType: 'application/pdf',
-        upsert: true,
-      })
+    const formData = new FormData()
+    formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), 'file.pdf')
+    formData.append('path', path)
 
-    if (error) {
-      console.error('Storage upload error:', error)
+    const response = await fetch('/api/admin/publishing/upload', {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      console.error('Upload error:', data.error)
       return null
     }
 
-    const { data } = supabaseClient.storage.from('publishing').getPublicUrl(path)
-    return data.publicUrl
+    const { url } = await response.json()
+    return url
   } catch (error) {
     console.error('Upload error:', error)
     return null
