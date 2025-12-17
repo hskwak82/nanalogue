@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
 
 interface SpineRegionSelectorProps {
   coverImageUrl: string | null
@@ -12,15 +13,21 @@ interface SpineRegionSelectorProps {
   onEditingChange?: (editing: boolean) => void
   onEditButtonClick?: () => void // Called when edit button is clicked
   disabled?: boolean // Disable edit button when there are unsaved changes
+  hideButton?: boolean // Hide the edit button entirely (for paper tab)
   className?: string
 }
 
-// Spine width as ratio of cover width - matches dashboard spine:cover ratio
-const DEFAULT_SPINE_WIDTH_RATIO = 0.30
+// Spine width as ratio of cover width - matches print specifications
+// 12mm spine / 180mm cover = 6.67%
+const DEFAULT_SPINE_WIDTH_RATIO = DISPLAY_SPINE_WIDTH_RATIO
 
-// Dashboard spine dimensions scaled to 400px height
-export const SPINE_PREVIEW_WIDTH = 91
+// Spine preview dimensions - matches print aspect ratio
 export const SPINE_PREVIEW_HEIGHT = 400
+// Calculate preview width from print ratio: height * cover_aspect_ratio * spine_ratio
+// 400 * 0.72 * 0.0667 ≈ 19px (actual print proportion)
+export const SPINE_PREVIEW_WIDTH = Math.round(
+  SPINE_PREVIEW_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO
+)
 
 export function SpineRegionSelector({
   coverImageUrl,
@@ -32,6 +39,7 @@ export function SpineRegionSelector({
   onEditingChange,
   onEditButtonClick,
   disabled = false,
+  hideButton = false,
   className = '',
 }: SpineRegionSelectorProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -193,27 +201,29 @@ export function SpineRegionSelector({
       </div>
 
       {/* Edit button below the spine - centered, same style as T텍스트 */}
-      <div className="relative group">
-        <button
-          onClick={onEditButtonClick}
-          disabled={disabled}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-            disabled
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-              : isEditing
-                ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-          }`}
-        >
-          위치변경
-        </button>
-        {/* Tooltip when disabled */}
-        {disabled && (
-          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-700 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            저장 후 위치변경 가능
-          </div>
-        )}
-      </div>
+      {!hideButton && (
+        <div className="relative group">
+          <button
+            onClick={onEditButtonClick}
+            disabled={disabled}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              disabled
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                : isEditing
+                  ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                  : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+            }`}
+          >
+            위치변경
+          </button>
+          {/* Tooltip when disabled */}
+          {disabled && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-700 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              저장 후 위치변경 가능
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Selection overlay on cover - only shown when editing */}
       {isEditing && coverRect && (

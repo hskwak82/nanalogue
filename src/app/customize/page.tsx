@@ -433,25 +433,13 @@ function CustomizePageContent() {
           </div>
         )}
 
-        {/* Bookshelf - same as dashboard */}
-        {allDiaries.length > 0 && (
-          <div className="mb-6">
-            <CustomizeBookshelf
-              diaries={allDiaries}
-              activeDiaryId={activeDiaryId}
-              selectedDiaryId={diaryId}
-              onSelectDiary={handleSelectDiary}
-            />
-          </div>
-        )}
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        {/* Tabs + Save Button */}
+        <div className="flex items-center gap-2 mb-6">
           <button
             onClick={() => setActiveTab('cover')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === 'cover'
-                ? 'bg-pastel-purple text-white'
+                ? 'bg-pastel-pink text-gray-700'
                 : 'bg-white/70 text-gray-600 hover:bg-white'
             }`}
           >
@@ -461,11 +449,22 @@ function CustomizePageContent() {
             onClick={() => setActiveTab('paper')}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
               activeTab === 'paper'
-                ? 'bg-pastel-mint text-white'
+                ? 'bg-pastel-mint text-gray-700'
                 : 'bg-white/70 text-gray-600 hover:bg-white'
             }`}
           >
             속지 꾸미기
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+              isSaving
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
+            }`}
+          >
+            {isSaving ? '저장 중...' : '저장'}
           </button>
         </div>
 
@@ -491,21 +490,35 @@ function CustomizePageContent() {
                       onCanvasClick={handleCanvasClickForText}
                       onTextDoubleClick={handleTextDoubleClick}
                     />
-                    {/* Text Button - centered below cover */}
-                    <button
-                      onClick={() => {
-                        setIsTextMode(!isTextMode)
-                        if (!isTextMode) setIsSpineEditMode(false)
-                      }}
-                      className={`mt-2 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                        isTextMode
-                          ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                          : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                      }`}
-                    >
-                      <span className="text-base">T</span>
-                      텍스트
-                    </button>
+                    {/* Text Button + Delete Button */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setIsTextMode(!isTextMode)
+                          if (!isTextMode) setIsSpineEditMode(false)
+                        }}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                          isTextMode
+                            ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                        }`}
+                      >
+                        <span className="text-base">T</span>
+                        텍스트
+                      </button>
+                      {/* Delete button - shows when item is selected */}
+                      {state.selectedItemIndex !== null && (
+                        <button
+                          onClick={() => removeDecoration(state.selectedItemIndex!)}
+                          className="px-4 py-2 rounded-full text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          삭제
+                        </button>
+                      )}
+                    </div>
                     {/* SpineRegionSelector overlay renders here when editing */}
                     <SpineRegionSelector
                       coverImageUrl={savedCoverImageUrl}
@@ -521,20 +534,20 @@ function CustomizePageContent() {
                       disabled={state.isDirty}
                     />
 
-                    {/* Save Button - centered below cover */}
-                    <button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className={`mt-4 px-6 py-2 rounded-full font-medium transition-all ${
-                        isSaving
-                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-                      }`}
-                    >
-                      {isSaving ? '저장 중...' : '저장'}
-                    </button>
                   </div>
                 </div>
+
+                {/* Bookshelf - below buttons */}
+                {allDiaries.length > 0 && (
+                  <div className="mt-6 w-full max-w-2xl">
+                    <CustomizeBookshelf
+                      diaries={allDiaries}
+                      activeDiaryId={activeDiaryId}
+                      selectedDiaryId={diaryId}
+                      onSelectDiary={handleSelectDiary}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Right: Controls */}
@@ -555,48 +568,74 @@ function CustomizePageContent() {
             </>
           ) : (
             <>
-              {/* Left: Paper Editor */}
-              <div className="flex flex-col items-center gap-4">
-                <PaperEditor
-                  template={state.selectedPaper}
-                  decorations={state.paperDecorations}
-                  selectedIndex={state.selectedItemIndex}
-                  onUpdate={updateDecoration}
-                  onSelect={selectItem}
-                  onRemove={removeDecoration}
-                  paperOpacity={state.paperOpacity}
-                  paperFontFamily={state.paperFontFamily}
-                  paperFontColor={state.paperFontColor}
-                  isTextMode={isTextMode}
-                  onCanvasClick={handleCanvasClickForText}
-                  onTextDoubleClick={handleTextDoubleClick}
-                />
+              {/* Left: Paper Editor with Spine Preview */}
+              <div className="flex flex-col items-start gap-4">
+                {/* Paper + Spine side by side */}
+                <div className="flex items-start">
+                  <div className="relative flex flex-col items-center" style={{ width: 320 }}>
+                    <PaperEditor
+                      template={state.selectedPaper}
+                      decorations={state.paperDecorations}
+                      selectedIndex={state.selectedItemIndex}
+                      onUpdate={updateDecoration}
+                      onSelect={selectItem}
+                      onRemove={removeDecoration}
+                      paperOpacity={state.paperOpacity}
+                      paperFontFamily={state.paperFontFamily}
+                      paperFontColor={state.paperFontColor}
+                      isTextMode={isTextMode}
+                      onCanvasClick={handleCanvasClickForText}
+                      onTextDoubleClick={handleTextDoubleClick}
+                    />
 
-                {/* Text Button for Paper */}
-                <button
-                  onClick={() => setIsTextMode(!isTextMode)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                    isTextMode
-                      ? 'bg-pastel-mint text-white ring-2 ring-pastel-mint/50'
-                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                  }`}
-                >
-                  <span className="text-base">T</span>
-                  텍스트
-                </button>
+                    {/* Text Button + Delete Button for Paper */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        onClick={() => setIsTextMode(!isTextMode)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                          isTextMode
+                            ? 'bg-pastel-mint text-white ring-2 ring-pastel-mint/50'
+                            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                        }`}
+                      >
+                        <span className="text-base">T</span>
+                        텍스트
+                      </button>
+                      {/* Delete button - shows when item is selected */}
+                      {state.selectedItemIndex !== null && (
+                        <button
+                          onClick={() => removeDecoration(state.selectedItemIndex!)}
+                          className="px-4 py-2 rounded-full text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          삭제
+                        </button>
+                      )}
+                    </div>
 
-                {/* Save Button for Paper */}
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className={`px-6 py-2 rounded-full font-medium transition-all ${
-                    isSaving
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-                  }`}
-                >
-                  {isSaving ? '저장 중...' : '저장'}
-                </button>
+                    {/* Spine preview - no edit button */}
+                    <SpineRegionSelector
+                      coverImageUrl={savedCoverImageUrl}
+                      coverRef={{ current: null }}
+                      initialPosition={spinePosition}
+                      hideButton={true}
+                    />
+                  </div>
+                </div>
+
+                {/* Bookshelf - below buttons */}
+                {allDiaries.length > 0 && (
+                  <div className="mt-6 w-full max-w-2xl">
+                    <CustomizeBookshelf
+                      diaries={allDiaries}
+                      activeDiaryId={activeDiaryId}
+                      selectedDiaryId={diaryId}
+                      onSelectDiary={handleSelectDiary}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Right: Controls */}

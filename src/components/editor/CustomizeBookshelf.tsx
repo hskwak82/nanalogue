@@ -5,6 +5,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
 import { useSpineCalculations } from '@/components/bookshelf/hooks/useSpineCalculations'
+import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
+
+// Calculate bookshelf spine dimensions based on print ratio
+// Spine height 140px, aspect ratio 0.72, spine ratio 6.67%
+const BOOKSHELF_SPINE_HEIGHT = 140
+const BOOKSHELF_SPINE_WIDTH = Math.max(
+  14, // Minimum width for usability
+  Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO)
+)
 
 interface CustomizeBookshelfProps {
   diaries: DiaryWithTemplates[]
@@ -78,8 +87,8 @@ function MiniSpine({
       onClick={onClick}
       className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0 overflow-hidden"
       style={{
-        width: 32,
-        height: 140,
+        width: BOOKSHELF_SPINE_WIDTH,
+        height: BOOKSHELF_SPINE_HEIGHT,
         ...(hasCoverImage ? {} : getFallbackStyle()),
       }}
     >

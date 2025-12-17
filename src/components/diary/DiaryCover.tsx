@@ -50,10 +50,13 @@ function parseImageUrl(imageUrl: string): {
 }
 
 // Size configurations
+// Aspect ratio: 180mm x 250mm = 0.72
+const ASPECT_RATIO = 0.72
+
 const SIZES = {
-  preview: { width: 120, height: 160, fontSize: 'text-lg' },
-  full: { width: 300, height: 400, fontSize: 'text-4xl' },
-  editor: { width: 300, height: 400, fontSize: 'text-4xl' },
+  preview: { width: 120, height: Math.round(120 / ASPECT_RATIO), fontSize: 'text-lg' },  // 120x167
+  full: { width: 300, height: Math.round(300 / ASPECT_RATIO), fontSize: 'text-4xl' },    // 300x417
+  editor: { width: 300, height: Math.round(300 / ASPECT_RATIO), fontSize: 'text-4xl' },  // 300x417
 }
 
 export function DiaryCover({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { DiaryWithTemplates } from '@/types/diary'
+import { SPINE_WIDTH_RATIO } from '@/types/diary'
 import type { PlacedDecoration } from '@/types/customization'
 
 // POST /api/diaries/active - Set a diary as active
@@ -169,9 +170,8 @@ export async function GET() {
       cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
       paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
       cover_image_url: diary.cover_image_url || null,
-      spine_image_url: diary.spine_image_url || null,
       spine_position: diary.spine_position ?? null,
-      spine_width: diary.spine_width ?? 0.30,
+      spine_width: diary.spine_width ?? SPINE_WIDTH_RATIO,
       spine_color: diary.spine_color,
       spine_gradient: diary.spine_gradient,
       created_at: diary.created_at,

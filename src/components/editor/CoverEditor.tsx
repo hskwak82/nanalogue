@@ -484,28 +484,6 @@ export const CoverEditor = forwardRef<CoverEditorRef, CoverEditorProps>(function
           </div>
         ))}
       </div>
-
-      {/* Selected Item Info & Delete */}
-      {selectedIndex !== null && decorations[selectedIndex] && (
-        <div className="flex items-center justify-center gap-4 p-3 bg-white/80 rounded-lg shadow-sm">
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span>크기: {(decorations[selectedIndex].scale * 100).toFixed(0)}%</span>
-            <span>회전: {decorations[selectedIndex].rotation.toFixed(0)}°</span>
-          </div>
-
-          {/* Delete button */}
-          <button
-            onClick={() => onRemove(selectedIndex)}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-            title="삭제"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        </div>
-      )}
-
     </div>
   )
 })
