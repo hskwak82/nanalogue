@@ -91,11 +91,18 @@ export function PaperStyleSettings({
                     : 'border-dashed border-gray-300 hover:border-gray-400'
                 }`}
                 style={isCustomColor ? { backgroundColor: fontColor } : undefined}
-                title={isCustomColor ? fontColor : '사용자 색상 선택'}
+                title={isCustomColor ? `${fontColor} (클릭하여 변경)` : '사용자 색상 선택'}
               >
-                {!isCustomColor && (
-                  <span className="text-gray-400 text-xs pointer-events-none">+</span>
-                )}
+                {/* Always show edit indicator */}
+                <span
+                  className={`pointer-events-none text-xs font-bold ${
+                    isCustomColor
+                      ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  {isCustomColor ? '✎' : '+'}
+                </span>
                 <input
                   type="color"
                   value={fontColor}
