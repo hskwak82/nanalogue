@@ -137,7 +137,7 @@ export function PhotoUploader({
           <>
             <div className="text-3xl">📷</div>
             <span className="text-sm text-gray-600">
-              {canUpload ? '클릭하거나 드래그하여 사진 추가' : '업로드 제한에 도달했습니다'}
+              {canUpload ? '클릭하거나 드래그 하여 이미지 업로드' : '업로드 제한에 도달했습니다'}
             </span>
             <span className="text-xs text-gray-400">
               JPG, PNG, WebP (최대 5MB)
