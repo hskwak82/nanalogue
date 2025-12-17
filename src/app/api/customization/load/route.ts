@@ -153,7 +153,11 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching decoration items:', decorationItemsResult.error)
     }
 
-    const response: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean } = {
+    const response: CustomizationLoadResponse & {
+      diaryId?: string
+      isPremium?: boolean
+      coverImageUrl?: string | null
+    } = {
       user: {
         id: user.id,
         email: user.email || '',
@@ -165,6 +169,30 @@ export async function GET(request: NextRequest) {
       decorationItems: (decorationItemsResult.data || []) as DecorationItem[],
       diaryId: currentDiaryId || undefined,
       isPremium,
+      coverImageUrl: null, // Will be set from diary data
+    }
+
+    // If we have a diary, get the cover_image_url directly from it
+    if (diaryId) {
+      const { data: diaryForImage } = await supabase
+        .from('diaries')
+        .select('cover_image_url')
+        .eq('id', diaryId)
+        .single()
+
+      if (diaryForImage) {
+        response.coverImageUrl = diaryForImage.cover_image_url
+      }
+    } else if (currentDiaryId) {
+      const { data: diaryForImage } = await supabase
+        .from('diaries')
+        .select('cover_image_url')
+        .eq('id', currentDiaryId)
+        .single()
+
+      if (diaryForImage) {
+        response.coverImageUrl = diaryForImage.cover_image_url
+      }
     }
 
     return NextResponse.json(response)

@@ -14,6 +14,7 @@ import {
   CoverTemplateSelector,
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
+import { SpineRegionSelector, getSpineCropCoordinates } from '@/components/editor/SpineRegionSelector'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
 import type {
@@ -44,6 +45,10 @@ function CustomizePageContent() {
   const [isTextModalOpen, setIsTextModalOpen] = useState(false)
   const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
   const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
+
+  // Spine region selector state
+  const [spinePosition, setSpinePosition] = useState(0) // X position as percentage
+  const [savedCoverImageUrl, setSavedCoverImageUrl] = useState<string | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -145,7 +150,7 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; user: { id: string; email: string; name: string | null } } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; user: { id: string; email: string; name: string | null } } = await response.json()
 
         setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
@@ -174,6 +179,11 @@ function CustomizePageContent() {
             data.customization.paper_font_family,
             data.customization.paper_font_color
           )
+
+          // Load saved cover image URL for spine selector
+          if (data.coverImageUrl) {
+            setSavedCoverImageUrl(data.coverImageUrl)
+          }
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -196,6 +206,7 @@ function CustomizePageContent() {
 
     try {
       let coverImageUrl: string | undefined
+      let spineImageUrl: string | undefined
 
       // Capture cover canvas as image if we have a diary and user
       if (diaryId && user?.id && coverEditorRef.current) {
@@ -225,6 +236,50 @@ function CustomizePageContent() {
               const uploadResult = await uploadResponse.json()
               if (uploadResult.success && uploadResult.url) {
                 coverImageUrl = uploadResult.url
+                // Update saved cover image URL for spine selector
+                setSavedCoverImageUrl(uploadResult.url)
+              }
+            }
+
+            // Also generate spine image from selected region
+            const spineWidthRatio = 0.25
+            const cropCoords = getSpineCropCoordinates(
+              spinePosition,
+              spineWidthRatio,
+              canvas.width,
+              canvas.height
+            )
+
+            // Create a new canvas for the spine region
+            const spineCanvas = document.createElement('canvas')
+            spineCanvas.width = cropCoords.width
+            spineCanvas.height = cropCoords.height
+            const spineCtx = spineCanvas.getContext('2d')
+            if (spineCtx) {
+              spineCtx.drawImage(
+                canvas,
+                cropCoords.x, cropCoords.y, cropCoords.width, cropCoords.height,
+                0, 0, cropCoords.width, cropCoords.height
+              )
+
+              const spineImageBase64 = spineCanvas.toDataURL('image/png', 0.9)
+
+              // Upload spine image
+              const spineUploadResponse = await fetch('/api/customization/upload-cover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  diaryId,
+                  imageBase64: spineImageBase64,
+                  isSpine: true, // Flag to store in different location
+                }),
+              })
+
+              if (spineUploadResponse.ok) {
+                const spineUploadResult = await spineUploadResponse.json()
+                if (spineUploadResult.success && spineUploadResult.url) {
+                  spineImageUrl = spineUploadResult.url
+                }
               }
             }
           } catch (captureErr) {
@@ -247,6 +302,7 @@ function CustomizePageContent() {
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
           cover_image_url: coverImageUrl,
+          spine_image_url: spineImageUrl,
         }),
       })
 
@@ -376,6 +432,22 @@ function CustomizePageContent() {
                   텍스트
                   {isTextMode && <span className="text-xs opacity-80">(클릭하여 위치 선택)</span>}
                 </button>
+
+                {/* Spine Region Selector */}
+                <div className="mt-4 p-4 bg-white/70 rounded-xl border border-gray-200">
+                  <SpineRegionSelector
+                    coverImageUrl={savedCoverImageUrl}
+                    coverWidth={300}
+                    coverHeight={400}
+                    initialPosition={spinePosition}
+                    onPositionChange={setSpinePosition}
+                  />
+                  {!savedCoverImageUrl && (
+                    <p className="text-xs text-gray-400 mt-2 text-center">
+                      저장 후 책장 미리보기 영역을 선택할 수 있습니다
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Right: Controls */}

@@ -15,7 +15,21 @@ interface DiaryShelfViewerProps {
   onActivateDiary?: (diary: DiaryWithTemplates) => void
 }
 
-// Mini spine component for the shelf
+// Parse cover image_url which can be gradient, solid, or actual URL
+function parseImageUrl(imageUrl: string): {
+  type: 'gradient' | 'solid' | 'image'
+  value: string
+} {
+  if (imageUrl.startsWith('gradient:')) {
+    return { type: 'gradient', value: imageUrl.replace('gradient:', '') }
+  }
+  if (imageUrl.startsWith('solid:')) {
+    return { type: 'solid', value: imageUrl.replace('solid:', '') }
+  }
+  return { type: 'image', value: imageUrl }
+}
+
+// Mini spine component for the shelf - uses user-selected spine region
 function MiniSpine({
   diary,
   isActive,
@@ -25,9 +39,57 @@ function MiniSpine({
   isActive: boolean
   onClick: () => void
 }) {
-  const { color, gradient, textColor } = useSpineCalculations(diary)
-  const background = gradient || color
+  const { textColor } = useSpineCalculations(diary)
   const title = diary.title || `${diary.volume_number}권`
+
+  // Get spine style - prioritize user-selected spine image
+  const getSpineStyle = () => {
+    // 1. First priority: user-selected spine region image
+    if (diary.spine_image_url) {
+      return {
+        backgroundImage: `url(${diary.spine_image_url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+
+    // 2. Second priority: show left portion of cover image
+    if (diary.cover_image_url) {
+      return {
+        backgroundImage: `url(${diary.cover_image_url})`,
+        backgroundSize: 'auto 100%',
+        backgroundPosition: 'left center',
+      }
+    }
+
+    // 3. Third priority: use cover template
+    if (diary.cover_template?.image_url) {
+      const parsed = parseImageUrl(diary.cover_template.image_url)
+      switch (parsed.type) {
+        case 'gradient':
+          return { background: parsed.value }
+        case 'solid':
+          return { backgroundColor: parsed.value }
+        case 'image':
+          return {
+            backgroundImage: `url(${parsed.value})`,
+            backgroundSize: 'auto 100%',
+            backgroundPosition: 'left center',
+          }
+      }
+    }
+
+    // 4. Fallback: use spine_gradient or spine_color
+    if (diary.spine_gradient) {
+      return { background: diary.spine_gradient }
+    }
+    if (diary.spine_color) {
+      return { backgroundColor: diary.spine_color }
+    }
+
+    // 5. Default: pastel lavender
+    return { background: 'linear-gradient(135deg, #E8E0F0 0%, #D4C5E2 50%, #C9B8DA 100%)' }
+  }
 
   return (
     <motion.div
@@ -35,31 +97,32 @@ function MiniSpine({
       whileHover={{ scale: 1.05, y: -3 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0"
+      className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0 overflow-hidden"
       style={{
         width: 32,
         height: 140,
-        background,
+        ...getSpineStyle(),
       }}
     >
       {/* Active indicator */}
       {isActive && (
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-pastel-mint rounded-full shadow-sm" />
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-pastel-mint rounded-full shadow-sm z-20" />
       )}
 
-      {/* Spine edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-[1px]" style={{ background: 'rgba(0,0,0,0.15)' }} />
-      <div className="absolute right-0 top-0 bottom-0 w-[1px]" style={{ background: 'rgba(255,255,255,0.2)' }} />
+      {/* Spine edges for book effect */}
+      <div className="absolute left-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(0,0,0,0.15)' }} />
+      <div className="absolute right-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(255,255,255,0.2)' }} />
 
-      {/* Title - vertical */}
-      <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1">
+      {/* Title overlay with text shadow for readability */}
+      <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
         <span
-          className="text-[11px] font-medium text-center"
+          className="text-[11px] font-medium text-center drop-shadow-sm"
           style={{
             color: textColor,
             writingMode: 'vertical-rl',
             textOrientation: 'upright',
             letterSpacing: '0.05em',
+            textShadow: '0 1px 2px rgba(255,255,255,0.5), 0 -1px 2px rgba(255,255,255,0.5)',
           }}
         >
           {title.length > 6 ? title.slice(0, 6) + '..' : title}

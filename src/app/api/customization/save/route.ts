@@ -5,6 +5,7 @@ import type { CustomizationSaveRequest } from '@/types/customization'
 interface SaveRequestWithDiary extends CustomizationSaveRequest {
   diary_id?: string
   cover_image_url?: string
+  spine_image_url?: string
 }
 
 export async function POST(request: Request) {
@@ -61,6 +62,11 @@ export async function POST(request: Request) {
       // Only update cover_image_url if provided
       if (body.cover_image_url) {
         updateData.cover_image_url = body.cover_image_url
+      }
+
+      // Only update spine_image_url if provided
+      if (body.spine_image_url) {
+        updateData.spine_image_url = body.spine_image_url
       }
 
       const { error } = await supabase
