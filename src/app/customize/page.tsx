@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useRef } from 'react'
+import { Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import html2canvas from 'html2canvas'
@@ -15,6 +15,7 @@ import {
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
 import { SpineRegionSelector, getSpineCropCoordinates } from '@/components/editor/SpineRegionSelector'
+import { MiniBookshelf } from '@/components/editor/MiniBookshelf'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
 import type {
@@ -24,6 +25,7 @@ import type {
   CustomizationLoadResponse,
   TextMeta,
 } from '@/types/customization'
+import type { DiaryWithTemplates } from '@/types/diary'
 
 type TabType = 'cover' | 'paper'
 
@@ -57,6 +59,7 @@ function CustomizePageContent() {
   const [decorationItems, setDecorationItems] = useState<DecorationItem[]>([])
   const [diaryId, setDiaryId] = useState<string | null>(null)
   const [isPremium, setIsPremium] = useState(false)
+  const [allDiaries, setAllDiaries] = useState<DiaryWithTemplates[]>([])
 
   // Editor state
   const {
@@ -134,10 +137,74 @@ function CustomizePageContent() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [state.selectedItemIndex, removeDecoration])
 
+  // Load customization for a specific diary
+  const loadDiaryCustomization = useCallback(async (targetDiaryId: string, templates?: { cover: CoverTemplate[], paper: PaperTemplate[] }) => {
+    try {
+      const url = `/api/customization/load?diaryId=${targetDiaryId}`
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error('Failed to load customization data')
+      }
+
+      const data: CustomizationLoadResponse & { diaryId?: string; coverImageUrl?: string | null } = await response.json()
+
+      const coverTmpl = templates?.cover || coverTemplates
+      const paperTmpl = templates?.paper || paperTemplates
+
+      if (data.diaryId) {
+        setDiaryId(data.diaryId)
+      }
+
+      // Load existing customization
+      if (data.customization) {
+        const cover = coverTmpl.find(
+          (t) => t.id === data.customization?.cover_template_id
+        ) || null
+        const paper = paperTmpl.find(
+          (t) => t.id === data.customization?.paper_template_id
+        ) || null
+
+        loadState(
+          cover,
+          paper,
+          data.customization.cover_decorations || [],
+          data.customization.paper_decorations || [],
+          data.customization.paper_opacity,
+          data.customization.paper_font_family,
+          data.customization.paper_font_color
+        )
+
+        // Load saved cover image URL for spine selector
+        if (data.coverImageUrl) {
+          setSavedCoverImageUrl(data.coverImageUrl)
+        } else {
+          setSavedCoverImageUrl(null)
+        }
+      } else if (coverTmpl.length > 0) {
+        // Set default cover
+        setCover(coverTmpl[0])
+        setSavedCoverImageUrl(null)
+      }
+
+      // Reset spine position when switching diaries
+      setSpinePosition(0)
+    } catch (err) {
+      console.error('Error loading diary customization:', err)
+      setError('데이터를 불러오는 데 실패했습니다.')
+    }
+  }, [coverTemplates, paperTemplates, loadState, setCover])
+
   // Load data on mount
   useEffect(() => {
     async function loadData() {
       try {
+        // Fetch all diaries for bookshelf
+        const diariesResponse = await fetch('/api/diaries')
+        if (diariesResponse.ok) {
+          const diariesData = await diariesResponse.json()
+          setAllDiaries(diariesData.diaries || [])
+        }
+
         const url = diaryIdParam
           ? `/api/customization/load?diaryId=${diaryIdParam}`
           : '/api/customization/load'
@@ -198,6 +265,12 @@ function CustomizePageContent() {
 
     loadData()
   }, [router, loadState, setCover, diaryIdParam])
+
+  // Handle diary selection from bookshelf
+  const handleSelectDiary = useCallback((diary: DiaryWithTemplates) => {
+    if (diary.id === diaryId) return // Already selected
+    loadDiaryCustomization(diary.id)
+  }, [diaryId, loadDiaryCustomization])
 
   // Save customization
   const handleSave = async () => {
@@ -508,6 +581,17 @@ function CustomizePageContent() {
             </>
           )}
         </div>
+
+        {/* Mini Bookshelf - below the editor */}
+        {allDiaries.length > 0 && (
+          <div className="mt-8">
+            <MiniBookshelf
+              diaries={allDiaries}
+              selectedDiaryId={diaryId}
+              onSelectDiary={handleSelectDiary}
+            />
+          </div>
+        )}
       </main>
 
       {/* Text Input Modal */}
