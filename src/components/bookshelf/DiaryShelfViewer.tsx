@@ -6,6 +6,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
 import { useSpineCalculations } from './hooks/useSpineCalculations'
+import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
+
+// Calculate bookshelf spine dimensions based on print ratio
+// Spine height 140px, aspect ratio 0.72, spine ratio 6.67%
+const BOOKSHELF_SPINE_HEIGHT = 140
+const BOOKSHELF_SPINE_WIDTH = Math.max(
+  14, // Minimum width for usability
+  Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO)
+)
 
 interface DiaryShelfViewerProps {
   diaries: DiaryWithTemplates[]
@@ -42,27 +51,19 @@ function MiniSpine({
   const { textColor } = useSpineCalculations(diary)
   const title = diary.title || `${diary.volume_number}권`
 
-  // Get spine style - prioritize user-selected spine image
+  // Get spine style - crop cover image at spine_position
   const getSpineStyle = () => {
-    // 1. First priority: user-selected spine region image
-    if (diary.spine_image_url) {
-      return {
-        backgroundImage: `url(${diary.spine_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    }
-
-    // 2. Second priority: show left portion of cover image
+    // 1. First priority: crop cover image at spine_position
     if (diary.cover_image_url) {
+      const spinePosition = diary.spine_position ?? 0
       return {
         backgroundImage: `url(${diary.cover_image_url})`,
         backgroundSize: 'auto 100%',
-        backgroundPosition: 'left center',
+        backgroundPosition: `${spinePosition}% center`,
       }
     }
 
-    // 3. Third priority: use cover template
+    // 2. Second priority: use cover template
     if (diary.cover_template?.image_url) {
       const parsed = parseImageUrl(diary.cover_template.image_url)
       switch (parsed.type) {
@@ -79,7 +80,7 @@ function MiniSpine({
       }
     }
 
-    // 4. Fallback: use spine_gradient or spine_color
+    // 3. Fallback: use spine_gradient or spine_color
     if (diary.spine_gradient) {
       return { background: diary.spine_gradient }
     }
@@ -87,7 +88,7 @@ function MiniSpine({
       return { backgroundColor: diary.spine_color }
     }
 
-    // 5. Default: pastel lavender
+    // 4. Default: pastel lavender
     return { background: 'linear-gradient(135deg, #E8E0F0 0%, #D4C5E2 50%, #C9B8DA 100%)' }
   }
 
@@ -99,8 +100,8 @@ function MiniSpine({
       onClick={onClick}
       className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0 overflow-hidden"
       style={{
-        width: 32,
-        height: 140,
+        width: BOOKSHELF_SPINE_WIDTH,
+        height: BOOKSHELF_SPINE_HEIGHT,
         ...getSpineStyle(),
       }}
     >

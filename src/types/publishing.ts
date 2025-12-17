@@ -11,6 +11,8 @@ export interface PublishJob {
   back_cover_url: string | null
   spine_url: string | null
   inner_pages_url: string | null
+  zip_url: string | null  // ZIP file containing all PDFs
+  page_count: number | null
   error_message: string | null
   created_at: string
   completed_at: string | null

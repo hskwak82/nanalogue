@@ -64,6 +64,8 @@ export async function GET() {
       back_cover_url: job.back_cover_url,
       spine_url: job.spine_url,
       inner_pages_url: job.inner_pages_url,
+      zip_url: job.zip_url,
+      page_count: job.page_count,
       error_message: job.error_message,
       created_at: job.created_at,
       completed_at: job.completed_at,

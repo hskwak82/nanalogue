@@ -21,7 +21,8 @@ import {
   generateBackCoverPDF,
   generateSpinePDF,
   generateInnerPagesPDF,
-  uploadPdfToStorage,
+  createPublishingZip,
+  uploadZipToStorage,
 } from '@/lib/publishing/client-pdf-generator'
 import type { PublishableDiary, PublishJobWithDiary } from '@/types/publishing'
 
@@ -168,41 +169,56 @@ function JobCard({
 
       {job.status === 'completed' && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {job.front_cover_url && (
+          {/* New: ZIP download button */}
+          {job.zip_url && (
             <button
-              onClick={() => onDownload(job, 'front')}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+              onClick={() => onDownload(job, 'zip')}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100"
             >
-              <DocumentArrowDownIcon className="h-3 w-3" />
-              앞표지
+              <DocumentArrowDownIcon className="h-4 w-4" />
+              전체 다운로드 (ZIP)
             </button>
           )}
-          {job.back_cover_url && (
-            <button
-              onClick={() => onDownload(job, 'back')}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <DocumentArrowDownIcon className="h-3 w-3" />
-              뒷표지
-            </button>
-          )}
-          {job.spine_url && (
-            <button
-              onClick={() => onDownload(job, 'spine')}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <DocumentArrowDownIcon className="h-3 w-3" />
-              책등
-            </button>
-          )}
-          {job.inner_pages_url && (
-            <button
-              onClick={() => onDownload(job, 'inner')}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
-            >
-              <DocumentArrowDownIcon className="h-3 w-3" />
-              내지
-            </button>
+          {/* Backward compatibility: individual PDF buttons for old jobs */}
+          {!job.zip_url && (
+            <>
+              {job.front_cover_url && (
+                <button
+                  onClick={() => onDownload(job, 'front')}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <DocumentArrowDownIcon className="h-3 w-3" />
+                  앞표지
+                </button>
+              )}
+              {job.back_cover_url && (
+                <button
+                  onClick={() => onDownload(job, 'back')}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <DocumentArrowDownIcon className="h-3 w-3" />
+                  뒷표지
+                </button>
+              )}
+              {job.spine_url && (
+                <button
+                  onClick={() => onDownload(job, 'spine')}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <DocumentArrowDownIcon className="h-3 w-3" />
+                  책등
+                </button>
+              )}
+              {job.inner_pages_url && (
+                <button
+                  onClick={() => onDownload(job, 'inner')}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+                >
+                  <DocumentArrowDownIcon className="h-3 w-3" />
+                  내지
+                </button>
+              )}
+            </>
           )}
         </div>
       )}
@@ -373,41 +389,45 @@ export default function AdminPublishingPage() {
         throw new Error('일기 항목을 불러올 수 없습니다.')
       }
 
-      const basePath = `${diaryData.user_id}/${diaryId}`
-      let frontCoverUrl: string | null = null
-      let backCoverUrl: string | null = null
-      let spineUrl: string | null = null
-      let innerPagesUrl: string | null = null
+      // Use timestamp in path to bust CDN cache
+      const timestamp = Date.now()
+      const basePath = `${diaryData.user_id}/${diaryId}/${timestamp}`
 
-      // Generate and upload front cover
+      // Generate all PDFs
       const frontCoverPdf = await generateFrontCoverPDF(diaryData, setProgressMessage)
-      frontCoverUrl = await uploadPdfToStorage(supabase, frontCoverPdf, `${basePath}/front_cover.pdf`)
-
-      // Generate and upload back cover
       const backCoverPdf = await generateBackCoverPDF(diaryData, setProgressMessage)
-      backCoverUrl = await uploadPdfToStorage(supabase, backCoverPdf, `${basePath}/back_cover.pdf`)
-
-      // Generate and upload spine
       const spinePdf = await generateSpinePDF(diaryData, setProgressMessage)
-      spineUrl = await uploadPdfToStorage(supabase, spinePdf, `${basePath}/spine.pdf`)
 
-      // Generate and upload inner pages (if there are entries)
+      let innerPagesPdf: Uint8Array | undefined
       if (entries && entries.length > 0) {
-        const innerPagesPdf = await generateInnerPagesPDF(diaryData, entries, setProgressMessage)
-        innerPagesUrl = await uploadPdfToStorage(supabase, innerPagesPdf, `${basePath}/inner_pages.pdf`)
+        innerPagesPdf = await generateInnerPagesPDF(diaryData, entries, setProgressMessage)
       }
 
-      // Update job with URLs
+      // Create ZIP containing all PDFs
+      setProgressMessage('ZIP 파일 생성 중...')
+      const zipBuffer = await createPublishingZip(
+        {
+          frontCover: frontCoverPdf,
+          backCover: backCoverPdf,
+          spine: spinePdf,
+          innerPages: innerPagesPdf,
+        },
+        diaryData.title || '',
+        diaryData.volume_number
+      )
+
+      // Upload ZIP file
+      setProgressMessage('ZIP 파일 업로드 중...')
+      const zipUrl = await uploadZipToStorage(zipBuffer, `${basePath}/publishing.zip`)
+
+      // Update job with ZIP URL
       setProgressMessage('작업 완료 처리 중...')
       await fetch(`/api/admin/publishing/${job.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'complete',
-          front_cover_url: frontCoverUrl,
-          back_cover_url: backCoverUrl,
-          spine_url: spineUrl,
-          inner_pages_url: innerPagesUrl,
+          zip_url: zipUrl,
           page_count: entries?.length || 0,
         }),
       })
@@ -458,6 +478,10 @@ export default function AdminPublishingPage() {
     let filename = ''
 
     switch (type) {
+      case 'zip':
+        url = job.zip_url
+        filename = `${job.diary.title || '일기장'}_${job.diary.volume_number}권_출판파일.zip`
+        break
       case 'front':
         url = job.front_cover_url
         filename = `front_cover_${job.diary.volume_number}.pdf`

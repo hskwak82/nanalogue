@@ -94,7 +94,7 @@ export async function PATCH(
     }
 
     if (action === 'complete') {
-      const { front_cover_url, back_cover_url, spine_url, inner_pages_url, page_count } = body
+      const { front_cover_url, back_cover_url, spine_url, inner_pages_url, zip_url, page_count } = body
 
       // Delete any existing completed jobs for this diary to avoid unique constraint violation
       await supabase
@@ -112,6 +112,7 @@ export async function PATCH(
           back_cover_url,
           spine_url,
           inner_pages_url,
+          zip_url,
           page_count,
           completed_at: new Date().toISOString(),
         })
@@ -149,7 +150,7 @@ export async function DELETE(
     const { data: existingJob, error: fetchError } = await supabase
       .from('diary_publish_jobs')
       .select(`
-        id, status, front_cover_url, back_cover_url, spine_url, inner_pages_url, diary_id,
+        id, status, front_cover_url, back_cover_url, spine_url, inner_pages_url, zip_url, diary_id,
         diary:diaries(user_id)
       `)
       .eq('id', id)
@@ -168,23 +169,23 @@ export async function DELETE(
     }
 
     // Delete associated files from storage if they exist
-    const filesToDelete: string[] = []
-    const diaryId = existingJob.diary_id
-    const userId = (existingJob.diary as { user_id: string } | null)?.user_id
-    const basePath = userId ? `${userId}/${diaryId}` : diaryId
+    // Extract path from URL: https://.../storage/v1/object/public/publishing/{path}
+    const extractPath = (url: string | null): string | null => {
+      if (!url) return null
+      const match = url.match(/\/publishing\/(.+)$/)
+      return match ? match[1] : null
+    }
 
-    if (existingJob.front_cover_url) {
-      filesToDelete.push(`${basePath}/front_cover.pdf`)
-    }
-    if (existingJob.back_cover_url) {
-      filesToDelete.push(`${basePath}/back_cover.pdf`)
-    }
-    if (existingJob.spine_url) {
-      filesToDelete.push(`${basePath}/spine.pdf`)
-    }
-    if (existingJob.inner_pages_url) {
-      filesToDelete.push(`${basePath}/inner_pages.pdf`)
-    }
+    const filesToDelete: string[] = []
+    const paths = [
+      extractPath(existingJob.front_cover_url),
+      extractPath(existingJob.back_cover_url),
+      extractPath(existingJob.spine_url),
+      extractPath(existingJob.inner_pages_url),
+      extractPath(existingJob.zip_url),
+    ].filter((p): p is string => p !== null)
+
+    filesToDelete.push(...paths)
 
     // Delete files from storage
     if (filesToDelete.length > 0) {

@@ -19,6 +19,8 @@ export async function POST(request: Request) {
 
     const supabase = getAdminServiceClient()
 
+    console.log('[Upload API] Service client created, uploading to path:', path)
+
     // Convert File to ArrayBuffer then to Uint8Array
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
@@ -31,9 +33,11 @@ export async function POST(request: Request) {
       })
 
     if (error) {
-      console.error('Storage upload error:', error)
+      console.error('[Upload API] Storage upload error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    console.log('[Upload API] Upload successful')
 
     const { data: urlData } = supabase.storage.from('publishing').getPublicUrl(path)
 
