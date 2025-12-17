@@ -415,40 +415,26 @@ function CustomizePageContent() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </Link>
-            <h1 className="text-2xl font-bold text-gray-700">일기장 꾸미기</h1>
-          </div>
-
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`px-6 py-2 rounded-full font-medium transition-all ${
-              isSaving
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-            }`}
+        <div className="flex items-center gap-4 mb-6">
+          <Link
+            href="/dashboard"
+            className="text-gray-500 hover:text-gray-700 transition-colors"
           >
-            {isSaving ? '저장 중...' : '저장'}
-          </button>
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-700">일기장 꾸미기</h1>
         </div>
 
         {error && (
@@ -545,6 +531,20 @@ function CustomizePageContent() {
                     />
                   </div>
                 </div>
+
+                {/* Save Button - below cover and spine */}
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className={`mt-4 px-8 py-3 rounded-full font-medium transition-all ${
+                    isSaving
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
+                  }`}
+                  style={{ width: 300 + 112 + 91 }}
+                >
+                  {isSaving ? '저장 중...' : '저장'}
+                </button>
               </div>
 
               {/* Right: Controls */}
