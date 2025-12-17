@@ -25,19 +25,32 @@ const containerVariants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.15,
-      delayChildren: 0.1,
+      staggerChildren: 0.08,
+      delayChildren: 0.05,
     },
   },
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 15 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
+      duration: 0.3,
+      ease: 'easeOut' as const,
+    },
+  },
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.25,
       ease: 'easeOut' as const,
     },
   },
@@ -51,21 +64,26 @@ export function HeroSection() {
       initial="hidden"
       animate="visible"
     >
-      {/* Key Points */}
+      {/* Key Points - Card Style */}
       <motion.div
-        className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-6 sm:mb-8"
+        className="grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto mb-6 sm:mb-8"
         variants={itemVariants}
       >
-        {keyPoints.map((point) => (
-          <div
+        {keyPoints.map((point, index) => (
+          <motion.div
             key={point.title}
-            className="flex items-center gap-2 bg-white/60 backdrop-blur-sm rounded-full px-3 py-1.5 sm:px-4 sm:py-2 shadow-sm border border-white/40"
+            className="flex flex-col items-center text-center bg-white/70 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-sm border border-white/50 hover:shadow-md transition-shadow"
+            variants={cardVariants}
+            custom={index}
           >
-            <span className="text-base sm:text-lg">{point.icon}</span>
-            <span className="text-xs sm:text-sm font-medium text-gray-700">
+            <span className="text-2xl sm:text-3xl mb-2">{point.icon}</span>
+            <span className="text-xs sm:text-sm font-semibold text-pastel-purple-dark mb-1">
               {point.title}
             </span>
-          </div>
+            <span className="text-[10px] sm:text-xs text-gray-500 leading-tight">
+              {point.description}
+            </span>
+          </motion.div>
         ))}
       </motion.div>
 
