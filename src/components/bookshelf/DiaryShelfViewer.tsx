@@ -222,19 +222,21 @@ export function DiaryShelfViewer({
 
         {/* Mini bookshelf with other diaries */}
         {shelfDiaries.length > 0 && (
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-0">
             {/* Shelf */}
             <div className="relative pb-3">
-              {/* Books */}
-              <div className="flex items-end gap-1 min-h-[160px]">
-                {shelfDiaries.map((diary) => (
-                  <MiniSpine
-                    key={diary.id}
-                    diary={diary}
-                    isActive={diary.id === activeDiaryId}
-                    onClick={() => handleSpineClick(diary)}
-                  />
-                ))}
+              {/* Books - scrollable container */}
+              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2">
+                <div className="flex items-end gap-1 min-h-[160px]">
+                  {shelfDiaries.map((diary) => (
+                    <MiniSpine
+                      key={diary.id}
+                      diary={diary}
+                      isActive={diary.id === activeDiaryId}
+                      onClick={() => handleSpineClick(diary)}
+                    />
+                  ))}
+                </div>
               </div>
 
               {/* Shelf surface */}
