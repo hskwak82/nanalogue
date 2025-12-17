@@ -28,6 +28,8 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const search = searchParams.get('search') || ''
     const planFilter = searchParams.get('plan') || ''
+    const subscriptionTypeFilter = searchParams.get('subscriptionType') || ''
+    const periodFilter = searchParams.get('period') || ''
 
     const offset = (page - 1) * limit
     const supabase = getAdminServiceClient()
@@ -40,6 +42,31 @@ export async function GET(request: Request) {
     // Apply search filter
     if (search) {
       query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`)
+    }
+
+    // Apply period filter (가입일 기준)
+    if (periodFilter) {
+      const now = new Date()
+      let startDate: Date
+
+      switch (periodFilter) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          break
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          break
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          break
+        case '3months':
+          startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
+          break
+        default:
+          startDate = new Date(0)
+      }
+
+      query = query.gte('created_at', startDate.toISOString())
     }
 
     // Get profiles with pagination
@@ -151,6 +178,11 @@ export async function GET(request: Request) {
     // Apply plan filter if specified
     if (planFilter) {
       users = users.filter((u) => u.plan === planFilter)
+    }
+
+    // Apply subscription type filter if specified
+    if (subscriptionTypeFilter) {
+      users = users.filter((u) => u.subscription_type === subscriptionTypeFilter)
     }
 
     return NextResponse.json({

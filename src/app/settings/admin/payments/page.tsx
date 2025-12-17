@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useToast } from '@/components/ui'
 import type { AdminPayment } from '@/app/api/admin/payments/route'
 
@@ -37,6 +37,7 @@ export default function AdminPaymentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [exporting, setExporting] = useState(false)
   const [summary, setSummary] = useState({
     totalAmount: 0,
@@ -60,6 +61,7 @@ export default function AdminPaymentsPage() {
       })
       if (statusFilter) params.set('status', statusFilter)
       if (periodFilter) params.set('period', periodFilter)
+      if (search) params.set('search', search)
 
       const response = await fetch(`/api/admin/payments?${params}`)
       if (!response.ok) {
@@ -74,7 +76,7 @@ export default function AdminPaymentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, statusFilter, periodFilter])
+  }, [pagination.page, pagination.limit, statusFilter, periodFilter, search])
 
   useEffect(() => {
     fetchPayments()
@@ -129,9 +131,22 @@ export default function AdminPaymentsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4">
-        <div className="flex flex-wrap gap-2">
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPagination((prev) => ({ ...prev, page: 1 }))
+              }}
+              placeholder="사용자명 또는 이메일로 검색..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
           <select
             value={pagination.limit}
             onChange={(e) => {
@@ -144,42 +159,46 @@ export default function AdminPaymentsPage() {
             <option value={50}>50개씩</option>
             <option value={100}>100개씩</option>
           </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value)
-              setPagination((prev) => ({ ...prev, page: 1 }))
-            }}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="">모든 상태</option>
-            <option value="DONE">완료</option>
-            <option value="PENDING">대기</option>
-            <option value="CANCELED">취소</option>
-            <option value="FAILED">실패</option>
-          </select>
-          <select
-            value={periodFilter}
-            onChange={(e) => {
-              setPeriodFilter(e.target.value)
-              setPagination((prev) => ({ ...prev, page: 1 }))
-            }}
-            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="">전체 기간</option>
-            <option value="today">오늘</option>
-            <option value="week">이번 주</option>
-            <option value="month">이번 달</option>
-          </select>
         </div>
-        <button
-          onClick={handleExport}
-          disabled={exporting}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-        >
-          <ArrowDownTrayIcon className="h-4 w-4" />
-          {exporting ? '내보내는 중...' : '엑셀 내보내기'}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPagination((prev) => ({ ...prev, page: 1 }))
+              }}
+              className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="">모든 상태</option>
+              <option value="DONE">완료</option>
+              <option value="PENDING">대기</option>
+              <option value="CANCELED">취소</option>
+              <option value="FAILED">실패</option>
+            </select>
+            <select
+              value={periodFilter}
+              onChange={(e) => {
+                setPeriodFilter(e.target.value)
+                setPagination((prev) => ({ ...prev, page: 1 }))
+              }}
+              className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="">전체 기간</option>
+              <option value="today">오늘</option>
+              <option value="week">이번 주</option>
+              <option value="month">이번 달</option>
+            </select>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            {exporting ? '내보내는 중...' : '엑셀 내보내기'}
+          </button>
+        </div>
       </div>
 
       {/* Payments Table */}

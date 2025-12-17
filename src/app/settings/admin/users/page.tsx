@@ -310,6 +310,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('')
+  const [subscriptionTypeFilter, setSubscriptionTypeFilter] = useState('')
+  const [periodFilter, setPeriodFilter] = useState('')
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkModal, setShowBulkModal] = useState(false)
@@ -331,6 +333,8 @@ export default function AdminUsersPage() {
       })
       if (search) params.set('search', search)
       if (planFilter) params.set('plan', planFilter)
+      if (subscriptionTypeFilter) params.set('subscriptionType', subscriptionTypeFilter)
+      if (periodFilter) params.set('period', periodFilter)
 
       const response = await fetch(`/api/admin/users?${params}`)
       if (!response.ok) {
@@ -345,7 +349,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, search, planFilter])
+  }, [pagination.page, pagination.limit, search, planFilter, subscriptionTypeFilter, periodFilter])
 
   useEffect(() => {
     fetchUsers()
@@ -567,43 +571,74 @@ export default function AdminUsersPage() {
       )}
 
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <form onSubmit={handleSearch} className="flex-1">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="이메일 또는 이름으로 검색..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-        </form>
-        <select
-          value={pagination.limit}
-          onChange={(e) => {
-            setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        >
-          <option value={10}>10개씩</option>
-          <option value={20}>20개씩</option>
-          <option value={50}>50개씩</option>
-          <option value={100}>100개씩</option>
-        </select>
-        <select
-          value={planFilter}
-          onChange={(e) => {
-            setPlanFilter(e.target.value)
-            setPagination((prev) => ({ ...prev, page: 1 }))
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        >
-          <option value="">모든 플랜</option>
-          <option value="free">무료</option>
-          <option value="pro">프로</option>
-        </select>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <form onSubmit={handleSearch} className="flex-1">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="이메일 또는 이름으로 검색..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </form>
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value={10}>10개씩</option>
+            <option value={20}>20개씩</option>
+            <option value={50}>50개씩</option>
+            <option value={100}>100개씩</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={planFilter}
+            onChange={(e) => {
+              setPlanFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">모든 플랜</option>
+            <option value="free">무료</option>
+            <option value="pro">프로</option>
+          </select>
+          <select
+            value={subscriptionTypeFilter}
+            onChange={(e) => {
+              setSubscriptionTypeFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">모든 구독유형</option>
+            <option value="recurring">정기구독</option>
+            <option value="manual">수동부여</option>
+            <option value="none">구독없음</option>
+          </select>
+          <select
+            value={periodFilter}
+            onChange={(e) => {
+              setPeriodFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">전체 가입기간</option>
+            <option value="today">오늘 가입</option>
+            <option value="week">최근 1주</option>
+            <option value="month">이번 달</option>
+            <option value="3months">최근 3개월</option>
+          </select>
+        </div>
       </div>
 
       {/* Tools Bar */}

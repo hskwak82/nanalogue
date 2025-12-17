@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
 import type { Announcement } from '@/app/api/admin/announcements/route'
 
@@ -53,6 +53,10 @@ export default function AdminAnnouncementsPage() {
     total: 0,
     totalPages: 0,
   })
+  const [search, setSearch] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [targetFilter, setTargetFilter] = useState('')
+  const [activeFilter, setActiveFilter] = useState('')
 
   const fetchAnnouncements = useCallback(async () => {
     setLoading(true)
@@ -61,6 +65,11 @@ export default function AdminAnnouncementsPage() {
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
       })
+      if (search) params.set('search', search)
+      if (typeFilter) params.set('type', typeFilter)
+      if (targetFilter) params.set('target', targetFilter)
+      if (activeFilter) params.set('active', activeFilter)
+
       const response = await fetch(`/api/admin/announcements?${params}`)
       if (!response.ok) throw new Error('Failed to fetch')
       const data = await response.json()
@@ -71,7 +80,7 @@ export default function AdminAnnouncementsPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit])
+  }, [pagination.page, pagination.limit, search, typeFilter, targetFilter, activeFilter])
 
   useEffect(() => {
     fetchAnnouncements()
@@ -179,7 +188,35 @@ export default function AdminAnnouncementsPage() {
         <h2 className="text-lg font-semibold text-gray-900">
           공지사항
         </h2>
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => {
+            setFormData(defaultFormData)
+            setEditingId(null)
+            setShowForm(true)
+          }}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+        >
+          <PlusIcon className="h-4 w-4" />
+          새 공지
+        </button>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPagination((prev) => ({ ...prev, page: 1 }))
+              }}
+              placeholder="제목으로 검색..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
           <select
             value={pagination.limit}
             onChange={(e) => {
@@ -192,17 +229,47 @@ export default function AdminAnnouncementsPage() {
             <option value={50}>50개씩</option>
             <option value={100}>100개씩</option>
           </select>
-          <button
-            onClick={() => {
-              setFormData(defaultFormData)
-              setEditingId(null)
-              setShowForm(true)
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
-            <PlusIcon className="h-4 w-4" />
-            새 공지
-          </button>
+            <option value="">모든 유형</option>
+            <option value="info">정보</option>
+            <option value="warning">주의</option>
+            <option value="important">중요</option>
+            <option value="event">이벤트</option>
+          </select>
+          <select
+            value={targetFilter}
+            onChange={(e) => {
+              setTargetFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">모든 대상</option>
+            <option value="all">전체</option>
+            <option value="free">무료 사용자</option>
+            <option value="pro">프로 사용자</option>
+          </select>
+          <select
+            value={activeFilter}
+            onChange={(e) => {
+              setActiveFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">모든 상태</option>
+            <option value="true">활성</option>
+            <option value="false">비활성</option>
+          </select>
         </div>
       </div>
 

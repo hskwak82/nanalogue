@@ -29,14 +29,39 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const status = searchParams.get('status') || ''
     const period = searchParams.get('period') || ''
+    const search = searchParams.get('search') || ''
 
     const offset = (page - 1) * limit
     const supabase = getAdminServiceClient()
+
+    // If search is provided, first find matching user IDs
+    let matchingUserIds: string[] | null = null
+    if (search) {
+      const { data: matchingUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`email.ilike.%${search}%,name.ilike.%${search}%`)
+
+      matchingUserIds = matchingUsers?.map(u => u.id) || []
+    }
 
     // Build base query
     let query = supabase
       .from('payment_history')
       .select('*', { count: 'exact' })
+
+    // Apply user search filter
+    if (matchingUserIds !== null) {
+      if (matchingUserIds.length === 0) {
+        // No matching users, return empty result
+        return NextResponse.json({
+          payments: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+          summary: { totalAmount: 0, doneCount: 0, canceledCount: 0, failedCount: 0 },
+        })
+      }
+      query = query.in('user_id', matchingUserIds)
+    }
 
     // Apply status filter
     if (status) {

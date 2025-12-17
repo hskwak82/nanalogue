@@ -16,7 +16,7 @@ export interface Announcement {
   updated_at: string
 }
 
-// GET /api/admin/announcements - Get all announcements for admin with pagination
+// GET /api/admin/announcements - Get all announcements for admin with pagination and filters
 export async function GET(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
@@ -27,19 +27,54 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
+    const search = searchParams.get('search') || ''
+    const typeFilter = searchParams.get('type') || ''
+    const targetFilter = searchParams.get('target') || ''
+    const activeFilter = searchParams.get('active') || ''
     const offset = (page - 1) * limit
 
     const supabase = getAdminServiceClient()
 
-    // Get total count
-    const { count } = await supabase
+    // Build base query for count
+    let countQuery = supabase
       .from('announcements')
       .select('*', { count: 'exact', head: true })
 
-    // Get paginated announcements
-    const { data: announcements, error } = await supabase
+    // Build base query for data
+    let dataQuery = supabase
       .from('announcements')
       .select('*')
+
+    // Apply search filter (title)
+    if (search) {
+      countQuery = countQuery.ilike('title', `%${search}%`)
+      dataQuery = dataQuery.ilike('title', `%${search}%`)
+    }
+
+    // Apply type filter
+    if (typeFilter) {
+      countQuery = countQuery.eq('type', typeFilter)
+      dataQuery = dataQuery.eq('type', typeFilter)
+    }
+
+    // Apply target audience filter
+    if (targetFilter) {
+      countQuery = countQuery.eq('target_audience', targetFilter)
+      dataQuery = dataQuery.eq('target_audience', targetFilter)
+    }
+
+    // Apply active filter
+    if (activeFilter) {
+      const isActive = activeFilter === 'true'
+      countQuery = countQuery.eq('is_active', isActive)
+      dataQuery = dataQuery.eq('is_active', isActive)
+    }
+
+    // Get total count
+    const { count } = await countQuery
+
+    // Get paginated announcements
+    const { data: announcements, error } = await dataQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
