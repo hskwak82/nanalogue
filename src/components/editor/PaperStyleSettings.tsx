@@ -82,12 +82,12 @@ export function PaperStyleSettings({
           ))}
           {/* Custom color input */}
           <label className="relative w-8 h-8 rounded-full border-2 border-dashed border-gray-300 cursor-pointer hover:border-gray-400 transition-colors flex items-center justify-center">
-            <span className="text-gray-400 text-xs">+</span>
+            <span className="text-gray-400 text-xs pointer-events-none">+</span>
             <input
               type="color"
               value={fontColor}
               onChange={(e) => onFontColorChange(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
           </label>
         </div>
