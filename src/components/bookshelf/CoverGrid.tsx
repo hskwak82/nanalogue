@@ -71,12 +71,6 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
               </div>
             )}
 
-            {/* Hover overlay */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-              <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium drop-shadow-lg">
-                열기
-              </span>
-            </div>
           </div>
 
           {/* Info below cover */}

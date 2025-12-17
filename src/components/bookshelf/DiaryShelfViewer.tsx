@@ -202,19 +202,13 @@ export function DiaryShelfViewer({
                 className="group"
               >
                 <Link href={`/diary?diary=${displayedDiary.id}`} onClick={handleCoverClick}>
-                  <div className="relative">
+                  <div className="relative transition-all duration-200 group-hover:scale-105 group-hover:-translate-y-1 group-hover:shadow-xl">
                     <DiaryCover
                       template={displayedDiary.cover_template}
                       decorations={displayedDiary.cover_decorations}
                       coverImageUrl={displayedDiary.cover_image_url}
                       size="preview"
                     />
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-lg flex items-center justify-center">
-                      <span className="text-white opacity-0 group-hover:opacity-100 transition-opacity text-sm font-medium drop-shadow-lg">
-                        열기
-                      </span>
-                    </div>
                   </div>
                   {/* Title below cover */}
                   <p className="mt-2 text-xs text-gray-600 font-medium text-center truncate max-w-[120px]">

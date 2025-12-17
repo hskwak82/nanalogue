@@ -16,7 +16,6 @@ import {
 } from '@/components/editor/TemplateSelector'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
-import { uploadCoverImage } from '@/lib/storage/covers'
 import type {
   CoverTemplate,
   PaperTemplate,
@@ -205,23 +204,28 @@ function CustomizePageContent() {
           try {
             const canvas = await html2canvas(canvasElement, {
               backgroundColor: null,
-              scale: 2, // Higher quality
+              scale: 2,
               useCORS: true,
-              logging: false,
             })
 
-            // Convert to blob
-            const blob = await new Promise<Blob>((resolve, reject) => {
-              canvas.toBlob((b) => {
-                if (b) resolve(b)
-                else reject(new Error('Failed to create blob'))
-              }, 'image/png', 0.9)
+            // Convert to base64
+            const imageBase64 = canvas.toDataURL('image/png', 0.9)
+
+            // Upload via server-side API (bypasses RLS)
+            const uploadResponse = await fetch('/api/customization/upload-cover', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                diaryId,
+                imageBase64,
+              }),
             })
 
-            // Upload to storage
-            const uploadResult = await uploadCoverImage(user.id, diaryId, blob)
-            if (uploadResult.success && uploadResult.url) {
-              coverImageUrl = uploadResult.url
+            if (uploadResponse.ok) {
+              const uploadResult = await uploadResponse.json()
+              if (uploadResult.success && uploadResult.url) {
+                coverImageUrl = uploadResult.url
+              }
             }
           } catch (captureErr) {
             console.warn('Failed to capture cover image:', captureErr)
