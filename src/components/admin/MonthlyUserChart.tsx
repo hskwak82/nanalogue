@@ -9,6 +9,7 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LabelList,
 } from 'recharts'
 
 interface MonthlyUserData {
@@ -65,14 +66,32 @@ export function MonthlyUserChart({ data }: MonthlyUserChartProps) {
           fill="#9CA3AF"
           name="free"
           radius={[0, 0, 0, 0]}
-        />
+        >
+          <LabelList
+            dataKey="free"
+            position="center"
+            fill="#fff"
+            fontSize={11}
+            fontWeight={500}
+            formatter={(value: number) => (value > 0 ? value : '')}
+          />
+        </Bar>
         <Bar
           dataKey="pro"
           stackId="users"
           fill="#A78BFA"
           name="pro"
           radius={[4, 4, 0, 0]}
-        />
+        >
+          <LabelList
+            dataKey="pro"
+            position="center"
+            fill="#fff"
+            fontSize={11}
+            fontWeight={500}
+            formatter={(value: number) => (value > 0 ? value : '')}
+          />
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   )

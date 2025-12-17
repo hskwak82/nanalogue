@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  LabelList,
 } from 'recharts'
 
 interface MonthlyRevenueData {
@@ -63,7 +64,16 @@ export function MonthlyRevenueChart({ data }: MonthlyRevenueChartProps) {
           fill="#6EE7B7"
           name="revenue"
           radius={[4, 4, 0, 0]}
-        />
+        >
+          <LabelList
+            dataKey="revenue"
+            position="center"
+            fill="#065F46"
+            fontSize={11}
+            fontWeight={500}
+            formatter={(value: number) => (value > 0 ? `${(value / 1000).toFixed(0)}K` : '')}
+          />
+        </Bar>
       </BarChart>
     </ResponsiveContainer>
   )
