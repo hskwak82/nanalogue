@@ -607,6 +607,19 @@ function CustomizePageContent() {
                   <span className="text-base">T</span>
                   텍스트
                 </button>
+
+                {/* Save Button for Paper */}
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className={`px-6 py-2 rounded-full font-medium transition-all ${
+                    isSaving
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
+                  }`}
+                >
+                  {isSaving ? '저장 중...' : '저장'}
+                </button>
               </div>
 
               {/* Right: Controls */}
