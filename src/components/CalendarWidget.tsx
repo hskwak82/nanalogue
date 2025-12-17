@@ -39,13 +39,39 @@ export function CalendarWidget({
     return { year: now.getFullYear(), month: now.getMonth() }
   })
 
-  // Cache for events by month (key: "YYYY-MM")
+  // Cache for events by month (key: "YYYY-MM") - persisted to sessionStorage
   const [eventsCache, setEventsCache] = useState<Record<string, GoogleEvent[]>>(() => {
-    const now = new Date()
-    const key = `${now.getFullYear()}-${now.getMonth()}`
-    return { [key]: initialGoogleEvents }
+    // Initialize with server-provided events only (no sessionStorage access during SSR)
+    if (initialGoogleEvents.length > 0) {
+      const now = new Date()
+      const key = `${now.getFullYear()}-${now.getMonth()}`
+      return { [key]: initialGoogleEvents }
+    }
+    return {}
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [hasMounted, setHasMounted] = useState(false)
+
+  // Load cache from sessionStorage after mount (client-side only)
+  useEffect(() => {
+    const cached = sessionStorage.getItem('calendar-events-cache')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Object.keys(parsed).length > 0) {
+          setEventsCache(parsed)
+        }
+      } catch {}
+    }
+    setHasMounted(true)
+  }, [])
+
+  // Persist cache to sessionStorage
+  useEffect(() => {
+    if (hasMounted && Object.keys(eventsCache).length > 0) {
+      sessionStorage.setItem('calendar-events-cache', JSON.stringify(eventsCache))
+    }
+  }, [eventsCache, hasMounted])
   const [showAddModal, setShowAddModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
 
@@ -81,10 +107,12 @@ export function CalendarWidget({
     }
   }
 
-  // Fetch on month change (only if not cached)
+  // Fetch on month change (only if not cached and after mount)
   useEffect(() => {
-    fetchEventsForMonth(currentMonth.year, currentMonth.month)
-  }, [currentMonth, isConnected])
+    if (hasMounted) {
+      fetchEventsForMonth(currentMonth.year, currentMonth.month)
+    }
+  }, [currentMonth, isConnected, hasMounted])
 
   const handleMonthChange = (year: number, month: number) => {
     setCurrentMonth({ year, month })

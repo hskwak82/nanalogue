@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
-import { getMonthEvents } from '@/lib/google-calendar'
 import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import type { DiaryWithTemplates } from '@/types/diary'
@@ -19,49 +18,22 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+  // Phase 1: Parallel fetch all Supabase queries
+  const [profileResult, sessionsResult, diaryEntriesResult, calendarTokenResult, diariesResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    supabase.from('daily_sessions').select('*').eq('user_id', user.id).order('session_date', { ascending: false }).limit(7),
+    supabase.from('diary_entries').select('entry_date').eq('user_id', user.id),
+    supabase.from('calendar_tokens').select('id').eq('user_id', user.id).eq('provider', 'google').maybeSingle(),
+    supabase.from('diaries').select('*, cover_templates(*)').eq('user_id', user.id).order('volume_number', { ascending: true }),
+  ])
 
-  // Get recent sessions
-  const { data: sessions } = await supabase
-    .from('daily_sessions')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('session_date', { ascending: false })
-    .limit(7)
+  const profile = profileResult.data
+  const sessions = sessionsResult.data
+  const diaryEntries = diaryEntriesResult.data
+  const isCalendarConnected = !!calendarTokenResult.data
+  const diariesData = diariesResult.data
 
-  // Get all diary entries for calendar display
-  const { data: diaryEntries } = await supabase
-    .from('diary_entries')
-    .select('entry_date')
-    .eq('user_id', user.id)
-
-  // Check if Google Calendar is connected
-  const { data: calendarToken } = await supabase
-    .from('calendar_tokens')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('provider', 'google')
-    .maybeSingle()
-
-  const isCalendarConnected = !!calendarToken
-
-  // Get Google Calendar events for current month if connected
-  let googleEvents: { date: string; title: string; time?: string; endTime?: string; isAllDay: boolean }[] = []
-  if (isCalendarConnected) {
-    const now = new Date()
-    googleEvents = await getMonthEvents(user.id, now.getFullYear(), now.getMonth())
-  }
-
-  // Get all diaries with templates
-  const { data: diariesData } = await supabase
-    .from('diaries')
-    .select('*, cover_templates(*)')
-    .eq('user_id', user.id)
-    .order('volume_number', { ascending: true })
+  // Google Calendar events are now loaded client-side by CalendarWidget for faster initial render
 
   // Transform to DiaryWithTemplates format
   const diaries: DiaryWithTemplates[] = (diariesData || []).map(d => ({
@@ -107,7 +79,6 @@ export default async function DashboardPage() {
             <CalendarWidget
               entries={diaryEntries?.map((e) => ({ entry_date: e.entry_date })) || []}
               isConnected={isCalendarConnected}
-              googleEvents={googleEvents}
             />
           }
           mainContent={

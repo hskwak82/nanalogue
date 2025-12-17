@@ -16,20 +16,16 @@ export default async function HomePage() {
     redirect('/login')
   }
 
-  // Get user profile
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name')
-    .eq('id', user.id)
-    .single()
+  // Parallel fetch: profile, active diary, latest entry
+  const [profileResult, diaryResult, latestEntryResult] = await Promise.all([
+    supabase.from('profiles').select('name').eq('id', user.id).single(),
+    supabase.from('diaries').select('*, cover_templates(*)').eq('user_id', user.id).eq('status', 'active').single(),
+    supabase.from('diary_entries').select('entry_date, content').eq('user_id', user.id).order('entry_date', { ascending: false }).limit(1).single(),
+  ])
 
-  // Get active diary with template
-  const { data: diaryData } = await supabase
-    .from('diaries')
-    .select('*, cover_templates(*)')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .single()
+  const profile = profileResult.data
+  const diaryData = diaryResult.data
+  const latestEntry = latestEntryResult.data
 
   // Transform to DiaryWithTemplates format
   const activeDiary: DiaryWithTemplates | null = diaryData
@@ -39,15 +35,6 @@ export default async function HomePage() {
         paper_template: null,
       }
     : null
-
-  // Get latest diary entry
-  const { data: latestEntry } = await supabase
-    .from('diary_entries')
-    .select('entry_date, content')
-    .eq('user_id', user.id)
-    .order('entry_date', { ascending: false })
-    .limit(1)
-    .single()
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
