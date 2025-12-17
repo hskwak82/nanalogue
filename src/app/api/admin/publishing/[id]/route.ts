@@ -145,10 +145,13 @@ export async function DELETE(
     const { id } = await params
     const supabase = getAdminServiceClient()
 
-    // Check current job status
+    // Check current job status with diary info for user_id
     const { data: existingJob, error: fetchError } = await supabase
       .from('diary_publish_jobs')
-      .select('id, status, front_cover_url, back_cover_url, spine_url, inner_pages_url, diary_id')
+      .select(`
+        id, status, front_cover_url, back_cover_url, spine_url, inner_pages_url, diary_id,
+        diary:diaries(user_id)
+      `)
       .eq('id', id)
       .single()
 
@@ -167,18 +170,20 @@ export async function DELETE(
     // Delete associated files from storage if they exist
     const filesToDelete: string[] = []
     const diaryId = existingJob.diary_id
+    const userId = (existingJob.diary as { user_id: string } | null)?.user_id
+    const basePath = userId ? `${userId}/${diaryId}` : diaryId
 
     if (existingJob.front_cover_url) {
-      filesToDelete.push(`${diaryId}/front_cover.pdf`)
+      filesToDelete.push(`${basePath}/front_cover.pdf`)
     }
     if (existingJob.back_cover_url) {
-      filesToDelete.push(`${diaryId}/back_cover.pdf`)
+      filesToDelete.push(`${basePath}/back_cover.pdf`)
     }
     if (existingJob.spine_url) {
-      filesToDelete.push(`${diaryId}/spine.pdf`)
+      filesToDelete.push(`${basePath}/spine.pdf`)
     }
     if (existingJob.inner_pages_url) {
-      filesToDelete.push(`${diaryId}/inner_pages.pdf`)
+      filesToDelete.push(`${basePath}/inner_pages.pdf`)
     }
 
     // Delete files from storage
