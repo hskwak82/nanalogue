@@ -505,45 +505,29 @@ function CustomizePageContent() {
                       onPositionChange={setSpinePosition}
                       isEditing={isSpineEditMode}
                       onEditingChange={setIsSpineEditMode}
+                      onEditButtonClick={() => {
+                        setIsSpineEditMode(!isSpineEditMode)
+                        if (!isSpineEditMode) setIsTextMode(false)
+                      }}
                     />
                   </div>
                 </div>
 
-                {/* Action Buttons - below cover, aligned left */}
-                <div className="flex gap-2" style={{ width: 300 + 112 + 91 }}> {/* cover(300) + gap(-right-28=112) + spine(91) - but actually start from cover left */}
-                  <button
-                    onClick={() => {
-                      setIsTextMode(!isTextMode)
-                      if (!isTextMode) setIsSpineEditMode(false)
-                    }}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      isTextMode
-                        ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                        : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                    }`}
-                  >
-                    <span className="text-base">T</span>
-                    텍스트
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsSpineEditMode(!isSpineEditMode)
-                      if (!isSpineEditMode) setIsTextMode(false)
-                    }}
-                    disabled={!savedCoverImageUrl}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                      isSpineEditMode
-                        ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                        : savedCoverImageUrl
-                          ? 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                          : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                    }`}
-                  >
-                    <span className="text-base">📍</span>
-                    위치변경
-                  </button>
-                </div>
+                {/* Text Button - below cover, aligned left */}
+                <button
+                  onClick={() => {
+                    setIsTextMode(!isTextMode)
+                    if (!isTextMode) setIsSpineEditMode(false)
+                  }}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                    isTextMode
+                      ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                  }`}
+                >
+                  <span className="text-base">T</span>
+                  텍스트
+                </button>
 
                 {/* Mini Bookshelf - below buttons, aligned with cover left to spine right */}
                 {allDiaries.length > 0 && (

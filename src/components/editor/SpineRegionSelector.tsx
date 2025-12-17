@@ -10,6 +10,7 @@ interface SpineRegionSelectorProps {
   onPositionChange?: (position: number) => void
   isEditing?: boolean // Controlled from parent
   onEditingChange?: (editing: boolean) => void
+  onEditButtonClick?: () => void // Called when edit button is clicked
   className?: string
 }
 
@@ -28,6 +29,7 @@ export function SpineRegionSelector({
   onPositionChange,
   isEditing = false,
   onEditingChange,
+  onEditButtonClick,
   className = '',
 }: SpineRegionSelectorProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -122,7 +124,12 @@ export function SpineRegionSelector({
             저장 후 표시
           </span>
         </div>
-        <span className="text-[10px] text-gray-400">책장</span>
+        <button
+          disabled
+          className="px-2 py-1 rounded text-[10px] bg-gray-100 text-gray-400 cursor-not-allowed"
+        >
+          위치변경
+        </button>
       </div>
     )
   }
@@ -143,8 +150,17 @@ export function SpineRegionSelector({
         }}
       />
 
-      {/* Label below the spine */}
-      <span className="text-[10px] text-gray-400">책장</span>
+      {/* Edit button below the spine */}
+      <button
+        onClick={onEditButtonClick}
+        className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+          isEditing
+            ? 'bg-pastel-purple text-white'
+            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+        }`}
+      >
+        위치변경
+      </button>
 
       {/* Selection overlay on cover - only shown when editing */}
       {isEditing && (
