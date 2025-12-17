@@ -558,7 +558,7 @@ export async function generatePublishingFiles(
       .from('diary_entries')
       .select('*')
       .eq('diary_id', diary.id)
-      .order('date', { ascending: true })
+      .order('entry_date', { ascending: true })
 
     if (entriesError) {
       throw new Error(`Failed to fetch entries: ${entriesError.message}`)
