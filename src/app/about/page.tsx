@@ -211,8 +211,12 @@ export default function AboutPage() {
         </motion.div>
       </section>
 
-      {/* Footer spacing */}
-      <div className="h-12" />
+      {/* Footer */}
+      <footer className="border-t border-pastel-pink/30 py-8 mt-8">
+        <div className="mx-auto max-w-7xl px-4 text-center text-sm text-gray-400">
+          &copy; 2025 나날로그. All rights reserved.
+        </div>
+      </footer>
     </div>
   )
 }

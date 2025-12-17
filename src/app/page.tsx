@@ -12,6 +12,8 @@ export default async function LandingPage() {
 
   if (user) {
     redirect('/home')
+  } else {
+    redirect('/about')
   }
 
   return (
