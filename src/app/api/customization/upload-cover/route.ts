@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { diaryId, imageBase64 } = body
+    const { diaryId, imageBase64, isSpine } = body
 
     if (!diaryId || !imageBase64) {
       return NextResponse.json(
@@ -44,7 +44,8 @@ export async function POST(request: Request) {
 
     // Upload using admin client (bypasses RLS)
     const adminClient = createAdminClient()
-    const path = `${user.id}/${diaryId}/cover.png`
+    const filename = isSpine ? 'spine.png' : 'cover.png'
+    const path = `${user.id}/${diaryId}/${filename}`
 
     const { error: uploadError } = await adminClient.storage
       .from(BUCKET_NAME)

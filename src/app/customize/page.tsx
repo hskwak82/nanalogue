@@ -14,6 +14,7 @@ import {
   CoverTemplateSelector,
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
+import { SpineRegionSelector, getSpineCropCoordinates } from '@/components/editor/SpineRegionSelector'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
 import type {
@@ -44,6 +45,10 @@ function CustomizePageContent() {
   const [isTextModalOpen, setIsTextModalOpen] = useState(false)
   const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
   const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
+
+  // Spine region selector state
+  const [spinePosition, setSpinePosition] = useState(0) // X position as percentage
+  const [savedCoverImageUrl, setSavedCoverImageUrl] = useState<string | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -145,7 +150,7 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; user: { id: string; email: string; name: string | null } } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; user: { id: string; email: string; name: string | null } } = await response.json()
 
         setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
@@ -174,6 +179,11 @@ function CustomizePageContent() {
             data.customization.paper_font_family,
             data.customization.paper_font_color
           )
+
+          // Load saved cover image URL for spine selector
+          if (data.coverImageUrl) {
+            setSavedCoverImageUrl(data.coverImageUrl)
+          }
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -196,6 +206,7 @@ function CustomizePageContent() {
 
     try {
       let coverImageUrl: string | undefined
+      let spineImageUrl: string | undefined
 
       // Capture cover canvas as image if we have a diary and user
       if (diaryId && user?.id && coverEditorRef.current) {
@@ -225,6 +236,51 @@ function CustomizePageContent() {
               const uploadResult = await uploadResponse.json()
               if (uploadResult.success && uploadResult.url) {
                 coverImageUrl = uploadResult.url
+                // Update saved cover image URL for spine selector
+                setSavedCoverImageUrl(uploadResult.url)
+              }
+            }
+
+            // Also generate spine image from selected region
+            // Must match DEFAULT_SPINE_WIDTH_RATIO in SpineRegionSelector (0.30)
+            const spineWidthRatio = 0.30
+            const cropCoords = getSpineCropCoordinates(
+              spinePosition,
+              spineWidthRatio,
+              canvas.width,
+              canvas.height
+            )
+
+            // Create a new canvas for the spine region
+            const spineCanvas = document.createElement('canvas')
+            spineCanvas.width = cropCoords.width
+            spineCanvas.height = cropCoords.height
+            const spineCtx = spineCanvas.getContext('2d')
+            if (spineCtx) {
+              spineCtx.drawImage(
+                canvas,
+                cropCoords.x, cropCoords.y, cropCoords.width, cropCoords.height,
+                0, 0, cropCoords.width, cropCoords.height
+              )
+
+              const spineImageBase64 = spineCanvas.toDataURL('image/png', 0.9)
+
+              // Upload spine image
+              const spineUploadResponse = await fetch('/api/customization/upload-cover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  diaryId,
+                  imageBase64: spineImageBase64,
+                  isSpine: true, // Flag to store in different location
+                }),
+              })
+
+              if (spineUploadResponse.ok) {
+                const spineUploadResult = await spineUploadResponse.json()
+                if (spineUploadResult.success && spineUploadResult.url) {
+                  spineImageUrl = spineUploadResult.url
+                }
               }
             }
           } catch (captureErr) {
@@ -247,6 +303,7 @@ function CustomizePageContent() {
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
           cover_image_url: coverImageUrl,
+          spine_image_url: spineImageUrl,
         }),
       })
 
@@ -303,11 +360,11 @@ function CustomizePageContent() {
 
           <button
             onClick={handleSave}
-            disabled={isSaving || !state.isDirty}
+            disabled={isSaving}
             className={`px-6 py-2 rounded-full font-medium transition-all ${
-              state.isDirty
-                ? 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              isSaving
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
             }`}
           >
             {isSaving ? '저장 중...' : '저장'}
@@ -348,20 +405,33 @@ function CustomizePageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {activeTab === 'cover' ? (
             <>
-              {/* Left: Cover Editor */}
+              {/* Left: Cover Editor with Spine Preview */}
               <div className="flex flex-col items-center gap-4">
-                <CoverEditor
-                  ref={coverEditorRef}
-                  template={state.selectedCover}
-                  decorations={state.coverDecorations}
-                  selectedIndex={state.selectedItemIndex}
-                  onUpdate={updateDecoration}
-                  onSelect={selectItem}
-                  onRemove={removeDecoration}
-                  isTextMode={isTextMode}
-                  onCanvasClick={handleCanvasClickForText}
-                  onTextDoubleClick={handleTextDoubleClick}
-                />
+                {/* Cover + Spine side by side */}
+                <div className="flex items-start gap-4">
+                  {/* Cover Editor wrapper with relative positioning for overlay */}
+                  <div className="relative" data-cover-editor>
+                    <CoverEditor
+                      ref={coverEditorRef}
+                      template={state.selectedCover}
+                      decorations={state.coverDecorations}
+                      selectedIndex={state.selectedItemIndex}
+                      onUpdate={updateDecoration}
+                      onSelect={selectItem}
+                      onRemove={removeDecoration}
+                      isTextMode={isTextMode}
+                      onCanvasClick={handleCanvasClickForText}
+                      onTextDoubleClick={handleTextDoubleClick}
+                    />
+                    {/* SpineRegionSelector overlay renders here when editing */}
+                    <SpineRegionSelector
+                      coverImageUrl={savedCoverImageUrl}
+                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
+                      initialPosition={spinePosition}
+                      onPositionChange={setSpinePosition}
+                    />
+                  </div>
+                </div>
 
                 {/* Text Button */}
                 <button
