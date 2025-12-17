@@ -43,11 +43,14 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
   // First try to get from the diary associated with this entry
   let paperTemplate: PaperTemplate | null = null
   let paperDecorations: PlacedDecoration[] = []
+  let paperOpacity = 1.0
+  let paperFontFamily = 'default'
+  let paperFontColor = '#333333'
 
   if (entry.diary_id) {
     const { data: diary } = await supabase
       .from('diaries')
-      .select('paper_template_id, paper_decorations, paper_templates(*)')
+      .select('paper_template_id, paper_decorations, paper_opacity, paper_font_family, paper_font_color, paper_templates(*)')
       .eq('id', entry.diary_id)
       .single()
 
@@ -55,6 +58,9 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
       // paper_templates is returned as a single object (or null) from foreign key join
       paperTemplate = (diary.paper_templates as unknown as PaperTemplate) || null
       paperDecorations = (diary.paper_decorations || []) as PlacedDecoration[]
+      paperOpacity = diary.paper_opacity ?? 1.0
+      paperFontFamily = diary.paper_font_family ?? 'default'
+      paperFontColor = diary.paper_font_color ?? '#333333'
     }
   }
 
@@ -69,6 +75,9 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     if (customization) {
       paperTemplate = (customization.paper_templates as unknown as PaperTemplate) || null
       paperDecorations = (customization.paper_decorations || []) as PlacedDecoration[]
+      paperOpacity = customization.paper_opacity ?? 1.0
+      paperFontFamily = customization.paper_font_family ?? 'default'
+      paperFontColor = customization.paper_font_color ?? '#333333'
     }
   }
 
@@ -145,11 +154,14 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
         <DiaryPaper
           template={paperTemplate}
           decorations={paperDecorations}
+          paperOpacity={paperOpacity}
+          paperFontFamily={paperFontFamily}
+          paperFontColor={paperFontColor}
           className="mb-8 shadow-sm border border-pastel-pink/30"
         >
-          <div className="prose prose-gray max-w-none">
+          <div className="prose max-w-none">
             {(entry.content as string).split('\n').map((paragraph: string, idx: number) => (
-              <p key={idx} className="mb-4 last:mb-0 text-gray-700 leading-relaxed">
+              <p key={idx} className="mb-4 last:mb-0 leading-relaxed">
                 {paragraph}
               </p>
             ))}
