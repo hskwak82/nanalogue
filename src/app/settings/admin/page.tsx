@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { StatCard } from '@/components/admin'
+import { MonthlyUserChart } from '@/components/admin/MonthlyUserChart'
+import { MonthlyRevenueChart } from '@/components/admin/MonthlyRevenueChart'
 import {
   UsersIcon,
   CreditCardIcon,
@@ -9,6 +11,7 @@ import {
   BookOpenIcon,
 } from '@heroicons/react/24/outline'
 import type { AdminStats } from '@/app/api/admin/stats/route'
+import type { MonthlyStatsResponse } from '@/app/api/admin/stats/monthly/route'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('ko-KR', {
@@ -30,10 +33,15 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('ko-KR')
 }
 
+type PeriodFilter = '3' | '6' | '12' | 'year'
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [monthlyLoading, setMonthlyLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('6')
 
   useEffect(() => {
     async function fetchStats() {
@@ -53,6 +61,33 @@ export default function AdminDashboardPage() {
 
     fetchStats()
   }, [])
+
+  useEffect(() => {
+    async function fetchMonthlyStats() {
+      setMonthlyLoading(true)
+      try {
+        let months: number
+        if (periodFilter === 'year') {
+          months = new Date().getMonth() + 1
+        } else {
+          months = parseInt(periodFilter, 10)
+        }
+
+        const response = await fetch(`/api/admin/stats/monthly?months=${months}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch monthly stats')
+        }
+        const data = await response.json()
+        setMonthlyStats(data)
+      } catch (err) {
+        console.error('Error fetching monthly stats:', err)
+      } finally {
+        setMonthlyLoading(false)
+      }
+    }
+
+    fetchMonthlyStats()
+  }, [periodFilter])
 
   if (loading) {
     return (
@@ -178,6 +213,57 @@ export default function AdminDashboardPage() {
             <p className="text-lg font-bold text-gray-900">{formatCurrency(stats.revenue.thisWeek)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Monthly Charts Section */}
+      <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-sm font-semibold text-gray-900">월별 통계 그래프</h3>
+          <div className="flex gap-2">
+            {[
+              { value: '3' as PeriodFilter, label: '3개월' },
+              { value: '6' as PeriodFilter, label: '6개월' },
+              { value: '12' as PeriodFilter, label: '12개월' },
+              { value: 'year' as PeriodFilter, label: '올해' },
+            ].map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setPeriodFilter(option.value)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                  periodFilter === option.value
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {monthlyLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+          </div>
+        ) : monthlyStats ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Monthly Users Chart */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-3">월별 가입자 현황</h4>
+              <MonthlyUserChart data={monthlyStats.monthlyUsers} />
+            </div>
+
+            {/* Monthly Revenue Chart */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-3">월별 매출 현황</h4>
+              <MonthlyRevenueChart data={monthlyStats.monthlyRevenue} />
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-8">
+            월별 통계를 불러올 수 없습니다.
+          </p>
+        )}
       </div>
     </div>
   )
