@@ -58,4 +58,4 @@ CREATE POLICY "Admin users can manage publish jobs" ON diary_publish_jobs
 -- Comment for documentation
 COMMENT ON TABLE diary_publish_jobs IS 'Tracks PDF generation jobs for diary book publishing. Stores URLs to generated PDF files (covers, spine, inner pages) in Supabase storage.';
 COMMENT ON COLUMN diary_publish_jobs.status IS 'Job status: pending (queued), processing (generating), completed (ready for download), failed (error occurred)';
-COMMENT ON COLUMN diary_publish_jobs.print_aspect_ratio IS 'Aspect ratio for print: 0.72 (180x250mm)';
+COMMENT ON COLUMN diaries.print_aspect_ratio IS 'Aspect ratio for print: 0.72 (180x250mm)';
