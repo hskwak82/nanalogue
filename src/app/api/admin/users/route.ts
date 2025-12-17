@@ -8,9 +8,9 @@ export interface AdminUser {
   created_at: string
   plan: string
   status: string
-  subscription_type: 'recurring' | 'manual' | 'none' // 정기구독/수동부여/없음
+  subscription_type: 'recurring' | 'manual' | 'none'
   next_billing_date: string | null
-  current_period_end: string | null // 만료일
+  current_period_end: string | null
   diary_count: number
   entry_count: number
 }
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
     const offset = (page - 1) * limit
     const supabase = getAdminServiceClient()
 
-    // Build base query for profiles
+    // Build profiles query
     let query = supabase
       .from('profiles')
       .select('id, email, name, created_at', { count: 'exact' })
@@ -46,17 +46,15 @@ export async function GET(request: Request) {
       query = query.or(`email.ilike.%${search}%,name.ilike.%${search}%`)
     }
 
-    // Apply period filter (가입일 기준)
+    // Apply period filter
     if (periodFilter === 'custom' && startDate) {
-      // Custom date range
       query = query.gte('created_at', new Date(startDate).toISOString())
       if (endDate) {
-        // End of the selected day
         const endDateTime = new Date(endDate)
         endDateTime.setHours(23, 59, 59, 999)
         query = query.lte('created_at', endDateTime.toISOString())
       }
-    } else if (periodFilter) {
+    } else if (periodFilter && periodFilter !== 'custom') {
       const now = new Date()
       let filterStartDate: Date
 
@@ -85,87 +83,75 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (profilesError) {
-      throw profilesError
-    }
+    if (profilesError) throw profilesError
 
     if (!profiles || profiles.length === 0) {
       return NextResponse.json({
         users: [],
-        pagination: {
-          page,
-          limit,
-          total: 0,
-          totalPages: 0,
-        },
+        pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
       })
     }
 
-    // Get subscriptions for these users
     const userIds = profiles.map((p) => p.id)
-    const { data: subscriptions } = await supabase
-      .from('subscriptions')
-      .select('user_id, plan, status, toss_billing_key, next_billing_date, current_period_end')
-      .in('user_id', userIds)
 
-    // Get diary counts for these users
-    const { data: diaryCounts } = await supabase
-      .from('diaries')
-      .select('user_id')
-      .in('user_id', userIds)
+    // Run all data fetching in parallel for better performance
+    const [subscriptionsResult, diaryCountsResult, userDiariesResult] = await Promise.all([
+      // Subscriptions for current page users
+      supabase
+        .from('subscriptions')
+        .select('user_id, plan, status, toss_billing_key, next_billing_date, current_period_end')
+        .in('user_id', userIds),
 
-    // Create maps for quick lookup
+      // Diary counts for current page users
+      supabase
+        .from('diaries')
+        .select('user_id')
+        .in('user_id', userIds),
+
+      // Diaries for entry counting
+      supabase
+        .from('diaries')
+        .select('id, user_id')
+        .in('user_id', userIds),
+    ])
+
+    const subscriptions = subscriptionsResult.data
+    const diaryCounts = diaryCountsResult.data
+    const userDiaries = userDiariesResult.data
+
+    // Get entry counts if there are diaries
+    let entryCountMap = new Map<string, number>()
+    if (userDiaries && userDiaries.length > 0) {
+      const diaryIds = userDiaries.map(d => d.id)
+      const { data: entries } = await supabase
+        .from('diary_entries')
+        .select('diary_id')
+        .in('diary_id', diaryIds)
+
+      const diaryToUser = new Map(userDiaries.map(d => [d.id, d.user_id]))
+      entries?.forEach((e) => {
+        const userId = diaryToUser.get(e.diary_id)
+        if (userId) {
+          entryCountMap.set(userId, (entryCountMap.get(userId) || 0) + 1)
+        }
+      })
+    }
+
+    // Create lookup maps
     const subMap = new Map(
-      subscriptions?.map((s) => [s.user_id, {
-        plan: s.plan,
-        status: s.status,
-        toss_billing_key: s.toss_billing_key,
-        next_billing_date: s.next_billing_date,
-        current_period_end: s.current_period_end
-      }])
+      subscriptions?.map((s) => [s.user_id, s]) || []
     )
 
-    // Count diaries per user
     const diaryCountMap = new Map<string, number>()
     diaryCounts?.forEach((d) => {
       diaryCountMap.set(d.user_id, (diaryCountMap.get(d.user_id) || 0) + 1)
     })
 
-    // Get entry counts per user
-    const entryCountMap = new Map<string, number>()
-
-    // Get diaries with their user_ids and entry counts
-    if (userIds.length > 0) {
-      const { data: userDiaries } = await supabase
-        .from('diaries')
-        .select('id, user_id')
-        .in('user_id', userIds)
-
-      if (userDiaries && userDiaries.length > 0) {
-        const diaryIdList = userDiaries.map(d => d.id)
-        const { data: entries } = await supabase
-          .from('diary_entries')
-          .select('diary_id')
-          .in('diary_id', diaryIdList)
-
-        // Map diary_id to user_id
-        const diaryToUser = new Map(userDiaries.map(d => [d.id, d.user_id]))
-
-        entries?.forEach((e) => {
-          const userId = diaryToUser.get(e.diary_id)
-          if (userId) {
-            entryCountMap.set(userId, (entryCountMap.get(userId) || 0) + 1)
-          }
-        })
-      }
-    }
-
-    // Combine data
+    // Build user list
     let users: AdminUser[] = profiles.map((p) => {
       const sub = subMap.get(p.id)
       const plan = sub?.plan || 'free'
 
-      // Determine subscription type
       let subscriptionType: 'recurring' | 'manual' | 'none' = 'none'
       if (plan === 'pro' && sub) {
         subscriptionType = sub.toss_billing_key ? 'recurring' : 'manual'
@@ -186,12 +172,10 @@ export async function GET(request: Request) {
       }
     })
 
-    // Apply plan filter if specified
+    // Apply filters (client-side for simplicity, since data is already paginated)
     if (planFilter) {
       users = users.filter((u) => u.plan === planFilter)
     }
-
-    // Apply subscription type filter if specified
     if (subscriptionTypeFilter) {
       users = users.filter((u) => u.subscription_type === subscriptionTypeFilter)
     }
