@@ -9,6 +9,9 @@ import {
   EditorAction,
   DEFAULT_DECORATION_SCALE,
   DEFAULT_DECORATION_ROTATION,
+  DEFAULT_PAPER_OPACITY,
+  DEFAULT_PAPER_FONT_FAMILY,
+  DEFAULT_PAPER_FONT_COLOR,
   ItemType,
   PhotoMeta,
 } from '@/types/customization'
@@ -21,6 +24,9 @@ const initialState: EditorState = {
   selectedItemIndex: null,
   activeEditor: 'cover',
   isDirty: false,
+  paperOpacity: DEFAULT_PAPER_OPACITY,
+  paperFontFamily: DEFAULT_PAPER_FONT_FAMILY,
+  paperFontColor: DEFAULT_PAPER_FONT_COLOR,
 }
 
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
@@ -125,8 +131,32 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         selectedPaper: action.payload.paper,
         coverDecorations: action.payload.coverDecorations,
         paperDecorations: action.payload.paperDecorations,
+        paperOpacity: action.payload.paperOpacity ?? DEFAULT_PAPER_OPACITY,
+        paperFontFamily: action.payload.paperFontFamily ?? DEFAULT_PAPER_FONT_FAMILY,
+        paperFontColor: action.payload.paperFontColor ?? DEFAULT_PAPER_FONT_COLOR,
         selectedItemIndex: null,
         isDirty: false,
+      }
+
+    case 'SET_PAPER_OPACITY':
+      return {
+        ...state,
+        paperOpacity: action.payload,
+        isDirty: true,
+      }
+
+    case 'SET_PAPER_FONT_FAMILY':
+      return {
+        ...state,
+        paperFontFamily: action.payload,
+        isDirty: true,
+      }
+
+    case 'SET_PAPER_FONT_COLOR':
+      return {
+        ...state,
+        paperFontColor: action.payload,
+        isDirty: true,
       }
 
     case 'RESET':
@@ -227,12 +257,31 @@ export function useEditorState() {
       cover: CoverTemplate | null,
       paper: PaperTemplate | null,
       coverDecorations: PlacedDecoration[],
-      paperDecorations: PlacedDecoration[] = []
+      paperDecorations: PlacedDecoration[] = [],
+      paperOpacity?: number,
+      paperFontFamily?: string,
+      paperFontColor?: string
     ) => {
-      dispatch({ type: 'LOAD_STATE', payload: { cover, paper, coverDecorations, paperDecorations } })
+      dispatch({
+        type: 'LOAD_STATE',
+        payload: { cover, paper, coverDecorations, paperDecorations, paperOpacity, paperFontFamily, paperFontColor }
+      })
     },
     []
   )
+
+  // Paper style setters
+  const setPaperOpacity = useCallback((opacity: number) => {
+    dispatch({ type: 'SET_PAPER_OPACITY', payload: opacity })
+  }, [])
+
+  const setPaperFontFamily = useCallback((fontFamily: string) => {
+    dispatch({ type: 'SET_PAPER_FONT_FAMILY', payload: fontFamily })
+  }, [])
+
+  const setPaperFontColor = useCallback((color: string) => {
+    dispatch({ type: 'SET_PAPER_FONT_COLOR', payload: color })
+  }, [])
 
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' })
@@ -299,6 +348,10 @@ export function useEditorState() {
     updateDecoration,
     removeDecoration,
     getCurrentDecorations,
+    // Paper style setters
+    setPaperOpacity,
+    setPaperFontFamily,
+    setPaperFontColor,
     // Common
     selectItem,
     loadState,

@@ -89,6 +89,13 @@ export interface PlacedDecoration {
   photo_meta?: PhotoMeta     // Only when type === 'photo'
 }
 
+// Paper Style Settings
+export interface PaperStyleSettings {
+  paper_opacity: number       // 0.0 to 1.0
+  paper_font_family: string   // font family name
+  paper_font_color: string    // hex color
+}
+
 // User's diary customization settings
 export interface DiaryCustomization {
   id: string
@@ -97,6 +104,9 @@ export interface DiaryCustomization {
   paper_template_id: string | null
   cover_decorations: PlacedDecoration[]
   paper_decorations: PlacedDecoration[]
+  paper_opacity: number
+  paper_font_family: string
+  paper_font_color: string
   created_at: string
   updated_at: string
 }
@@ -113,6 +123,9 @@ export interface CustomizationSaveRequest {
   paper_template_id?: string | null
   cover_decorations?: PlacedDecoration[]
   paper_decorations?: PlacedDecoration[]
+  paper_opacity?: number
+  paper_font_family?: string
+  paper_font_color?: string
 }
 
 export interface CustomizationLoadResponse {
@@ -135,6 +148,10 @@ export interface EditorState {
   selectedItemIndex: number | null
   activeEditor: 'cover' | 'paper'
   isDirty: boolean
+  // Paper style settings
+  paperOpacity: number
+  paperFontFamily: string
+  paperFontColor: string
 }
 
 export type EditorAction =
@@ -148,7 +165,10 @@ export type EditorAction =
   | { type: 'REMOVE_PAPER_DECORATION'; payload: number }
   | { type: 'SELECT_ITEM'; payload: number | null }
   | { type: 'SET_ACTIVE_EDITOR'; payload: 'cover' | 'paper' }
-  | { type: 'LOAD_STATE'; payload: { cover: CoverTemplate | null; paper: PaperTemplate | null; coverDecorations: PlacedDecoration[]; paperDecorations: PlacedDecoration[] } }
+  | { type: 'LOAD_STATE'; payload: { cover: CoverTemplate | null; paper: PaperTemplate | null; coverDecorations: PlacedDecoration[]; paperDecorations: PlacedDecoration[]; paperOpacity?: number; paperFontFamily?: string; paperFontColor?: string } }
+  | { type: 'SET_PAPER_OPACITY'; payload: number }
+  | { type: 'SET_PAPER_FONT_FAMILY'; payload: string }
+  | { type: 'SET_PAPER_FONT_COLOR'; payload: string }
   | { type: 'RESET' }
   | { type: 'MARK_SAVED' }
 
@@ -181,3 +201,40 @@ export const DEFAULT_DECORATION_SCALE = 1.0
 export const DEFAULT_DECORATION_ROTATION = 0
 export const MIN_SCALE = 0.3
 export const MAX_SCALE = 10.0
+
+// Paper style defaults
+export const DEFAULT_PAPER_OPACITY = 1.0
+export const DEFAULT_PAPER_FONT_FAMILY = 'default'
+export const DEFAULT_PAPER_FONT_COLOR = '#333333'
+
+// Available font families
+export interface FontOption {
+  id: string
+  name: string
+  fontFamily: string
+}
+
+export const FONT_OPTIONS: FontOption[] = [
+  { id: 'default', name: '기본', fontFamily: 'inherit' },
+  { id: 'nanum-gothic', name: '나눔고딕', fontFamily: '"Nanum Gothic", sans-serif' },
+  { id: 'nanum-myeongjo', name: '나눔명조', fontFamily: '"Nanum Myeongjo", serif' },
+  { id: 'nanum-pen', name: '나눔손글씨', fontFamily: '"Nanum Pen Script", cursive' },
+  { id: 'gowun-dodum', name: '고운돋움', fontFamily: '"Gowun Dodum", sans-serif' },
+  { id: 'gowun-batang', name: '고운바탕', fontFamily: '"Gowun Batang", serif' },
+  { id: 'poor-story', name: '푸어스토리', fontFamily: '"Poor Story", cursive' },
+  { id: 'gaegu', name: '개구', fontFamily: '"Gaegu", cursive' },
+]
+
+// Preset font colors
+export const FONT_COLOR_PRESETS = [
+  '#333333', // Dark gray (default)
+  '#000000', // Black
+  '#4A5568', // Gray
+  '#2D3748', // Dark blue gray
+  '#744210', // Brown
+  '#22543D', // Dark green
+  '#2C5282', // Dark blue
+  '#553C9A', // Purple
+  '#97266D', // Pink
+  '#C53030', // Red
+]

@@ -53,6 +53,9 @@ export async function POST(request: Request) {
           paper_template_id: body.paper_template_id,
           cover_decorations: body.cover_decorations || [],
           paper_decorations: body.paper_decorations || [],
+          paper_opacity: body.paper_opacity,
+          paper_font_family: body.paper_font_family,
+          paper_font_color: body.paper_font_color,
           updated_at: new Date().toISOString(),
         })
         .eq('id', body.diary_id)
@@ -85,6 +88,9 @@ export async function POST(request: Request) {
           paper_template_id: body.paper_template_id,
           cover_decorations: body.cover_decorations || [],
           paper_decorations: body.paper_decorations || [],
+          paper_opacity: body.paper_opacity,
+          paper_font_family: body.paper_font_family,
+          paper_font_color: body.paper_font_color,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id)
@@ -104,6 +110,9 @@ export async function POST(request: Request) {
         paper_template_id: body.paper_template_id,
         cover_decorations: body.cover_decorations || [],
         paper_decorations: body.paper_decorations || [],
+        paper_opacity: body.paper_opacity,
+        paper_font_family: body.paper_font_family,
+        paper_font_color: body.paper_font_color,
       })
 
       if (error) {

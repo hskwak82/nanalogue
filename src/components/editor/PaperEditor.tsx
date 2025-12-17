@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { PaperTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE, ShapeType } from '@/types/customization'
+import { PaperTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE, ShapeType, FONT_OPTIONS, DEFAULT_PAPER_OPACITY, DEFAULT_PAPER_FONT_FAMILY, DEFAULT_PAPER_FONT_COLOR } from '@/types/customization'
 
 // Helper function to get CSS clip-path for shape types
 function getClipPathForShape(shapeType: ShapeType): string {
@@ -28,6 +28,9 @@ interface PaperEditorProps {
   onUpdate: (index: number, updates: Partial<PlacedDecoration>) => void
   onSelect: (index: number | null) => void
   onRemove: (index: number) => void
+  paperOpacity?: number
+  paperFontFamily?: string
+  paperFontColor?: string
 }
 
 type DragMode = 'none' | 'move' | 'resize' | 'rotate'
@@ -43,22 +46,13 @@ interface DragState {
   resizeCorner: string
 }
 
-// Get paper background styles
+// Get paper line pattern styles (background image handled separately for opacity control)
 function getPaperStyle(template: PaperTemplate | null): React.CSSProperties {
   if (!template) {
-    return {
-      backgroundColor: '#FFFAF5',
-    }
+    return {}
   }
 
-  const baseStyle: React.CSSProperties = {
-    backgroundColor: template.background_color,
-    backgroundPosition: 'center',
-  }
-
-  const hasBackgroundImage = template.background_image_url && template.background_image_url.length > 0
-  let linePattern = ''
-  let lineSize = ''
+  const baseStyle: React.CSSProperties = {}
 
   // Get line pattern if exists
   if (template.line_style !== 'none') {
@@ -66,34 +60,26 @@ function getPaperStyle(template: PaperTemplate | null): React.CSSProperties {
 
     switch (template.line_style) {
       case 'lined':
-        linePattern = `repeating-linear-gradient(transparent, transparent 27px, ${lineColor} 27px, ${lineColor} 28px)`
+        baseStyle.backgroundImage = `repeating-linear-gradient(transparent, transparent 27px, ${lineColor} 27px, ${lineColor} 28px)`
         break
       case 'grid':
-        linePattern = `linear-gradient(${lineColor} 1px, transparent 1px), linear-gradient(90deg, ${lineColor} 1px, transparent 1px)`
-        lineSize = '28px 28px'
+        baseStyle.backgroundImage = `linear-gradient(${lineColor} 1px, transparent 1px), linear-gradient(90deg, ${lineColor} 1px, transparent 1px)`
+        baseStyle.backgroundSize = '28px 28px'
         break
       case 'dotted':
-        linePattern = `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`
-        lineSize = '20px 20px'
+        baseStyle.backgroundImage = `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`
+        baseStyle.backgroundSize = '20px 20px'
         break
-    }
-  }
-
-  // Combine background image and line pattern
-  if (hasBackgroundImage && linePattern) {
-    baseStyle.backgroundImage = `${linePattern}, url(${template.background_image_url})`
-    baseStyle.backgroundSize = lineSize ? `${lineSize}, cover` : 'auto, cover'
-  } else if (hasBackgroundImage) {
-    baseStyle.backgroundImage = `url(${template.background_image_url})`
-    baseStyle.backgroundSize = 'cover'
-  } else if (linePattern) {
-    baseStyle.backgroundImage = linePattern
-    if (lineSize) {
-      baseStyle.backgroundSize = lineSize
     }
   }
 
   return baseStyle
+}
+
+// Helper to get font family CSS value
+function getFontFamilyCSS(fontFamilyId: string): string {
+  const font = FONT_OPTIONS.find(f => f.id === fontFamilyId)
+  return font?.fontFamily || 'inherit'
 }
 
 export function PaperEditor({
@@ -103,6 +89,9 @@ export function PaperEditor({
   onUpdate,
   onSelect,
   onRemove,
+  paperOpacity = DEFAULT_PAPER_OPACITY,
+  paperFontFamily = DEFAULT_PAPER_FONT_FAMILY,
+  paperFontColor = DEFAULT_PAPER_FONT_COLOR,
 }: PaperEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -282,12 +271,37 @@ export function PaperEditor({
         <div
           ref={containerRef}
           className="absolute inset-0 rounded-lg shadow-lg overflow-hidden cursor-crosshair border border-gray-200"
-          style={paperStyle}
+          style={{ backgroundColor: template?.background_color || '#FFFAF5' }}
           onClick={handleCanvasClick}
         >
+          {/* Background image layer with opacity control */}
+          {template?.background_image_url && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `url(${template.background_image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                opacity: paperOpacity,
+              }}
+            />
+          )}
+
+          {/* Line pattern layer (always full opacity) */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={paperStyle}
+          />
+
           {/* Sample text to show paper effect */}
-          <div className="absolute inset-4 pointer-events-none opacity-30">
-            <p className="text-gray-600 text-sm leading-7">
+          <div className="absolute inset-4 pointer-events-none opacity-50">
+            <p
+              className="text-sm leading-7"
+              style={{
+                fontFamily: getFontFamilyCSS(paperFontFamily),
+                color: paperFontColor,
+              }}
+            >
               오늘 하루는 정말 좋았다. 아침에 일어나서 창문을 열었더니
               시원한 바람이 불어왔다. 커피 한 잔을 마시며 하루를
               시작했다...

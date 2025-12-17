@@ -7,6 +7,7 @@ import { Navigation } from '@/components/Navigation'
 import { CoverEditor } from '@/components/editor/CoverEditor'
 import { PaperEditor } from '@/components/editor/PaperEditor'
 import { ItemPalette } from '@/components/editor/ItemPalette'
+import { PaperStyleSettings } from '@/components/editor/PaperStyleSettings'
 import {
   CoverTemplateSelector,
   PaperTemplateSelector,
@@ -53,6 +54,9 @@ function CustomizePageContent() {
     selectItem,
     loadState,
     markSaved,
+    setPaperOpacity,
+    setPaperFontFamily,
+    setPaperFontColor,
   } = useEditorState()
 
   // Sync active tab with active editor
@@ -115,7 +119,10 @@ function CustomizePageContent() {
             cover,
             paper,
             data.customization.cover_decorations || [],
-            data.customization.paper_decorations || []
+            data.customization.paper_decorations || [],
+            data.customization.paper_opacity,
+            data.customization.paper_font_family,
+            data.customization.paper_font_color
           )
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
@@ -147,6 +154,9 @@ function CustomizePageContent() {
           paper_template_id: state.selectedPaper?.id || null,
           cover_decorations: state.coverDecorations,
           paper_decorations: state.paperDecorations,
+          paper_opacity: state.paperOpacity,
+          paper_font_family: state.paperFontFamily,
+          paper_font_color: state.paperFontColor,
         }),
       })
 
@@ -287,6 +297,9 @@ function CustomizePageContent() {
                   onUpdate={updateDecoration}
                   onSelect={selectItem}
                   onRemove={removeDecoration}
+                  paperOpacity={state.paperOpacity}
+                  paperFontFamily={state.paperFontFamily}
+                  paperFontColor={state.paperFontColor}
                 />
               </div>
 
@@ -297,6 +310,15 @@ function CustomizePageContent() {
                   selectedId={state.selectedPaper?.id || null}
                   onSelect={setPaper}
                   isPremium={isPremium}
+                />
+
+                <PaperStyleSettings
+                  opacity={state.paperOpacity}
+                  fontFamily={state.paperFontFamily}
+                  fontColor={state.paperFontColor}
+                  onOpacityChange={setPaperOpacity}
+                  onFontFamilyChange={setPaperFontFamily}
+                  onFontColorChange={setPaperFontColor}
                 />
 
                 <ItemPalette

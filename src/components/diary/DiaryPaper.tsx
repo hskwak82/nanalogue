@@ -1,7 +1,13 @@
 'use client'
 
-import { PaperTemplate, LineStyle, PlacedDecoration, ShapeType } from '@/types/customization'
+import { PaperTemplate, LineStyle, PlacedDecoration, ShapeType, FONT_OPTIONS, DEFAULT_PAPER_OPACITY, DEFAULT_PAPER_FONT_FAMILY, DEFAULT_PAPER_FONT_COLOR } from '@/types/customization'
 import { ReactNode } from 'react'
+
+// Helper to get font family CSS value
+function getFontFamilyCSS(fontFamilyId: string): string {
+  const font = FONT_OPTIONS.find(f => f.id === fontFamilyId)
+  return font?.fontFamily || 'inherit'
+}
 
 // Helper function to get CSS clip-path for shape types
 function getClipPathForShape(shapeType: ShapeType): string {
@@ -26,6 +32,9 @@ interface DiaryPaperProps {
   decorations?: PlacedDecoration[]
   children: ReactNode
   className?: string
+  paperOpacity?: number
+  paperFontFamily?: string
+  paperFontColor?: string
 }
 
 // Generate line pattern CSS
@@ -75,6 +84,9 @@ export function DiaryPaper({
   decorations = [],
   children,
   className = '',
+  paperOpacity = DEFAULT_PAPER_OPACITY,
+  paperFontFamily = DEFAULT_PAPER_FONT_FAMILY,
+  paperFontColor = DEFAULT_PAPER_FONT_COLOR,
 }: DiaryPaperProps) {
   const paper = template || DEFAULT_PAPER as PaperTemplate
 
@@ -84,32 +96,40 @@ export function DiaryPaper({
   )
   const backgroundSize = getBackgroundSize(paper.line_style as LineStyle)
 
-  // Build background styles with image support
+  // Build background styles - line pattern only (background image handled separately for opacity)
   const hasBackgroundImage = paper.background_image_url && paper.background_image_url.length > 0
-
-  let backgroundImageStyle = linePattern
-  let backgroundSizeStyle = backgroundSize
-
-  if (hasBackgroundImage) {
-    // Layer: line pattern on top of background image
-    backgroundImageStyle = linePattern !== 'none'
-      ? `${linePattern}, url(${paper.background_image_url})`
-      : `url(${paper.background_image_url})`
-    backgroundSizeStyle = linePattern !== 'none'
-      ? `${backgroundSize}, cover`
-      : 'cover'
-  }
 
   return (
     <div
       className={`relative min-h-[400px] p-6 rounded-lg overflow-hidden ${className}`}
       style={{
         backgroundColor: paper.background_color,
-        backgroundImage: backgroundImageStyle,
-        backgroundSize: backgroundSizeStyle,
-        backgroundPosition: 'center',
       }}
     >
+      {/* Background image layer with opacity control */}
+      {hasBackgroundImage && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${paper.background_image_url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: paperOpacity,
+          }}
+        />
+      )}
+
+      {/* Line pattern layer (always full opacity) */}
+      {linePattern !== 'none' && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: linePattern,
+            backgroundSize: backgroundSize,
+          }}
+        />
+      )}
+
       {/* Paper decorations layer */}
       {decorations.length > 0 && (
         <div className="absolute inset-0 pointer-events-none z-0">
@@ -150,8 +170,16 @@ export function DiaryPaper({
         </div>
       )}
 
-      {/* Content */}
-      <div className="relative z-10">{children}</div>
+      {/* Content with font styles */}
+      <div
+        className="relative z-10"
+        style={{
+          fontFamily: getFontFamilyCSS(paperFontFamily),
+          color: paperFontColor,
+        }}
+      >
+        {children}
+      </div>
 
       {/* Paper texture overlay */}
       <div

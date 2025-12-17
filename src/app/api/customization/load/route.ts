@@ -88,6 +88,9 @@ export async function GET(request: NextRequest) {
           paper_template_id: diary.paper_template_id,
           cover_decorations: (diary.cover_decorations || []) as PlacedDecoration[],
           paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
+          paper_opacity: diary.paper_opacity ?? 1.0,
+          paper_font_family: diary.paper_font_family ?? 'default',
+          paper_font_color: diary.paper_font_color ?? '#333333',
           created_at: diary.created_at,
           updated_at: diary.updated_at,
         }
@@ -112,6 +115,9 @@ export async function GET(request: NextRequest) {
           paper_template_id: activeDiary.paper_template_id,
           cover_decorations: (activeDiary.cover_decorations || []) as PlacedDecoration[],
           paper_decorations: (activeDiary.paper_decorations || []) as PlacedDecoration[],
+          paper_opacity: activeDiary.paper_opacity ?? 1.0,
+          paper_font_family: activeDiary.paper_font_family ?? 'default',
+          paper_font_color: activeDiary.paper_font_color ?? '#333333',
           created_at: activeDiary.created_at,
           updated_at: activeDiary.updated_at,
         }
@@ -128,6 +134,9 @@ export async function GET(request: NextRequest) {
             ...oldCustomization,
             cover_decorations: (oldCustomization.cover_decorations || []) as PlacedDecoration[],
             paper_decorations: (oldCustomization.paper_decorations || []) as PlacedDecoration[],
+            paper_opacity: oldCustomization.paper_opacity ?? 1.0,
+            paper_font_family: oldCustomization.paper_font_family ?? 'default',
+            paper_font_color: oldCustomization.paper_font_color ?? '#333333',
           }
         }
       }
