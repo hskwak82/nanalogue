@@ -17,8 +17,10 @@ export interface PublicAnnouncement {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const popupOnly = searchParams.get('popup') === 'true'
+    const offset = (page - 1) * limit
 
     const supabase = await createClient()
     const now = new Date().toISOString()
@@ -37,29 +39,51 @@ export async function GET(request: Request) {
       userPlan = subscription?.plan || 'free'
     }
 
-    // Build query for active announcements
-    let query = supabase
-      .from('announcements')
-      .select('id, title, content, type, is_popup, starts_at, ends_at, target_audience, created_at')
-      .eq('is_active', true)
-      .lte('starts_at', now)
-      .or(`ends_at.is.null,ends_at.gt.${now}`)
+    // Build base query conditions
+    const baseConditions = (query: ReturnType<typeof supabase.from>) => {
+      let q = query
+        .eq('is_active', true)
+        .lte('starts_at', now)
+        .or(`ends_at.is.null,ends_at.gt.${now}`)
+        .or(`target_audience.eq.all,target_audience.eq.${userPlan}`)
 
-    // Filter by target audience
-    query = query.or(`target_audience.eq.all,target_audience.eq.${userPlan}`)
-
-    // Filter popup only if requested
-    if (popupOnly) {
-      query = query.eq('is_popup', true)
+      if (popupOnly) {
+        q = q.eq('is_popup', true)
+      }
+      return q
     }
 
-    const { data: announcements, error } = await query
+    // Get total count
+    let countQuery = supabase
+      .from('announcements')
+      .select('*', { count: 'exact', head: true })
+    countQuery = baseConditions(countQuery)
+    const { count } = await countQuery
+
+    // Get paginated announcements
+    let dataQuery = supabase
+      .from('announcements')
+      .select('id, title, content, type, is_popup, starts_at, ends_at, target_audience, created_at')
+    dataQuery = baseConditions(dataQuery)
+
+    const { data: announcements, error } = await dataQuery
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .range(offset, offset + limit - 1)
 
     if (error) throw error
 
-    return NextResponse.json({ announcements: announcements || [] })
+    const total = count || 0
+    const totalPages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      announcements: announcements || [],
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error('Error fetching announcements:', error)
     return NextResponse.json({ error: 'Failed to fetch announcements' }, { status: 500 })

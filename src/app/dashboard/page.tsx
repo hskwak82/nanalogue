@@ -5,6 +5,8 @@ import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
+import { AnnouncementCard } from '@/components/home/AnnouncementCard'
+import { AnnouncementPopup } from '@/components/home/AnnouncementPopup'
 import type { DiaryWithTemplates } from '@/types/diary'
 
 export default async function DashboardPage() {
@@ -65,6 +67,8 @@ export default async function DashboardPage() {
       />
 
       <main className="mx-auto max-w-6xl px-4 pt-8 pb-12 sm:px-6 sm:pt-12 lg:px-8">
+        {/* Announcement Card */}
+        <AnnouncementCard />
         {/* Greeting */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-700">
@@ -182,6 +186,7 @@ export default async function DashboardPage() {
           }
         />
       </main>
+      <AnnouncementPopup />
     </div>
   )
 }

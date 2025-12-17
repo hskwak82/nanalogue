@@ -3,8 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { HeroSection } from '@/components/home/HeroSection'
 import { BookIntro } from '@/components/home/BookIntro'
-import { AnnouncementCard } from '@/components/home/AnnouncementCard'
-import { AnnouncementPopup } from '@/components/home/AnnouncementPopup'
 import type { DiaryWithTemplates } from '@/types/diary'
 
 export default async function HomePage() {
@@ -42,7 +40,6 @@ export default async function HomePage() {
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
       <Navigation user={{ email: user.email, name: profile?.name }} />
       <HeroSection />
-      <AnnouncementCard />
       <BookIntro
         diary={activeDiary}
         userName={profile?.name || undefined}
@@ -51,7 +48,6 @@ export default async function HomePage() {
           content: latestEntry.content
         } : undefined}
       />
-      <AnnouncementPopup />
     </div>
   )
 }

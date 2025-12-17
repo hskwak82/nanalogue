@@ -31,16 +31,15 @@ export function AnnouncementCard() {
   const style = typeStyles[announcement.type] || typeStyles.info
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pb-4">
+    <div className="mb-6">
       <Link
-        href="/announcements"
+        href={`/announcements?id=${announcement.id}`}
         className={`block rounded-xl border ${style.bg} p-4 transition-all hover:shadow-md`}
       >
         <div className="flex items-start gap-3">
           <MegaphoneIcon className={`h-5 w-5 mt-0.5 flex-shrink-0 ${style.icon}`} />
           <div className="flex-1 min-w-0">
             <h3 className="font-medium text-gray-900 truncate">{announcement.title}</h3>
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{announcement.content}</p>
           </div>
           <ChevronRightIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
         </div>
