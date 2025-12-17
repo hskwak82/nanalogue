@@ -483,7 +483,7 @@ function CustomizePageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {activeTab === 'cover' ? (
             <>
-              {/* Left: Cover Editor with Spine Preview and Bookshelf */}
+              {/* Left: Cover Editor with Spine Preview */}
               <div className="flex flex-col items-start gap-4">
                 {/* Cover + Spine side by side */}
                 <div className="flex items-start">
@@ -529,22 +529,21 @@ function CustomizePageContent() {
                         if (!isSpineEditMode) setIsTextMode(false)
                       }}
                     />
+
+                    {/* Save Button - centered below cover */}
+                    <button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className={`mt-4 px-6 py-2 rounded-full font-medium transition-all ${
+                        isSaving
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
+                      }`}
+                    >
+                      {isSaving ? '저장 중...' : '저장'}
+                    </button>
                   </div>
                 </div>
-
-                {/* Save Button - below cover and spine */}
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className={`mt-4 px-8 py-3 rounded-full font-medium transition-all ${
-                    isSaving
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-                  }`}
-                  style={{ width: 300 + 112 + 91 }}
-                >
-                  {isSaving ? '저장 중...' : '저장'}
-                </button>
               </div>
 
               {/* Right: Controls */}
