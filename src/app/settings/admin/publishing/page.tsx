@@ -14,7 +14,15 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
+import { createClient } from '@/lib/supabase/client'
 import { PRINT_SPECS } from '@/lib/publishing/print-constants'
+import {
+  generateFrontCoverPDF,
+  generateBackCoverPDF,
+  generateSpinePDF,
+  generateInnerPagesPDF,
+  uploadPdfToStorage,
+} from '@/lib/publishing/client-pdf-generator'
 import type { PublishableDiary, PublishJobWithDiary } from '@/types/publishing'
 
 function formatDate(dateString: string): string {
@@ -228,6 +236,7 @@ export default function AdminPublishingPage() {
 
   // Generating state
   const [generating, setGenerating] = useState<Set<string>>(new Set())
+  const [progressMessage, setProgressMessage] = useState<string>('')
 
   // Fetch publishable diaries
   const fetchDiaries = useCallback(async () => {
@@ -300,8 +309,14 @@ export default function AdminPublishingPage() {
     setSelectedIds(newSet)
   }
 
-  // Generate publishing files
+  // Generate publishing files (client-side)
   const handleGenerate = async (diaryId: string) => {
+    const diary = diaries.find((d) => d.id === diaryId)
+    if (!diary) {
+      toast.error('일기장을 찾을 수 없습니다.')
+      return
+    }
+
     const confirmed = await confirm({
       title: '출판용 파일 생성',
       message: '선택한 일기장의 출판용 PDF 파일을 생성하시겠습니까? 앞표지, 뒷표지, 책등, 내지가 생성됩니다.',
@@ -310,22 +325,98 @@ export default function AdminPublishingPage() {
     if (!confirmed) return
 
     setGenerating((prev) => new Set(prev).add(diaryId))
+    setProgressMessage('준비 중...')
+
     try {
-      const response = await fetch('/api/admin/publishing/generate', {
+      const supabase = createClient()
+
+      // Create job record first
+      setProgressMessage('작업 생성 중...')
+      const jobResponse = await fetch('/api/admin/publishing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ diary_id: diaryId }),
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Generation failed')
+      if (!jobResponse.ok) {
+        const data = await jobResponse.json()
+        throw new Error(data.error || 'Failed to create job')
       }
 
-      toast.success('출판 파일 생성이 시작되었습니다.')
+      const { job } = await jobResponse.json()
+
+      // Fetch diary details with templates
+      setProgressMessage('일기장 정보 로딩 중...')
+      const { data: diaryData, error: diaryError } = await supabase
+        .from('diaries')
+        .select(`
+          *,
+          cover_template:cover_templates(*),
+          paper_template:paper_templates(*)
+        `)
+        .eq('id', diaryId)
+        .single()
+
+      if (diaryError || !diaryData) {
+        throw new Error('일기장 정보를 불러올 수 없습니다.')
+      }
+
+      // Fetch diary entries
+      setProgressMessage('일기 항목 로딩 중...')
+      const { data: entries, error: entriesError } = await supabase
+        .from('diary_entries')
+        .select('*')
+        .eq('diary_id', diaryId)
+        .order('entry_date', { ascending: true })
+
+      if (entriesError) {
+        throw new Error('일기 항목을 불러올 수 없습니다.')
+      }
+
+      const basePath = `${diaryData.user_id}/${diaryId}`
+      let frontCoverUrl: string | null = null
+      let backCoverUrl: string | null = null
+      let spineUrl: string | null = null
+      let innerPagesUrl: string | null = null
+
+      // Generate and upload front cover
+      const frontCoverPdf = await generateFrontCoverPDF(diaryData, setProgressMessage)
+      frontCoverUrl = await uploadPdfToStorage(supabase, frontCoverPdf, `${basePath}/front_cover.pdf`)
+
+      // Generate and upload back cover
+      const backCoverPdf = await generateBackCoverPDF(diaryData, setProgressMessage)
+      backCoverUrl = await uploadPdfToStorage(supabase, backCoverPdf, `${basePath}/back_cover.pdf`)
+
+      // Generate and upload spine
+      const spinePdf = await generateSpinePDF(diaryData, setProgressMessage)
+      spineUrl = await uploadPdfToStorage(supabase, spinePdf, `${basePath}/spine.pdf`)
+
+      // Generate and upload inner pages (if there are entries)
+      if (entries && entries.length > 0) {
+        const innerPagesPdf = await generateInnerPagesPDF(diaryData, entries, setProgressMessage)
+        innerPagesUrl = await uploadPdfToStorage(supabase, innerPagesPdf, `${basePath}/inner_pages.pdf`)
+      }
+
+      // Update job with URLs
+      setProgressMessage('작업 완료 처리 중...')
+      await fetch(`/api/admin/publishing/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'complete',
+          front_cover_url: frontCoverUrl,
+          back_cover_url: backCoverUrl,
+          spine_url: spineUrl,
+          inner_pages_url: innerPagesUrl,
+          page_count: entries?.length || 0,
+        }),
+      })
+
+      toast.success('출판 파일 생성이 완료되었습니다.')
       fetchJobs()
       fetchDiaries()
     } catch (error) {
+      console.error('Generation error:', error)
       toast.error(error instanceof Error ? error.message : '생성 실패')
     } finally {
       setGenerating((prev) => {
@@ -333,45 +424,32 @@ export default function AdminPublishingPage() {
         newSet.delete(diaryId)
         return newSet
       })
+      setProgressMessage('')
     }
   }
 
-  // Bulk generate
+  // Bulk generate (sequential client-side)
   const handleBulkGenerate = async () => {
     if (selectedIds.size === 0) return
 
     const confirmed = await confirm({
       title: '일괄 출판 파일 생성',
-      message: `선택한 ${selectedIds.size}개 일기장의 출판용 파일을 생성하시겠습니까?`,
+      message: `선택한 ${selectedIds.size}개 일기장의 출판용 파일을 순차적으로 생성합니다. 시간이 걸릴 수 있습니다.`,
       confirmText: '생성하기',
     })
     if (!confirmed) return
 
-    for (const id of selectedIds) {
-      setGenerating((prev) => new Set(prev).add(id))
+    const idsToProcess = Array.from(selectedIds)
+    setSelectedIds(new Set())
+
+    for (let i = 0; i < idsToProcess.length; i++) {
+      const id = idsToProcess[i]
+      setProgressMessage(`일괄 생성 중... (${i + 1}/${idsToProcess.length})`)
+      await handleGenerate(id)
     }
 
-    try {
-      const response = await fetch('/api/admin/publishing/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diary_ids: Array.from(selectedIds) }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Bulk generation failed')
-      }
-
-      toast.success(`${selectedIds.size}개 일기장 출판 파일 생성이 시작되었습니다.`)
-      setSelectedIds(new Set())
-      fetchJobs()
-      fetchDiaries()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '일괄 생성 실패')
-    } finally {
-      setGenerating(new Set())
-    }
+    setProgressMessage('')
+    toast.success(`${idsToProcess.length}개 일기장 출판 파일 생성 완료`)
   }
 
   // Download handler
@@ -498,6 +576,17 @@ export default function AdminPublishingPage() {
           <span>해상도: {PRINT_SPECS.DPI} DPI</span>
         </div>
       </div>
+
+      {/* Progress indicator */}
+      {generating.size > 0 && progressMessage && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+          <ArrowPathIcon className="h-5 w-5 text-blue-500 animate-spin flex-shrink-0" />
+          <div>
+            <p className="font-medium text-blue-900">PDF 생성 중</p>
+            <p className="text-sm text-blue-700">{progressMessage}</p>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
