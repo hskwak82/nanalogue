@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline'
+import { useToast } from '@/components/ui'
 import type { AdminPayment } from '@/app/api/admin/payments/route'
 
 function formatCurrency(amount: number): string {
@@ -29,11 +31,13 @@ const statusLabels: Record<string, { label: string; class: string }> = {
 }
 
 export default function AdminPaymentsPage() {
+  const { toast } = useToast()
   const [payments, setPayments] = useState<AdminPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
+  const [exporting, setExporting] = useState(false)
   const [summary, setSummary] = useState({
     totalAmount: 0,
     doneCount: 0,
@@ -76,6 +80,33 @@ export default function AdminPaymentsPage() {
     fetchPayments()
   }, [fetchPayments])
 
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams()
+      if (statusFilter) params.set('status', statusFilter)
+      if (periodFilter) params.set('period', periodFilter)
+
+      const response = await fetch(`/api/admin/payments/export?${params}`)
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `나날로그_결제내역_${new Date().toISOString().split('T')[0]}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success('결제 내역이 다운로드되었습니다.')
+    } catch (error) {
+      toast.error('내보내기 실패')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -99,46 +130,56 @@ export default function AdminPaymentsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <select
-          value={pagination.limit}
-          onChange={(e) => {
-            setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+      <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value={10}>10개씩</option>
+            <option value={20}>20개씩</option>
+            <option value={50}>50개씩</option>
+            <option value={100}>100개씩</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">모든 상태</option>
+            <option value="DONE">완료</option>
+            <option value="PENDING">대기</option>
+            <option value="CANCELED">취소</option>
+            <option value="FAILED">실패</option>
+          </select>
+          <select
+            value={periodFilter}
+            onChange={(e) => {
+              setPeriodFilter(e.target.value)
+              setPagination((prev) => ({ ...prev, page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="">전체 기간</option>
+            <option value="today">오늘</option>
+            <option value="week">이번 주</option>
+            <option value="month">이번 달</option>
+          </select>
+        </div>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
-          <option value={10}>10개씩</option>
-          <option value={20}>20개씩</option>
-          <option value={50}>50개씩</option>
-          <option value={100}>100개씩</option>
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value)
-            setPagination((prev) => ({ ...prev, page: 1 }))
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        >
-          <option value="">모든 상태</option>
-          <option value="DONE">완료</option>
-          <option value="PENDING">대기</option>
-          <option value="CANCELED">취소</option>
-          <option value="FAILED">실패</option>
-        </select>
-        <select
-          value={periodFilter}
-          onChange={(e) => {
-            setPeriodFilter(e.target.value)
-            setPagination((prev) => ({ ...prev, page: 1 }))
-          }}
-          className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        >
-          <option value="">전체 기간</option>
-          <option value="today">오늘</option>
-          <option value="week">이번 주</option>
-          <option value="month">이번 달</option>
-        </select>
+          <ArrowDownTrayIcon className="h-4 w-4" />
+          {exporting ? '내보내는 중...' : '엑셀 내보내기'}
+        </button>
       </div>
 
       {/* Payments Table */}
