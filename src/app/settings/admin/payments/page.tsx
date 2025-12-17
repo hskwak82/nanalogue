@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { ArrowDownTrayIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { ArrowDownTrayIcon, MagnifyingGlassIcon, CalendarIcon } from '@heroicons/react/24/outline'
 import { useToast } from '@/components/ui'
+import DatePicker from 'react-datepicker'
+import { ko } from 'date-fns/locale'
+import 'react-datepicker/dist/react-datepicker.css'
 import type { AdminPayment } from '@/app/api/admin/payments/route'
 
 function formatCurrency(amount: number): string {
@@ -38,8 +41,8 @@ export default function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
   const [search, setSearch] = useState('')
-  const [customStartDate, setCustomStartDate] = useState('')
-  const [customEndDate, setCustomEndDate] = useState('')
+  const [customStartDate, setCustomStartDate] = useState<Date | null>(null)
+  const [customEndDate, setCustomEndDate] = useState<Date | null>(null)
   const [exporting, setExporting] = useState(false)
   const [summary, setSummary] = useState({
     totalAmount: 0,
@@ -65,8 +68,8 @@ export default function AdminPaymentsPage() {
       if (periodFilter) params.set('period', periodFilter)
       if (search) params.set('search', search)
       if (periodFilter === 'custom' && customStartDate) {
-        params.set('startDate', customStartDate)
-        if (customEndDate) params.set('endDate', customEndDate)
+        params.set('startDate', customStartDate.toISOString().split('T')[0])
+        if (customEndDate) params.set('endDate', customEndDate.toISOString().split('T')[0])
       }
 
       const response = await fetch(`/api/admin/payments?${params}`)
@@ -187,8 +190,8 @@ export default function AdminPaymentsPage() {
               onChange={(e) => {
                 setPeriodFilter(e.target.value)
                 if (e.target.value !== 'custom') {
-                  setCustomStartDate('')
-                  setCustomEndDate('')
+                  setCustomStartDate(null)
+                  setCustomEndDate(null)
                 }
                 setPagination((prev) => ({ ...prev, page: 1 }))
               }}
@@ -202,25 +205,44 @@ export default function AdminPaymentsPage() {
             </select>
             {periodFilter === 'custom' && (
               <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customStartDate}
-                  onChange={(e) => {
-                    setCustomStartDate(e.target.value)
-                    setPagination((prev) => ({ ...prev, page: 1 }))
-                  }}
-                  className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
+                <div className="relative">
+                  <DatePicker
+                    selected={customStartDate}
+                    onChange={(date) => {
+                      setCustomStartDate(date)
+                      setPagination((prev) => ({ ...prev, page: 1 }))
+                    }}
+                    selectsStart
+                    startDate={customStartDate}
+                    endDate={customEndDate}
+                    locale={ko}
+                    dateFormat="yyyy.MM.dd"
+                    placeholderText="시작일"
+                    className="w-32 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    calendarClassName="shadow-lg"
+                  />
+                  <CalendarIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
                 <span className="text-gray-500">~</span>
-                <input
-                  type="date"
-                  value={customEndDate}
-                  onChange={(e) => {
-                    setCustomEndDate(e.target.value)
-                    setPagination((prev) => ({ ...prev, page: 1 }))
-                  }}
-                  className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
+                <div className="relative">
+                  <DatePicker
+                    selected={customEndDate}
+                    onChange={(date) => {
+                      setCustomEndDate(date)
+                      setPagination((prev) => ({ ...prev, page: 1 }))
+                    }}
+                    selectsEnd
+                    startDate={customStartDate}
+                    endDate={customEndDate}
+                    minDate={customStartDate ?? undefined}
+                    locale={ko}
+                    dateFormat="yyyy.MM.dd"
+                    placeholderText="종료일"
+                    className="w-32 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    calendarClassName="shadow-lg"
+                  />
+                  <CalendarIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             )}
           </div>
