@@ -18,6 +18,7 @@ export interface Diary {
   paper_template_id: string | null
   cover_decorations: PlacedDecoration[]
   paper_decorations: PlacedDecoration[]
+  cover_image_url: string | null  // Pre-rendered cover image for fast display
   spine_color: string | null
   spine_gradient: string | null
   created_at: string

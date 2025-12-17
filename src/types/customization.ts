@@ -147,6 +147,7 @@ export interface CustomizationSaveRequest {
 
 export interface CustomizationLoadResponse {
   user: {
+    id?: string
     email: string
     name: string | null
   }

@@ -229,11 +229,24 @@ export const Book3D = forwardRef<HTMLDivElement, Book3DProps>(
               <div
                 className="absolute inset-0 rounded-r-lg shadow-xl overflow-hidden"
                 style={{
-                  ...coverStyle,
+                  ...(diary?.cover_image_url ? {} : coverStyle),
                   backfaceVisibility: 'hidden',
                 }}
               >
-                <DecorationRenderer decorations={coverDecorations} />
+                {/* Use pre-rendered cover image if available, otherwise render decorations */}
+                {diary?.cover_image_url ? (
+                  <img
+                    src={diary.cover_image_url}
+                    alt="Cover"
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                ) : (
+                  <>
+                    <div className="absolute inset-0" style={coverStyle} />
+                    <DecorationRenderer decorations={coverDecorations} />
+                  </>
+                )}
 
                 {/* Shine effect */}
                 <div

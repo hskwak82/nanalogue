@@ -155,6 +155,7 @@ export async function GET(request: NextRequest) {
 
     const response: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean } = {
       user: {
+        id: user.id,
         email: user.email || '',
         name: profileResult.data?.name || null,
       },

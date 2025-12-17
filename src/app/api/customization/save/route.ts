@@ -4,6 +4,7 @@ import type { CustomizationSaveRequest } from '@/types/customization'
 
 interface SaveRequestWithDiary extends CustomizationSaveRequest {
   diary_id?: string
+  cover_image_url?: string
 }
 
 export async function POST(request: Request) {
@@ -46,18 +47,25 @@ export async function POST(request: Request) {
 
     // If diary_id is provided, update the diaries table
     if (body.diary_id) {
+      const updateData: Record<string, unknown> = {
+        cover_template_id: body.cover_template_id,
+        paper_template_id: body.paper_template_id,
+        cover_decorations: body.cover_decorations || [],
+        paper_decorations: body.paper_decorations || [],
+        paper_opacity: body.paper_opacity,
+        paper_font_family: body.paper_font_family,
+        paper_font_color: body.paper_font_color,
+        updated_at: new Date().toISOString(),
+      }
+
+      // Only update cover_image_url if provided
+      if (body.cover_image_url) {
+        updateData.cover_image_url = body.cover_image_url
+      }
+
       const { error } = await supabase
         .from('diaries')
-        .update({
-          cover_template_id: body.cover_template_id,
-          paper_template_id: body.paper_template_id,
-          cover_decorations: body.cover_decorations || [],
-          paper_decorations: body.paper_decorations || [],
-          paper_opacity: body.paper_opacity,
-          paper_font_family: body.paper_font_family,
-          paper_font_color: body.paper_font_color,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', body.diary_id)
         .eq('user_id', user.id)
 

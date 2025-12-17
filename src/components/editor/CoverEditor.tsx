@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { CoverTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE, ShapeType, FONT_OPTIONS } from '@/types/customization'
 import { DraggableItem } from './DraggableItem'
 
@@ -40,6 +40,10 @@ interface CoverEditorProps {
   onTextDoubleClick?: (index: number) => void
 }
 
+export interface CoverEditorRef {
+  getCanvasElement: () => HTMLDivElement | null
+}
+
 type DragMode = 'none' | 'move' | 'resize' | 'rotate'
 
 interface DragState {
@@ -64,7 +68,7 @@ function parseImageUrl(imageUrl: string) {
   return { type: 'image' as const, value: imageUrl }
 }
 
-export function CoverEditor({
+export const CoverEditor = forwardRef<CoverEditorRef, CoverEditorProps>(function CoverEditor({
   template,
   decorations,
   selectedIndex,
@@ -74,9 +78,14 @@ export function CoverEditor({
   isTextMode = false,
   onCanvasClick,
   onTextDoubleClick,
-}: CoverEditorProps) {
+}, ref) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragIndexRef = useRef<number | null>(null)
+
+  // Expose canvas element for external capture
+  useImperativeHandle(ref, () => ({
+    getCanvasElement: () => containerRef.current,
+  }))
 
   const [dragState, setDragState] = useState<DragState>({
     mode: 'none',
@@ -500,4 +509,4 @@ export function CoverEditor({
       </p>
     </div>
   )
-}
+})

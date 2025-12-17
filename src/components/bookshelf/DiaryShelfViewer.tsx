@@ -206,6 +206,7 @@ export function DiaryShelfViewer({
                     <DiaryCover
                       template={displayedDiary.cover_template}
                       decorations={displayedDiary.cover_decorations}
+                      coverImageUrl={displayedDiary.cover_image_url}
                       size="preview"
                     />
                     {/* Hover overlay */}

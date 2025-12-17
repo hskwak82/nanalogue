@@ -29,6 +29,7 @@ function getClipPathForShape(shapeType: ShapeType): string {
 interface DiaryCoverProps {
   template: CoverTemplate | null
   decorations: PlacedDecoration[]
+  coverImageUrl?: string | null  // Pre-rendered cover image URL
   size?: 'preview' | 'full' | 'editor'
   className?: string
   onClick?: () => void
@@ -58,11 +59,40 @@ const SIZES = {
 export function DiaryCover({
   template,
   decorations,
+  coverImageUrl,
   size = 'preview',
   className = '',
   onClick,
 }: DiaryCoverProps) {
   const dimensions = SIZES[size]
+
+  // If we have a pre-rendered cover image, use it directly (much simpler and accurate)
+  if (coverImageUrl && size === 'preview') {
+    return (
+      <div
+        className={`relative rounded-lg shadow-md overflow-hidden cursor-pointer hover:shadow-lg transition-shadow ${className}`}
+        style={{
+          width: dimensions.width,
+          height: dimensions.height,
+        }}
+        onClick={onClick}
+      >
+        <img
+          src={coverImageUrl}
+          alt="Cover"
+          className="w-full h-full object-cover"
+          draggable={false}
+        />
+        {/* Book spine effect */}
+        <div
+          className="absolute left-0 top-0 bottom-0 w-2 opacity-20"
+          style={{
+            background: 'linear-gradient(to right, rgba(0,0,0,0.3), transparent)',
+          }}
+        />
+      </div>
+    )
+  }
 
   // Default cover style if no template
   const defaultStyle = {
@@ -96,8 +126,8 @@ export function DiaryCover({
     >
       {/* Decorations */}
       {decorations.map((decoration, index) => {
-        // Text scale factor based on size (preview is smaller)
-        const textScaleFactor = size === 'preview' ? 0.4 : 0.8
+        // Text scale factor: preview (120x160) is 0.4x of editor (300x400), full/editor is same size
+        const textScaleFactor = size === 'preview' ? 0.4 : 1.0
 
         return (
           <div

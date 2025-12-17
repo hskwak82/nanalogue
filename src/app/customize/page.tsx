@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import html2canvas from 'html2canvas'
 import { Navigation } from '@/components/Navigation'
-import { CoverEditor } from '@/components/editor/CoverEditor'
+import { CoverEditor, CoverEditorRef } from '@/components/editor/CoverEditor'
 import { PaperEditor } from '@/components/editor/PaperEditor'
 import { ItemPalette } from '@/components/editor/ItemPalette'
 import { PaperStyleSettings } from '@/components/editor/PaperStyleSettings'
@@ -15,6 +16,7 @@ import {
 } from '@/components/editor/TemplateSelector'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
+import { uploadCoverImage } from '@/lib/storage/covers'
 import type {
   CoverTemplate,
   PaperTemplate,
@@ -31,6 +33,8 @@ function CustomizePageContent() {
   const diaryIdParam = searchParams.get('diary')
   const { toast } = useToast()
 
+  const coverEditorRef = useRef<CoverEditorRef>(null)
+
   const [activeTab, setActiveTab] = useState<TabType>('cover')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -43,7 +47,7 @@ function CustomizePageContent() {
   const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
 
   // Data from API
-  const [user, setUser] = useState<{ email: string; name: string | null } | null>(null)
+  const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
   const [coverTemplates, setCoverTemplates] = useState<CoverTemplate[]>([])
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
   const [decorationItems, setDecorationItems] = useState<DecorationItem[]>([])
@@ -142,9 +146,9 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; user: { id: string; email: string; name: string | null } } = await response.json()
 
-        setUser(data.user)
+        setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
         setPaperTemplates(data.paperTemplates)
         setDecorationItems(data.decorationItems)
@@ -192,6 +196,40 @@ function CustomizePageContent() {
     setError(null)
 
     try {
+      let coverImageUrl: string | undefined
+
+      // Capture cover canvas as image if we have a diary and user
+      if (diaryId && user?.id && coverEditorRef.current) {
+        const canvasElement = coverEditorRef.current.getCanvasElement()
+        if (canvasElement) {
+          try {
+            const canvas = await html2canvas(canvasElement, {
+              backgroundColor: null,
+              scale: 2, // Higher quality
+              useCORS: true,
+              logging: false,
+            })
+
+            // Convert to blob
+            const blob = await new Promise<Blob>((resolve, reject) => {
+              canvas.toBlob((b) => {
+                if (b) resolve(b)
+                else reject(new Error('Failed to create blob'))
+              }, 'image/png', 0.9)
+            })
+
+            // Upload to storage
+            const uploadResult = await uploadCoverImage(user.id, diaryId, blob)
+            if (uploadResult.success && uploadResult.url) {
+              coverImageUrl = uploadResult.url
+            }
+          } catch (captureErr) {
+            console.warn('Failed to capture cover image:', captureErr)
+            // Continue without cover image - don't block save
+          }
+        }
+      }
+
       const response = await fetch('/api/customization/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -204,6 +242,7 @@ function CustomizePageContent() {
           paper_opacity: state.paperOpacity,
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
+          cover_image_url: coverImageUrl,
         }),
       })
 
@@ -308,6 +347,7 @@ function CustomizePageContent() {
               {/* Left: Cover Editor */}
               <div className="flex flex-col items-center gap-4">
                 <CoverEditor
+                  ref={coverEditorRef}
                   template={state.selectedCover}
                   decorations={state.coverDecorations}
                   selectedIndex={state.selectedItemIndex}
