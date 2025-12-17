@@ -484,7 +484,7 @@ function CustomizePageContent() {
                 {/* Cover + Spine side by side */}
                 <div className="flex items-start">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
-                  <div className="relative" data-cover-editor>
+                  <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
                     <CoverEditor
                       ref={coverEditorRef}
                       template={state.selectedCover}
@@ -497,6 +497,21 @@ function CustomizePageContent() {
                       onCanvasClick={handleCanvasClickForText}
                       onTextDoubleClick={handleTextDoubleClick}
                     />
+                    {/* Text Button - centered below cover */}
+                    <button
+                      onClick={() => {
+                        setIsTextMode(!isTextMode)
+                        if (!isTextMode) setIsSpineEditMode(false)
+                      }}
+                      className={`mt-2 px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                        isTextMode
+                          ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                          : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                      }`}
+                    >
+                      <span className="text-base">T</span>
+                      텍스트
+                    </button>
                     {/* SpineRegionSelector overlay renders here when editing */}
                     <SpineRegionSelector
                       coverImageUrl={savedCoverImageUrl}
@@ -512,22 +527,6 @@ function CustomizePageContent() {
                     />
                   </div>
                 </div>
-
-                {/* Text Button - below cover, aligned left */}
-                <button
-                  onClick={() => {
-                    setIsTextMode(!isTextMode)
-                    if (!isTextMode) setIsSpineEditMode(false)
-                  }}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                    isTextMode
-                      ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                  }`}
-                >
-                  <span className="text-base">T</span>
-                  텍스트
-                </button>
 
                 {/* Mini Bookshelf - below buttons, aligned with cover left to spine right */}
                 {allDiaries.length > 0 && (

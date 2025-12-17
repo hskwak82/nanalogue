@@ -140,28 +140,25 @@ export function MiniBookshelf({
         <span className="text-[10px] text-gray-400">({diaries.length}권)</span>
       </div>
 
-      {/* Bookshelf - horizontal scroll */}
-      <div className="relative">
-        {/* Shelf background */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-2 rounded-sm"
-          style={{
-            background: 'linear-gradient(to bottom, #8B7355 0%, #6B5344 100%)',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          }}
-        />
-
-        {/* Spines container */}
-        <div className="flex gap-1 pb-3 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-          {sortedDiaries.map((diary) => (
-            <MiniSpine
-              key={diary.id}
-              diary={diary}
-              isSelected={diary.id === selectedDiaryId}
-              onClick={() => onSelectDiary(diary)}
-            />
-          ))}
+      {/* Bookshelf - matches dashboard style */}
+      <div className="relative pb-3">
+        {/* Books - scrollable container */}
+        <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2">
+          <div className="flex items-end gap-1 min-h-[120px]">
+            {sortedDiaries.map((diary) => (
+              <MiniSpine
+                key={diary.id}
+                diary={diary}
+                isSelected={diary.id === selectedDiaryId}
+                onClick={() => onSelectDiary(diary)}
+              />
+            ))}
+          </div>
         </div>
+
+        {/* Shelf surface - same as dashboard */}
+        <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
+        <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
       </div>
     </div>
   )
