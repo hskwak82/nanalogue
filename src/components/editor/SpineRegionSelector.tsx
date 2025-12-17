@@ -162,7 +162,7 @@ export function SpineRegionSelector({
     <div className={`absolute -right-28 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
       {/* Spine Preview - no click handler, controlled by external button */}
       <div
-        className={`rounded-sm shadow-md overflow-hidden transition-all ${
+        className={`rounded-sm shadow-md overflow-hidden ${
           isEditing ? 'ring-2 ring-pastel-purple' : ''
         }`}
         style={{
@@ -171,6 +171,7 @@ export function SpineRegionSelector({
           backgroundImage: `url(${coverImageUrl})`,
           backgroundSize: `${100 / spineWidthRatio}% 100%`,
           backgroundPosition: `${maxPosition > 0 ? (position / maxPosition) * 100 : 0}% center`,
+          transition: 'box-shadow 0.2s, ring 0.2s',
         }}
       />
 
