@@ -13,6 +13,7 @@ import {
   Bars3Icon,
   XMarkIcon,
   InformationCircleIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 interface NavigationProps {
@@ -102,6 +103,16 @@ export function Navigation({ user }: NavigationProps) {
                   }`}
                 >
                   소개
+                </Link>
+                <Link
+                  href="/announcements"
+                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    isActive('/announcements')
+                      ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                      : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
+                  }`}
+                >
+                  공지
                 </Link>
                 <Link
                   href="/settings"
@@ -204,6 +215,18 @@ export function Navigation({ user }: NavigationProps) {
             >
               <InformationCircleIcon className="w-4 h-4" />
               소개
+            </Link>
+            <Link
+              href="/announcements"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                isActive('/announcements')
+                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                  : 'text-gray-600 hover:bg-pastel-pink-light'
+              }`}
+            >
+              <MegaphoneIcon className="w-4 h-4" />
+              공지사항
             </Link>
             <Link
               href="/settings"
