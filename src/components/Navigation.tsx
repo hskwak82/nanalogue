@@ -115,6 +115,16 @@ export function Navigation({ user }: NavigationProps) {
             ) : (
               <div className="flex items-center space-x-3">
                 <Link
+                  href="/about"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive('/about')
+                      ? 'text-pastel-purple-dark'
+                      : 'text-gray-500 hover:text-pastel-purple-dark'
+                  }`}
+                >
+                  소개
+                </Link>
+                <Link
                   href="/login"
                   className="text-sm font-medium text-gray-500 hover:text-pastel-purple-dark transition-colors"
                 >
@@ -144,12 +154,24 @@ export function Navigation({ user }: NavigationProps) {
                 )}
               </button>
             ) : (
-              <Link
-                href="/login"
-                className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
-              >
-                로그인
-              </Link>
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/about"
+                  className={`text-sm font-medium transition-colors ${
+                    isActive('/about')
+                      ? 'text-pastel-purple-dark'
+                      : 'text-gray-500 hover:text-pastel-purple-dark'
+                  }`}
+                >
+                  소개
+                </Link>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+                >
+                  로그인
+                </Link>
+              </div>
             )}
           </div>
         </div>
