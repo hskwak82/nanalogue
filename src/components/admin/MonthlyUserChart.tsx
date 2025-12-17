@@ -42,6 +42,7 @@ export function MonthlyUserChart({ data }: MonthlyUserChartProps) {
           allowDecimals={false}
         />
         <Tooltip
+          cursor={false}
           contentStyle={{
             backgroundColor: 'white',
             border: '1px solid #E5E7EB',

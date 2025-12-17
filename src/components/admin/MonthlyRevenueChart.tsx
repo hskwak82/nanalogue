@@ -48,6 +48,7 @@ export function MonthlyRevenueChart({ data }: MonthlyRevenueChartProps) {
           tickFormatter={(value) => `₩${(value / 1000).toFixed(0)}K`}
         />
         <Tooltip
+          cursor={false}
           contentStyle={{
             backgroundColor: 'white',
             border: '1px solid #E5E7EB',
