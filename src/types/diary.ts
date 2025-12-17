@@ -21,6 +21,7 @@ export interface Diary {
   cover_image_url: string | null  // Pre-rendered cover image for fast display
   spine_image_url: string | null  // User-selected spine region image for bookshelf
   spine_position: number | null   // X position percentage for cropping cover image to display spine
+  spine_width: number | null      // Spine width as ratio of cover (default 0.30 = 30%)
   spine_color: string | null
   spine_gradient: string | null
   created_at: string
