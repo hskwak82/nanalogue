@@ -42,14 +42,14 @@ function MiniSpine({
   const { textColor } = useSpineCalculations(diary)
   const title = diary.title || `${diary.volume_number}권`
 
-  // Get cover style (same logic as DiaryCover)
+  // Get cover style - show LEFT portion of cover (like real book spine)
   const getCoverStyle = () => {
-    // If pre-rendered cover image exists, use it
+    // If pre-rendered cover image exists, show left edge
     if (diary.cover_image_url) {
       return {
         backgroundImage: `url(${diary.cover_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        backgroundSize: 'auto 100%', // Height 100%, width auto to maintain aspect ratio
+        backgroundPosition: 'left center', // Show left portion
       }
     }
 
@@ -62,7 +62,11 @@ function MiniSpine({
         case 'solid':
           return { backgroundColor: parsed.value }
         case 'image':
-          return { backgroundImage: `url(${parsed.value})`, backgroundSize: 'cover' }
+          return {
+            backgroundImage: `url(${parsed.value})`,
+            backgroundSize: 'auto 100%',
+            backgroundPosition: 'left center',
+          }
       }
     }
 
