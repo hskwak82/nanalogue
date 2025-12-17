@@ -478,7 +478,7 @@ function CustomizePageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {activeTab === 'cover' ? (
             <>
-              {/* Left: Cover Editor with Spine Preview */}
+              {/* Left: Cover Editor with Spine Preview and Bookshelf */}
               <div className="flex flex-col items-center gap-4">
                 {/* Cover + Spine side by side */}
                 <div className="flex items-start gap-4">
@@ -505,6 +505,17 @@ function CustomizePageContent() {
                     />
                   </div>
                 </div>
+
+                {/* Mini Bookshelf - directly below cover, same width as cover + spine */}
+                {allDiaries.length > 0 && (
+                  <div style={{ width: 300 + 91 + 16 }}> {/* cover(300) + spine(91) + gap(16) */}
+                    <MiniBookshelf
+                      diaries={allDiaries}
+                      selectedDiaryId={diaryId}
+                      onSelectDiary={handleSelectDiary}
+                    />
+                  </div>
+                )}
 
                 {/* Text Button */}
                 <button
@@ -581,17 +592,6 @@ function CustomizePageContent() {
             </>
           )}
         </div>
-
-        {/* Mini Bookshelf - below the editor */}
-        {allDiaries.length > 0 && (
-          <div className="mt-8">
-            <MiniBookshelf
-              diaries={allDiaries}
-              selectedDiaryId={diaryId}
-              onSelectDiary={handleSelectDiary}
-            />
-          </div>
-        )}
       </main>
 
       {/* Text Input Modal */}
