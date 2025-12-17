@@ -8,6 +8,7 @@ import { CoverEditor } from '@/components/editor/CoverEditor'
 import { PaperEditor } from '@/components/editor/PaperEditor'
 import { ItemPalette } from '@/components/editor/ItemPalette'
 import { PaperStyleSettings } from '@/components/editor/PaperStyleSettings'
+import { TextInputModal } from '@/components/editor/TextInputModal'
 import {
   CoverTemplateSelector,
   PaperTemplateSelector,
@@ -19,6 +20,7 @@ import type {
   PaperTemplate,
   DecorationItem,
   CustomizationLoadResponse,
+  TextMeta,
 } from '@/types/customization'
 
 type TabType = 'cover' | 'paper'
@@ -33,6 +35,11 @@ function CustomizePageContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Text decoration state
+  const [isTextMode, setIsTextMode] = useState(false)
+  const [isTextModalOpen, setIsTextModalOpen] = useState(false)
+  const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null } | null>(null)
@@ -49,6 +56,7 @@ function CustomizePageContent() {
     setPaper,
     setActiveEditor,
     addDecoration,
+    addCoverDecoration,
     updateDecoration,
     removeDecoration,
     selectItem,
@@ -58,6 +66,31 @@ function CustomizePageContent() {
     setPaperFontFamily,
     setPaperFontColor,
   } = useEditorState()
+
+  // Handle canvas click in text mode
+  const handleCanvasClickForText = (x: number, y: number) => {
+    if (isTextMode) {
+      setPendingTextPosition({ x, y })
+      setIsTextModalOpen(true)
+      setIsTextMode(false)
+    }
+  }
+
+  // Handle text confirmation from modal
+  const handleTextConfirm = (text: string, textMeta: TextMeta) => {
+    if (!pendingTextPosition) return
+
+    addCoverDecoration({
+      item_id: `text-${Date.now()}`,
+      type: 'text',
+      content: text,
+      text_meta: textMeta,
+      x: pendingTextPosition.x,
+      y: pendingTextPosition.y,
+    })
+
+    setPendingTextPosition(null)
+  }
 
   // Sync active tab with active editor
   useEffect(() => {
@@ -259,7 +292,7 @@ function CustomizePageContent() {
           {activeTab === 'cover' ? (
             <>
               {/* Left: Cover Editor */}
-              <div className="flex justify-center">
+              <div className="flex flex-col items-center gap-4">
                 <CoverEditor
                   template={state.selectedCover}
                   decorations={state.coverDecorations}
@@ -267,7 +300,23 @@ function CustomizePageContent() {
                   onUpdate={updateDecoration}
                   onSelect={selectItem}
                   onRemove={removeDecoration}
+                  isTextMode={isTextMode}
+                  onCanvasClick={handleCanvasClickForText}
                 />
+
+                {/* Text Button */}
+                <button
+                  onClick={() => setIsTextMode(!isTextMode)}
+                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                    isTextMode
+                      ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                  }`}
+                >
+                  <span className="text-lg">T</span>
+                  텍스트
+                  {isTextMode && <span className="text-xs opacity-80">(클릭하여 위치 선택)</span>}
+                </button>
               </div>
 
               {/* Right: Controls */}
@@ -331,6 +380,16 @@ function CustomizePageContent() {
           )}
         </div>
       </main>
+
+      {/* Text Input Modal */}
+      <TextInputModal
+        isOpen={isTextModalOpen}
+        onClose={() => {
+          setIsTextModalOpen(false)
+          setPendingTextPosition(null)
+        }}
+        onConfirm={handleTextConfirm}
+      />
     </div>
   )
 }

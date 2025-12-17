@@ -14,6 +14,7 @@ import {
   DEFAULT_PAPER_FONT_COLOR,
   ItemType,
   PhotoMeta,
+  TextMeta,
 } from '@/types/customization'
 
 const initialState: EditorState = {
@@ -190,17 +191,18 @@ export function useEditorState() {
 
   // Cover decoration functions
   const addCoverDecoration = useCallback(
-    (item: { item_id: string; type: ItemType; content: string; photo_meta?: PhotoMeta }) => {
+    (item: { item_id: string; type: ItemType; content: string; photo_meta?: PhotoMeta; text_meta?: TextMeta; x?: number; y?: number }) => {
       const decoration: PlacedDecoration = {
         item_id: item.item_id,
         type: item.type,
         content: item.content,
-        x: 50,
-        y: 50,
+        x: item.x ?? 50,
+        y: item.y ?? 50,
         scale: DEFAULT_DECORATION_SCALE,
         rotation: DEFAULT_DECORATION_ROTATION,
         z_index: state.coverDecorations.length + 1,
         photo_meta: item.photo_meta,
+        text_meta: item.text_meta,
       }
       dispatch({ type: 'ADD_COVER_DECORATION', payload: decoration })
     },

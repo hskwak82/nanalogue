@@ -1,8 +1,14 @@
 'use client'
 
 import { useRef, useState, useCallback, useEffect } from 'react'
-import { CoverTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE, ShapeType } from '@/types/customization'
+import { CoverTemplate, PlacedDecoration, MIN_SCALE, MAX_SCALE, ShapeType, FONT_OPTIONS } from '@/types/customization'
 import { DraggableItem } from './DraggableItem'
+
+// Helper function to get font family CSS value
+function getFontFamilyCSS(fontFamilyId: string): string {
+  const font = FONT_OPTIONS.find(f => f.id === fontFamilyId)
+  return font?.fontFamily || 'inherit'
+}
 
 // Helper function to get CSS clip-path for shape types
 function getClipPathForShape(shapeType: ShapeType): string {
@@ -29,6 +35,8 @@ interface CoverEditorProps {
   onUpdate: (index: number, updates: Partial<PlacedDecoration>) => void
   onSelect: (index: number | null) => void
   onRemove: (index: number) => void
+  isTextMode?: boolean
+  onCanvasClick?: (x: number, y: number) => void
 }
 
 type DragMode = 'none' | 'move' | 'resize' | 'rotate'
@@ -62,6 +70,8 @@ export function CoverEditor({
   onUpdate,
   onSelect,
   onRemove,
+  isTextMode = false,
+  onCanvasClick,
 }: CoverEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -214,9 +224,16 @@ export function CoverEditor({
   // Handle canvas click
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onSelect(null)
+      if (isTextMode && onCanvasClick && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        const x = ((e.clientX - rect.left) / rect.width) * 100
+        const y = ((e.clientY - rect.top) / rect.height) * 100
+        onCanvasClick(Math.max(5, Math.min(95, x)), Math.max(5, Math.min(95, y)))
+      } else {
+        onSelect(null)
+      }
     }
-  }, [onSelect])
+  }, [onSelect, isTextMode, onCanvasClick])
 
   // Mouse event handlers for items
   const onItemMouseDown = useCallback((index: number) => (e: React.MouseEvent) => {
@@ -271,7 +288,9 @@ export function CoverEditor({
         {/* Canvas - clips decoration content */}
         <div
           ref={containerRef}
-          className="absolute inset-0 rounded-lg shadow-lg overflow-hidden cursor-crosshair"
+          className={`absolute inset-0 rounded-lg shadow-lg overflow-hidden ${
+            isTextMode ? 'cursor-text ring-2 ring-pastel-purple/50' : 'cursor-crosshair'
+          }`}
           style={coverStyle}
           onClick={handleCanvasClick}
         >
@@ -301,6 +320,18 @@ export function CoverEditor({
                   }}
                   draggable={false}
                 />
+              ) : decoration.type === 'text' ? (
+                <span
+                  className="whitespace-nowrap"
+                  style={{
+                    fontFamily: getFontFamilyCSS(decoration.text_meta?.font_family || 'default'),
+                    fontSize: `${decoration.text_meta?.font_size || 24}px`,
+                    color: decoration.text_meta?.font_color || '#333333',
+                    fontWeight: decoration.text_meta?.font_weight || 'normal',
+                  }}
+                >
+                  {decoration.content}
+                </span>
               ) : (
                 <span
                   className="block w-10 h-10 text-pastel-purple-dark"

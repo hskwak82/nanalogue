@@ -1,7 +1,7 @@
 // Diary Customization Types
 
 export type LineStyle = 'none' | 'lined' | 'grid' | 'dotted'
-export type ItemType = 'emoji' | 'icon' | 'sticker' | 'photo'
+export type ItemType = 'emoji' | 'icon' | 'sticker' | 'photo' | 'text'
 
 // Photo Cropping Types
 export type CropType = 'none' | 'lasso' | 'shape'
@@ -16,6 +16,22 @@ export interface PhotoMeta {
   shape_type?: ShapeType     // Only when crop_type === 'shape'
   lasso_path?: string        // SVG path data for re-editing (only when crop_type === 'lasso')
 }
+
+// Text metadata for text decorations
+export interface TextMeta {
+  font_family: string        // Font family ID from FONT_OPTIONS
+  font_size: number          // Font size in pixels (12-72)
+  font_color: string         // Hex color
+  font_weight?: 'normal' | 'bold'
+  text_align?: 'left' | 'center' | 'right'
+}
+
+// Default text style values
+export const DEFAULT_TEXT_FONT_SIZE = 24
+export const DEFAULT_TEXT_FONT_COLOR = '#333333'
+export const DEFAULT_TEXT_FONT_FAMILY = 'default'
+export const MIN_TEXT_FONT_SIZE = 12
+export const MAX_TEXT_FONT_SIZE = 72
 
 // Shape mask definitions
 export interface ShapeMask {
@@ -80,13 +96,14 @@ export interface DecorationItem {
 export interface PlacedDecoration {
   item_id: string
   type: ItemType
-  content: string            // For photos: cropped image URL
+  content: string            // For photos: cropped image URL, For text: the text content
   x: number                  // position X (0-100 percentage)
   y: number                  // position Y (0-100 percentage)
   scale: number              // 0.5 - 3.0
   rotation: number           // degrees (-180 to 180)
   z_index: number
   photo_meta?: PhotoMeta     // Only when type === 'photo'
+  text_meta?: TextMeta       // Only when type === 'text'
 }
 
 // Paper Style Settings
