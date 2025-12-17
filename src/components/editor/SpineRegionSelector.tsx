@@ -209,12 +209,12 @@ export function SpineRegionSelector({
               className="absolute inset-0 pointer-events-none rounded-lg"
               style={{
                 background: `linear-gradient(to right,
-                  rgba(0,0,0,0.4) 0%,
-                  rgba(0,0,0,0.4) ${position}%,
+                  rgba(0,0,0,0.75) 0%,
+                  rgba(0,0,0,0.75) ${position}%,
                   transparent ${position}%,
                   transparent ${position + spineWidthRatio * 100}%,
-                  rgba(0,0,0,0.4) ${position + spineWidthRatio * 100}%,
-                  rgba(0,0,0,0.4) 100%
+                  rgba(0,0,0,0.75) ${position + spineWidthRatio * 100}%,
+                  rgba(0,0,0,0.75) 100%
                 )`,
               }}
             />
