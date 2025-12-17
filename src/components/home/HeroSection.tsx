@@ -10,8 +10,13 @@ const keyPoints = [
   },
   {
     icon: '📅',
-    title: '일정까지 회고',
+    title: '일정 회고',
     description: '오늘을 돌아보고 내일 계획까지',
+  },
+  {
+    icon: '✨',
+    title: '일기장 꾸미기',
+    description: '아날로그 감성으로 나만의 일기장',
   },
   {
     icon: '🧠',
@@ -66,7 +71,7 @@ export function HeroSection() {
     >
       {/* Key Points - Card Style */}
       <motion.div
-        className="grid grid-cols-3 gap-2 sm:gap-4 max-w-lg mx-auto mb-6 sm:mb-8"
+        className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 max-w-2xl mx-auto mb-6 sm:mb-8"
         variants={itemVariants}
       >
         {keyPoints.map((point, index) => (

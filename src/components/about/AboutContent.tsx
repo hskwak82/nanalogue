@@ -31,6 +31,19 @@ const features = [
     gradient: 'from-pastel-blue to-pastel-mint',
   },
   {
+    id: 'customize',
+    icon: '✨',
+    title: '아날로그 감성',
+    shortDesc: '나만의 일기장 꾸미기',
+    description: '표지와 속지를 직접 꾸며 세상에 하나뿐인 나만의 일기장을 만들어보세요.',
+    details: [
+      '다양한 표지 템플릿과 속지 디자인 선택',
+      '이모지, 스티커, 사진으로 자유롭게 꾸미기',
+      '글꼴과 색상까지 취향대로 커스터마이징',
+    ],
+    gradient: 'from-pastel-peach to-pastel-purple',
+  },
+  {
     id: 'personalized',
     icon: '🧠',
     title: '나만의 AI',
@@ -112,7 +125,7 @@ export function AboutContent({ isLoggedIn }: AboutContentProps) {
 
         {/* Feature Cards */}
         <motion.div
-          className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 max-w-4xl mx-auto"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 max-w-5xl mx-auto"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
