@@ -71,6 +71,7 @@ function CustomizePageContent() {
     setActiveEditor,
     addDecoration,
     addCoverDecoration,
+    addPaperDecoration,
     updateDecoration,
     removeDecoration,
     selectItem,
@@ -100,15 +101,21 @@ function CustomizePageContent() {
       })
       setEditingTextIndex(null)
     } else if (pendingTextPosition) {
-      // Adding new text
-      addCoverDecoration({
+      // Adding new text - use appropriate function based on active tab
+      const newDecoration = {
         item_id: `text-${Date.now()}`,
-        type: 'text',
+        type: 'text' as const,
         content: text,
         text_meta: textMeta,
         x: pendingTextPosition.x,
         y: pendingTextPosition.y,
-      })
+      }
+
+      if (activeTab === 'cover') {
+        addCoverDecoration(newDecoration)
+      } else {
+        addPaperDecoration(newDecoration)
+      }
       setPendingTextPosition(null)
     }
   }
@@ -572,7 +579,7 @@ function CustomizePageContent() {
           ) : (
             <>
               {/* Left: Paper Editor */}
-              <div className="flex justify-center">
+              <div className="flex flex-col items-center gap-4">
                 <PaperEditor
                   template={state.selectedPaper}
                   decorations={state.paperDecorations}
@@ -583,7 +590,23 @@ function CustomizePageContent() {
                   paperOpacity={state.paperOpacity}
                   paperFontFamily={state.paperFontFamily}
                   paperFontColor={state.paperFontColor}
+                  isTextMode={isTextMode}
+                  onCanvasClick={handleCanvasClickForText}
+                  onTextDoubleClick={handleTextDoubleClick}
                 />
+
+                {/* Text Button for Paper */}
+                <button
+                  onClick={() => setIsTextMode(!isTextMode)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                    isTextMode
+                      ? 'bg-pastel-mint text-white ring-2 ring-pastel-mint/50'
+                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                  }`}
+                >
+                  <span className="text-base">T</span>
+                  텍스트
+                </button>
               </div>
 
               {/* Right: Controls */}
@@ -624,8 +647,14 @@ function CustomizePageContent() {
           setEditingTextIndex(null)
         }}
         onConfirm={handleTextConfirm}
-        initialText={editingTextIndex !== null ? state.coverDecorations[editingTextIndex]?.content : ''}
-        initialMeta={editingTextIndex !== null ? state.coverDecorations[editingTextIndex]?.text_meta : undefined}
+        initialText={editingTextIndex !== null
+          ? (activeTab === 'cover' ? state.coverDecorations : state.paperDecorations)[editingTextIndex]?.content
+          : ''
+        }
+        initialMeta={editingTextIndex !== null
+          ? (activeTab === 'cover' ? state.coverDecorations : state.paperDecorations)[editingTextIndex]?.text_meta
+          : undefined
+        }
       />
     </div>
   )
