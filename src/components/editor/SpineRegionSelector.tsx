@@ -34,8 +34,32 @@ export function SpineRegionSelector({
 }: SpineRegionSelectorProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [position, setPosition] = useState(initialPosition)
+  const [coverRect, setCoverRect] = useState<DOMRect | null>(null)
 
   const maxPosition = 100 - spineWidthRatio * 100
+
+  // Update cover rect on scroll/resize when editing
+  useEffect(() => {
+    if (!isEditing || !coverRef.current) return
+
+    const updateRect = () => {
+      if (coverRef.current) {
+        setCoverRect(coverRef.current.getBoundingClientRect())
+      }
+    }
+
+    // Initial update
+    updateRect()
+
+    // Listen for scroll and resize
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [isEditing, coverRef])
 
   const updatePosition = useCallback((clientX: number) => {
     if (!coverRef.current) return
@@ -163,60 +187,55 @@ export function SpineRegionSelector({
       </button>
 
       {/* Selection overlay on cover - only shown when editing */}
-      {isEditing && (
+      {isEditing && coverRect && (
         <div
           className="fixed inset-0 z-40"
           style={{ pointerEvents: 'none' }}
         >
-          {coverRef.current && (() => {
-            const rect = coverRef.current.getBoundingClientRect()
-            return (
-              <div
-                className="absolute cursor-ew-resize"
-                style={{
-                  left: rect.left,
-                  top: rect.top,
-                  width: rect.width,
-                  height: rect.height,
-                  pointerEvents: 'auto',
-                }}
-                onMouseDown={handleOverlayMouseDown}
-                onTouchStart={handleTouchStart}
-              >
-                {/* Darkening overlay for non-selected areas */}
-                <div
-                  className="absolute inset-0 pointer-events-none rounded-lg"
-                  style={{
-                    background: `linear-gradient(to right,
-                      rgba(0,0,0,0.4) 0%,
-                      rgba(0,0,0,0.4) ${position}%,
-                      transparent ${position}%,
-                      transparent ${position + spineWidthRatio * 100}%,
-                      rgba(0,0,0,0.4) ${position + spineWidthRatio * 100}%,
-                      rgba(0,0,0,0.4) 100%
-                    )`,
-                  }}
-                />
+          <div
+            className="absolute cursor-ew-resize"
+            style={{
+              left: coverRect.left,
+              top: coverRect.top,
+              width: coverRect.width,
+              height: coverRect.height,
+              pointerEvents: 'auto',
+            }}
+            onMouseDown={handleOverlayMouseDown}
+            onTouchStart={handleTouchStart}
+          >
+            {/* Darkening overlay for non-selected areas */}
+            <div
+              className="absolute inset-0 pointer-events-none rounded-lg"
+              style={{
+                background: `linear-gradient(to right,
+                  rgba(0,0,0,0.4) 0%,
+                  rgba(0,0,0,0.4) ${position}%,
+                  transparent ${position}%,
+                  transparent ${position + spineWidthRatio * 100}%,
+                  rgba(0,0,0,0.4) ${position + spineWidthRatio * 100}%,
+                  rgba(0,0,0,0.4) 100%
+                )`,
+              }}
+            />
 
-                {/* Selection frame */}
-                <div
-                  className="absolute top-0 bottom-0 border-2 border-pastel-purple pointer-events-none"
-                  style={{
-                    left: `${position}%`,
-                    width: `${spineWidthRatio * 100}%`,
-                    boxShadow: '0 0 0 2px rgba(167, 139, 250, 0.3)',
-                  }}
-                >
-                  {/* Drag indicator */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-white/95 rounded-full px-2 py-1 shadow-lg">
-                      <span className="text-xs text-pastel-purple font-medium">⇔</span>
-                    </div>
-                  </div>
+            {/* Selection frame */}
+            <div
+              className="absolute top-0 bottom-0 border-2 border-pastel-purple pointer-events-none"
+              style={{
+                left: `${position}%`,
+                width: `${spineWidthRatio * 100}%`,
+                boxShadow: '0 0 0 2px rgba(167, 139, 250, 0.3)',
+              }}
+            >
+              {/* Drag indicator */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-white/95 rounded-full px-2 py-1 shadow-lg">
+                  <span className="text-xs text-pastel-purple font-medium">⇔</span>
                 </div>
               </div>
-            )
-          })()}
+            </div>
+          </div>
         </div>
       )}
     </div>
