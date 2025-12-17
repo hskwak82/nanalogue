@@ -404,20 +404,33 @@ function CustomizePageContent() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {activeTab === 'cover' ? (
             <>
-              {/* Left: Cover Editor */}
+              {/* Left: Cover Editor with Spine Preview */}
               <div className="flex flex-col items-center gap-4">
-                <CoverEditor
-                  ref={coverEditorRef}
-                  template={state.selectedCover}
-                  decorations={state.coverDecorations}
-                  selectedIndex={state.selectedItemIndex}
-                  onUpdate={updateDecoration}
-                  onSelect={selectItem}
-                  onRemove={removeDecoration}
-                  isTextMode={isTextMode}
-                  onCanvasClick={handleCanvasClickForText}
-                  onTextDoubleClick={handleTextDoubleClick}
-                />
+                {/* Cover + Spine side by side */}
+                <div className="flex items-start gap-4">
+                  {/* Cover Editor wrapper with relative positioning for overlay */}
+                  <div className="relative" data-cover-editor>
+                    <CoverEditor
+                      ref={coverEditorRef}
+                      template={state.selectedCover}
+                      decorations={state.coverDecorations}
+                      selectedIndex={state.selectedItemIndex}
+                      onUpdate={updateDecoration}
+                      onSelect={selectItem}
+                      onRemove={removeDecoration}
+                      isTextMode={isTextMode}
+                      onCanvasClick={handleCanvasClickForText}
+                      onTextDoubleClick={handleTextDoubleClick}
+                    />
+                    {/* SpineRegionSelector overlay renders here when editing */}
+                    <SpineRegionSelector
+                      coverImageUrl={savedCoverImageUrl}
+                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
+                      initialPosition={spinePosition}
+                      onPositionChange={setSpinePosition}
+                    />
+                  </div>
+                </div>
 
                 {/* Text Button */}
                 <button
@@ -432,22 +445,6 @@ function CustomizePageContent() {
                   텍스트
                   {isTextMode && <span className="text-xs opacity-80">(클릭하여 위치 선택)</span>}
                 </button>
-
-                {/* Spine Region Selector */}
-                <div className="mt-4 p-4 bg-white/70 rounded-xl border border-gray-200">
-                  <SpineRegionSelector
-                    coverImageUrl={savedCoverImageUrl}
-                    coverWidth={300}
-                    coverHeight={400}
-                    initialPosition={spinePosition}
-                    onPositionChange={setSpinePosition}
-                  />
-                  {!savedCoverImageUrl && (
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      저장 후 책장 미리보기 영역을 선택할 수 있습니다
-                    </p>
-                  )}
-                </div>
               </div>
 
               {/* Right: Controls */}
