@@ -333,7 +333,9 @@ export function PaperEditor({
                 top: `${decoration.y}%`,
                 transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
                 zIndex: selectedIndex === index ? 1000 : decoration.z_index,
-                opacity: 0.8, // Slight transparency for paper decorations
+                opacity: decoration.type === 'text'
+                  ? (decoration.text_meta?.opacity ?? 0.8)
+                  : 0.8, // Slight transparency for paper decorations
               }}
             >
               {decoration.type === 'emoji' ? (

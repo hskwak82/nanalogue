@@ -296,13 +296,13 @@ export const CoverEditor = forwardRef<CoverEditorRef, CoverEditorProps>(function
         className="relative mx-auto"
         style={{ width: 300, height: 400 }}
       >
-        {/* Canvas - clips decoration content */}
+        {/* Canvas - clips decoration content (use explicit size instead of inset-0 for html2canvas compatibility) */}
         <div
           ref={containerRef}
-          className={`absolute inset-0 rounded-lg shadow-lg overflow-hidden ${
+          className={`relative rounded-lg shadow-lg overflow-hidden ${
             isTextMode ? 'cursor-text ring-2 ring-pastel-purple/50' : 'cursor-crosshair'
           }`}
-          style={coverStyle}
+          style={{ ...coverStyle, width: 300, height: 400 }}
           onClick={handleCanvasClick}
         >
           {/* Decoration content only (clipped) */}
@@ -315,6 +315,9 @@ export const CoverEditor = forwardRef<CoverEditorRef, CoverEditorProps>(function
                 top: `${decoration.y}%`,
                 transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
                 zIndex: selectedIndex === index ? 1000 : decoration.z_index,
+                opacity: decoration.type === 'text'
+                  ? (decoration.text_meta?.opacity ?? 1)
+                  : 1,
               }}
             >
               {decoration.type === 'emoji' ? (

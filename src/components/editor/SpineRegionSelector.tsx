@@ -11,6 +11,7 @@ interface SpineRegionSelectorProps {
   isEditing?: boolean // Controlled from parent
   onEditingChange?: (editing: boolean) => void
   onEditButtonClick?: () => void // Called when edit button is clicked
+  disabled?: boolean // Disable edit button when there are unsaved changes
   className?: string
 }
 
@@ -30,6 +31,7 @@ export function SpineRegionSelector({
   isEditing = false,
   onEditingChange,
   onEditButtonClick,
+  disabled = false,
   className = '',
 }: SpineRegionSelectorProps) {
   const [isDragging, setIsDragging] = useState(false)
@@ -37,6 +39,11 @@ export function SpineRegionSelector({
   const [coverRect, setCoverRect] = useState<DOMRect | null>(null)
 
   const maxPosition = 100 - spineWidthRatio * 100
+
+  // Sync internal position with initialPosition prop when it changes (e.g., diary switch)
+  useEffect(() => {
+    setPosition(initialPosition)
+  }, [initialPosition])
 
   // Update cover rect on scroll/resize when editing
   useEffect(() => {
@@ -160,7 +167,7 @@ export function SpineRegionSelector({
 
   return (
     <div className={`absolute -right-28 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
-      {/* Spine Preview - no click handler, controlled by external button */}
+      {/* Spine Preview - use translateX percentage for accurate positioning */}
       <div
         className={`rounded-sm shadow-md overflow-hidden ${
           isEditing ? 'ring-2 ring-pastel-purple' : ''
@@ -168,24 +175,45 @@ export function SpineRegionSelector({
         style={{
           width: SPINE_PREVIEW_WIDTH,
           height: SPINE_PREVIEW_HEIGHT,
-          backgroundImage: `url(${coverImageUrl})`,
-          backgroundSize: `${100 / spineWidthRatio}% 100%`,
-          backgroundPosition: `${maxPosition > 0 ? (position / maxPosition) * 100 : 0}% center`,
           transition: 'box-shadow 0.2s, ring 0.2s',
         }}
-      />
+      >
+        <img
+          src={coverImageUrl}
+          alt="Spine preview"
+          style={{
+            height: '100%',
+            width: 'auto',
+            maxWidth: 'none',
+            display: 'block',
+            // translateX percentage is based on image's own width - auto-adapts to any aspect ratio
+            transform: `translateX(-${position}%)`,
+          }}
+        />
+      </div>
 
       {/* Edit button below the spine - centered, same style as T텍스트 */}
-      <button
-        onClick={onEditButtonClick}
-        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-          isEditing
-            ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-        }`}
-      >
-        위치변경
-      </button>
+      <div className="relative group">
+        <button
+          onClick={onEditButtonClick}
+          disabled={disabled}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            disabled
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+              : isEditing
+                ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+          }`}
+        >
+          위치변경
+        </button>
+        {/* Tooltip when disabled */}
+        {disabled && (
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-700 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            저장 후 위치변경 가능
+          </div>
+        )}
+      </div>
 
       {/* Selection overlay on cover - only shown when editing */}
       {isEditing && coverRect && (

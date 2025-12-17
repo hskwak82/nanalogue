@@ -170,6 +170,7 @@ export async function GET() {
       paper_decorations: (diary.paper_decorations || []) as PlacedDecoration[],
       cover_image_url: diary.cover_image_url || null,
       spine_image_url: diary.spine_image_url || null,
+      spine_position: diary.spine_position ?? null,
       spine_color: diary.spine_color,
       spine_gradient: diary.spine_gradient,
       created_at: diary.created_at,

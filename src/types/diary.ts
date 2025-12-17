@@ -20,6 +20,7 @@ export interface Diary {
   paper_decorations: PlacedDecoration[]
   cover_image_url: string | null  // Pre-rendered cover image for fast display
   spine_image_url: string | null  // User-selected spine region image for bookshelf
+  spine_position: number | null   // X position percentage for cropping cover image to display spine
   spine_color: string | null
   spine_gradient: string | null
   created_at: string

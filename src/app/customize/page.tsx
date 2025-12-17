@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import html2canvas from 'html2canvas'
+import { toPng } from 'html-to-image'
 import { Navigation } from '@/components/Navigation'
 import { CoverEditor, CoverEditorRef } from '@/components/editor/CoverEditor'
 import { PaperEditor } from '@/components/editor/PaperEditor'
@@ -14,7 +14,7 @@ import {
   CoverTemplateSelector,
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
-import { SpineRegionSelector, getSpineCropCoordinates } from '@/components/editor/SpineRegionSelector'
+import { SpineRegionSelector } from '@/components/editor/SpineRegionSelector'
 import { CustomizeBookshelf } from '@/components/editor/CustomizeBookshelf'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
@@ -36,6 +36,7 @@ function CustomizePageContent() {
   const { toast } = useToast()
 
   const coverEditorRef = useRef<CoverEditorRef>(null)
+  const savedCoverImageRef = useRef<HTMLDivElement>(null)
 
   const [activeTab, setActiveTab] = useState<TabType>('cover')
   const [isLoading, setIsLoading] = useState(true)
@@ -155,7 +156,7 @@ function CustomizePageContent() {
         throw new Error('Failed to load customization data')
       }
 
-      const data: CustomizationLoadResponse & { diaryId?: string; coverImageUrl?: string | null } = await response.json()
+      const data: CustomizationLoadResponse & { diaryId?: string; coverImageUrl?: string | null; spinePosition?: number } = await response.json()
 
       const coverTmpl = templates?.cover || coverTemplates
       const paperTmpl = templates?.paper || paperTemplates
@@ -183,7 +184,7 @@ function CustomizePageContent() {
           data.customization.paper_font_color
         )
 
-        // Load saved cover image URL for spine selector
+        // Load saved cover image URL for spine selector (spine is cropped from cover)
         if (data.coverImageUrl) {
           setSavedCoverImageUrl(data.coverImageUrl)
         } else {
@@ -195,8 +196,8 @@ function CustomizePageContent() {
         setSavedCoverImageUrl(null)
       }
 
-      // Reset spine position when switching diaries
-      setSpinePosition(0)
+      // Load spine position for this diary (default to 0 if not set)
+      setSpinePosition(data.spinePosition ?? 0)
     } catch (err) {
       console.error('Error loading diary customization:', err)
       setError('데이터를 불러오는 데 실패했습니다.')
@@ -231,7 +232,7 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; user: { id: string; email: string; name: string | null } } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; spinePosition?: number; user: { id: string; email: string; name: string | null } } = await response.json()
 
         setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
@@ -265,6 +266,9 @@ function CustomizePageContent() {
           if (data.coverImageUrl) {
             setSavedCoverImageUrl(data.coverImageUrl)
           }
+
+          // Load spine position for this diary
+          setSpinePosition(data.spinePosition ?? 0)
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -293,21 +297,32 @@ function CustomizePageContent() {
 
     try {
       let coverImageUrl: string | undefined
-      let spineImageUrl: string | undefined
 
       // Capture cover canvas as image if we have a diary and user
       if (diaryId && user?.id && coverEditorRef.current) {
         const canvasElement = coverEditorRef.current.getCanvasElement()
         if (canvasElement) {
           try {
-            const canvas = await html2canvas(canvasElement, {
-              backgroundColor: null,
-              scale: 2,
-              useCORS: true,
-            })
+            // Use html-to-image for more accurate transform handling
+            // Temporarily suppress cssRules security errors from external fonts
+            const originalError = console.error
+            console.error = (...args) => {
+              if (args[0]?.toString().includes('cssRules')) return
+              originalError.apply(console, args)
+            }
 
-            // Convert to base64
-            const imageBase64 = canvas.toDataURL('image/png', 0.9)
+            let imageBase64: string
+            try {
+              imageBase64 = await toPng(canvasElement, {
+                width: 300,
+                height: 400,
+                pixelRatio: 2,
+                cacheBust: true,
+                skipFonts: true, // Skip font processing to avoid CORS issues
+              })
+            } finally {
+              console.error = originalError
+            }
 
             // Upload via server-side API (bypasses RLS)
             const uploadResponse = await fetch('/api/customization/upload-cover', {
@@ -327,49 +342,7 @@ function CustomizePageContent() {
                 setSavedCoverImageUrl(uploadResult.url)
               }
             }
-
-            // Also generate spine image from selected region
-            // Must match DEFAULT_SPINE_WIDTH_RATIO in SpineRegionSelector (0.30)
-            const spineWidthRatio = 0.30
-            const cropCoords = getSpineCropCoordinates(
-              spinePosition,
-              spineWidthRatio,
-              canvas.width,
-              canvas.height
-            )
-
-            // Create a new canvas for the spine region
-            const spineCanvas = document.createElement('canvas')
-            spineCanvas.width = cropCoords.width
-            spineCanvas.height = cropCoords.height
-            const spineCtx = spineCanvas.getContext('2d')
-            if (spineCtx) {
-              spineCtx.drawImage(
-                canvas,
-                cropCoords.x, cropCoords.y, cropCoords.width, cropCoords.height,
-                0, 0, cropCoords.width, cropCoords.height
-              )
-
-              const spineImageBase64 = spineCanvas.toDataURL('image/png', 0.9)
-
-              // Upload spine image
-              const spineUploadResponse = await fetch('/api/customization/upload-cover', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  diaryId,
-                  imageBase64: spineImageBase64,
-                  isSpine: true, // Flag to store in different location
-                }),
-              })
-
-              if (spineUploadResponse.ok) {
-                const spineUploadResult = await spineUploadResponse.json()
-                if (spineUploadResult.success && spineUploadResult.url) {
-                  spineImageUrl = spineUploadResult.url
-                }
-              }
-            }
+            // Spine is displayed by cropping cover_image_url - no separate spine image needed
           } catch (captureErr) {
             console.warn('Failed to capture cover image:', captureErr)
             // Continue without cover image - don't block save
@@ -390,7 +363,7 @@ function CustomizePageContent() {
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
           cover_image_url: coverImageUrl,
-          spine_image_url: spineImageUrl,
+          spine_position: spinePosition,
         }),
       })
 
@@ -406,6 +379,10 @@ function CustomizePageContent() {
       }
 
       markSaved()
+      // Exit all editing modes and deselect items after save
+      setIsSpineEditMode(false)
+      setIsTextMode(false)
+      selectItem(null)
       toast.success('저장되었습니다!')
     } catch (err) {
       console.error('Error saving:', err)
@@ -503,18 +480,34 @@ function CustomizePageContent() {
                 <div className="flex items-start">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
                   <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
-                    <CoverEditor
-                      ref={coverEditorRef}
-                      template={state.selectedCover}
-                      decorations={state.coverDecorations}
-                      selectedIndex={state.selectedItemIndex}
-                      onUpdate={updateDecoration}
-                      onSelect={selectItem}
-                      onRemove={removeDecoration}
-                      isTextMode={isTextMode}
-                      onCanvasClick={handleCanvasClickForText}
-                      onTextDoubleClick={handleTextDoubleClick}
-                    />
+                    {/* Show saved image when in spine edit mode for accurate position selection */}
+                    {isSpineEditMode && savedCoverImageUrl ? (
+                      <div
+                        ref={savedCoverImageRef}
+                        className="relative rounded-lg overflow-hidden shadow-lg"
+                        style={{ width: 300, height: 400 }}
+                      >
+                        <img
+                          src={savedCoverImageUrl}
+                          alt="Saved cover"
+                          style={{ width: 300, height: 400 }}
+                          draggable={false}
+                        />
+                      </div>
+                    ) : (
+                      <CoverEditor
+                        ref={coverEditorRef}
+                        template={state.selectedCover}
+                        decorations={state.coverDecorations}
+                        selectedIndex={state.selectedItemIndex}
+                        onUpdate={updateDecoration}
+                        onSelect={selectItem}
+                        onRemove={removeDecoration}
+                        isTextMode={isTextMode}
+                        onCanvasClick={handleCanvasClickForText}
+                        onTextDoubleClick={handleTextDoubleClick}
+                      />
+                    )}
                     {/* Text Button - centered below cover */}
                     <button
                       onClick={() => {
@@ -533,7 +526,10 @@ function CustomizePageContent() {
                     {/* SpineRegionSelector overlay renders here when editing */}
                     <SpineRegionSelector
                       coverImageUrl={savedCoverImageUrl}
-                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
+                      coverRef={isSpineEditMode && savedCoverImageUrl
+                        ? savedCoverImageRef
+                        : { current: coverEditorRef.current?.getCanvasElement() || null }
+                      }
                       initialPosition={spinePosition}
                       onPositionChange={setSpinePosition}
                       isEditing={isSpineEditMode}
@@ -542,6 +538,7 @@ function CustomizePageContent() {
                         setIsSpineEditMode(!isSpineEditMode)
                         if (!isSpineEditMode) setIsTextMode(false)
                       }}
+                      disabled={state.isDirty}
                     />
 
                     {/* Save Button - centered below cover */}

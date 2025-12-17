@@ -28,7 +28,7 @@ function parseImageUrl(imageUrl: string): {
   return { type: 'image', value: imageUrl }
 }
 
-// Mini spine component for the shelf - uses user-selected spine region
+// Mini spine component for the shelf - crops cover_image_url at spine_position
 function MiniSpine({
   diary,
   isActive,
@@ -39,29 +39,13 @@ function MiniSpine({
   onClick: () => void
 }) {
   const { textColor } = useSpineCalculations(diary)
-  const title = diary.title || `${diary.volume_number}권`
+  const spinePosition = diary.spine_position ?? 0
 
-  // Get spine style - prioritize user-selected spine image
-  const getSpineStyle = () => {
-    // 1. First priority: user-selected spine region image
-    if (diary.spine_image_url) {
-      return {
-        backgroundImage: `url(${diary.spine_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }
-    }
+  // Check if we have a saved cover image to crop
+  const hasCoverImage = !!diary.cover_image_url
 
-    // 2. Second priority: show left portion of cover image
-    if (diary.cover_image_url) {
-      return {
-        backgroundImage: `url(${diary.cover_image_url})`,
-        backgroundSize: 'auto 100%',
-        backgroundPosition: 'left center',
-      }
-    }
-
-    // 3. Third priority: use cover template
+  // Fallback style when no cover image
+  const getFallbackStyle = () => {
     if (diary.cover_template?.image_url) {
       const parsed = parseImageUrl(diary.cover_template.image_url)
       switch (parsed.type) {
@@ -77,16 +61,12 @@ function MiniSpine({
           }
       }
     }
-
-    // 4. Fallback: use spine_gradient or spine_color
     if (diary.spine_gradient) {
       return { background: diary.spine_gradient }
     }
     if (diary.spine_color) {
       return { backgroundColor: diary.spine_color }
     }
-
-    // 5. Default: pastel lavender
     return { background: 'linear-gradient(135deg, #E8E0F0 0%, #D4C5E2 50%, #C9B8DA 100%)' }
   }
 
@@ -100,9 +80,24 @@ function MiniSpine({
       style={{
         width: 32,
         height: 140,
-        ...getSpineStyle(),
+        ...(hasCoverImage ? {} : getFallbackStyle()),
       }}
     >
+      {/* Crop cover image at spine_position - no extra text rendering */}
+      {hasCoverImage && (
+        <img
+          src={diary.cover_image_url!}
+          alt=""
+          style={{
+            height: '100%',
+            width: 'auto',
+            maxWidth: 'none',
+            display: 'block',
+            transform: `translateX(-${spinePosition}%)`,
+          }}
+        />
+      )}
+
       {/* Active indicator */}
       {isActive && (
         <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-pastel-mint rounded-full shadow-sm z-20" />
@@ -112,21 +107,23 @@ function MiniSpine({
       <div className="absolute left-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(0,0,0,0.15)' }} />
       <div className="absolute right-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(255,255,255,0.2)' }} />
 
-      {/* Title overlay with text shadow for readability */}
-      <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
-        <span
-          className="text-[11px] font-medium text-center drop-shadow-sm"
-          style={{
-            color: textColor,
-            writingMode: 'vertical-rl',
-            textOrientation: 'upright',
-            letterSpacing: '0.05em',
-            textShadow: '0 1px 2px rgba(255,255,255,0.5), 0 -1px 2px rgba(255,255,255,0.5)',
-          }}
-        >
-          {title.length > 6 ? title.slice(0, 6) + '..' : title}
-        </span>
-      </div>
+      {/* Only show title text if NO cover image (fallback mode) */}
+      {!hasCoverImage && (
+        <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
+          <span
+            className="text-[11px] font-medium text-center drop-shadow-sm"
+            style={{
+              color: textColor,
+              writingMode: 'vertical-rl',
+              textOrientation: 'upright',
+              letterSpacing: '0.05em',
+              textShadow: '0 1px 2px rgba(255,255,255,0.5), 0 -1px 2px rgba(255,255,255,0.5)',
+            }}
+          >
+            {(diary.title || `${diary.volume_number}권`).slice(0, 6)}
+          </span>
+        </div>
+      )}
     </motion.div>
   )
 }
