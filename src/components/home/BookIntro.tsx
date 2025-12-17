@@ -143,7 +143,7 @@ export function BookIntro({ diary, userName, latestEntry }: BookIntroProps) {
     <AnimatePresence mode="wait">
       <motion.div
         key="book-intro"
-        className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center px-4"
+        className="min-h-[50vh] flex flex-col items-center justify-center px-4 pb-12"
         variants={containerVariants}
         initial="enter"
         animate={phase === 'exit' ? 'exit' : 'visible'}
@@ -152,14 +152,14 @@ export function BookIntro({ diary, userName, latestEntry }: BookIntroProps) {
       >
         {/* Title */}
         <motion.div
-          className="text-center mb-8"
+          className="text-center mb-6"
           variants={textVariants}
           initial="hidden"
           animate="visible"
         >
-          <h1 className="text-2xl font-semibold text-pastel-purple-dark">
+          <h2 className="text-xl font-semibold text-pastel-purple-dark">
             {userName ? `${userName}님의 일기장` : '나의 일기장'}
-          </h1>
+          </h2>
           {diary?.title && (
             <p className="text-sm text-gray-500 mt-1">{diary.title}</p>
           )}

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
+import { HeroSection } from '@/components/home/HeroSection'
 import { BookIntro } from '@/components/home/BookIntro'
 import type { DiaryWithTemplates } from '@/types/diary'
 
@@ -51,6 +52,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
       <Navigation user={{ email: user.email, name: profile?.name }} />
+      <HeroSection />
       <BookIntro
         diary={activeDiary}
         userName={profile?.name || undefined}
