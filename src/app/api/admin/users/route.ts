@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     const planFilter = searchParams.get('plan') || ''
     const subscriptionTypeFilter = searchParams.get('subscriptionType') || ''
     const periodFilter = searchParams.get('period') || ''
+    const startDate = searchParams.get('startDate') || ''
+    const endDate = searchParams.get('endDate') || ''
 
     const offset = (page - 1) * limit
     const supabase = getAdminServiceClient()
@@ -45,28 +47,37 @@ export async function GET(request: Request) {
     }
 
     // Apply period filter (가입일 기준)
-    if (periodFilter) {
+    if (periodFilter === 'custom' && startDate) {
+      // Custom date range
+      query = query.gte('created_at', new Date(startDate).toISOString())
+      if (endDate) {
+        // End of the selected day
+        const endDateTime = new Date(endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        query = query.lte('created_at', endDateTime.toISOString())
+      }
+    } else if (periodFilter) {
       const now = new Date()
-      let startDate: Date
+      let filterStartDate: Date
 
       switch (periodFilter) {
         case 'today':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           break
         case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          filterStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
           break
         case 'month':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), 1)
           break
         case '3months':
-          startDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
+          filterStartDate = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate())
           break
         default:
-          startDate = new Date(0)
+          filterStartDate = new Date(0)
       }
 
-      query = query.gte('created_at', startDate.toISOString())
+      query = query.gte('created_at', filterStartDate.toISOString())
     }
 
     // Get profiles with pagination

@@ -38,6 +38,8 @@ export default function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [exporting, setExporting] = useState(false)
   const [summary, setSummary] = useState({
     totalAmount: 0,
@@ -62,6 +64,10 @@ export default function AdminPaymentsPage() {
       if (statusFilter) params.set('status', statusFilter)
       if (periodFilter) params.set('period', periodFilter)
       if (search) params.set('search', search)
+      if (periodFilter === 'custom' && customStartDate) {
+        params.set('startDate', customStartDate)
+        if (customEndDate) params.set('endDate', customEndDate)
+      }
 
       const response = await fetch(`/api/admin/payments?${params}`)
       if (!response.ok) {
@@ -76,7 +82,7 @@ export default function AdminPaymentsPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, statusFilter, periodFilter, search])
+  }, [pagination.page, pagination.limit, statusFilter, periodFilter, search, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchPayments()
@@ -180,6 +186,10 @@ export default function AdminPaymentsPage() {
               value={periodFilter}
               onChange={(e) => {
                 setPeriodFilter(e.target.value)
+                if (e.target.value !== 'custom') {
+                  setCustomStartDate('')
+                  setCustomEndDate('')
+                }
                 setPagination((prev) => ({ ...prev, page: 1 }))
               }}
               className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -188,7 +198,31 @@ export default function AdminPaymentsPage() {
               <option value="today">오늘</option>
               <option value="week">이번 주</option>
               <option value="month">이번 달</option>
+              <option value="custom">직접 입력</option>
             </select>
+            {periodFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => {
+                    setCustomStartDate(e.target.value)
+                    setPagination((prev) => ({ ...prev, page: 1 }))
+                  }}
+                  className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+                <span className="text-gray-500">~</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => {
+                    setCustomEndDate(e.target.value)
+                    setPagination((prev) => ({ ...prev, page: 1 }))
+                  }}
+                  className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            )}
           </div>
           <button
             onClick={handleExport}

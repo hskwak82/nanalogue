@@ -30,6 +30,8 @@ export async function GET(request: Request) {
     const status = searchParams.get('status') || ''
     const period = searchParams.get('period') || ''
     const search = searchParams.get('search') || ''
+    const startDate = searchParams.get('startDate') || ''
+    const endDate = searchParams.get('endDate') || ''
 
     const offset = (page - 1) * limit
     const supabase = getAdminServiceClient()
@@ -69,25 +71,33 @@ export async function GET(request: Request) {
     }
 
     // Apply period filter
-    if (period) {
+    if (period === 'custom' && startDate) {
+      // Custom date range
+      query = query.gte('created_at', new Date(startDate).toISOString())
+      if (endDate) {
+        const endDateTime = new Date(endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        query = query.lte('created_at', endDateTime.toISOString())
+      }
+    } else if (period) {
       const now = new Date()
-      let startDate: Date
+      let filterStartDate: Date
 
       switch (period) {
         case 'today':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           break
         case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          filterStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
           break
         case 'month':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          filterStartDate = new Date(now.getFullYear(), now.getMonth(), 1)
           break
         default:
-          startDate = new Date(0)
+          filterStartDate = new Date(0)
       }
 
-      query = query.gte('created_at', startDate.toISOString())
+      query = query.gte('created_at', filterStartDate.toISOString())
     }
 
     // Get payments with pagination

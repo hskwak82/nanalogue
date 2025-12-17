@@ -312,6 +312,8 @@ export default function AdminUsersPage() {
   const [planFilter, setPlanFilter] = useState('')
   const [subscriptionTypeFilter, setSubscriptionTypeFilter] = useState('')
   const [periodFilter, setPeriodFilter] = useState('')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkModal, setShowBulkModal] = useState(false)
@@ -335,6 +337,10 @@ export default function AdminUsersPage() {
       if (planFilter) params.set('plan', planFilter)
       if (subscriptionTypeFilter) params.set('subscriptionType', subscriptionTypeFilter)
       if (periodFilter) params.set('period', periodFilter)
+      if (periodFilter === 'custom' && customStartDate) {
+        params.set('startDate', customStartDate)
+        if (customEndDate) params.set('endDate', customEndDate)
+      }
 
       const response = await fetch(`/api/admin/users?${params}`)
       if (!response.ok) {
@@ -349,7 +355,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [pagination.page, pagination.limit, search, planFilter, subscriptionTypeFilter, periodFilter])
+  }, [pagination.page, pagination.limit, search, planFilter, subscriptionTypeFilter, periodFilter, customStartDate, customEndDate])
 
   useEffect(() => {
     fetchUsers()
@@ -628,6 +634,10 @@ export default function AdminUsersPage() {
             value={periodFilter}
             onChange={(e) => {
               setPeriodFilter(e.target.value)
+              if (e.target.value !== 'custom') {
+                setCustomStartDate('')
+                setCustomEndDate('')
+              }
               setPagination((prev) => ({ ...prev, page: 1 }))
             }}
             className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
@@ -637,7 +647,31 @@ export default function AdminUsersPage() {
             <option value="week">최근 1주</option>
             <option value="month">이번 달</option>
             <option value="3months">최근 3개월</option>
+            <option value="custom">직접 입력</option>
           </select>
+          {periodFilter === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => {
+                  setCustomStartDate(e.target.value)
+                  setPagination((prev) => ({ ...prev, page: 1 }))
+                }}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+              <span className="text-gray-500">~</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => {
+                  setCustomEndDate(e.target.value)
+                  setPagination((prev) => ({ ...prev, page: 1 }))
+                }}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
       </div>
 
