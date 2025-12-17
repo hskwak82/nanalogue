@@ -33,7 +33,7 @@ function formatDate(dateString: string): string {
   return date.toLocaleDateString('ko-KR')
 }
 
-type PeriodFilter = '3' | '6' | '12' | 'year'
+type PeriodFilter = '3' | '6' | '12' | 'year' | 'custom'
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<AdminStats | null>(null)
@@ -42,6 +42,8 @@ export default function AdminDashboardPage() {
   const [monthlyLoading, setMonthlyLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('6')
+  const [customStartDate, setCustomStartDate] = useState<string>('')
+  const [customEndDate, setCustomEndDate] = useState<string>('')
 
   useEffect(() => {
     async function fetchStats() {
@@ -64,16 +66,28 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     async function fetchMonthlyStats() {
+      // Skip fetch if custom mode but dates not set
+      if (periodFilter === 'custom' && (!customStartDate || !customEndDate)) {
+        return
+      }
+
       setMonthlyLoading(true)
       try {
-        let months: number
-        if (periodFilter === 'year') {
-          months = new Date().getMonth() + 1
+        let url: string
+
+        if (periodFilter === 'custom') {
+          url = `/api/admin/stats/monthly?startDate=${customStartDate}&endDate=${customEndDate}`
         } else {
-          months = parseInt(periodFilter, 10)
+          let months: number
+          if (periodFilter === 'year') {
+            months = new Date().getMonth() + 1
+          } else {
+            months = parseInt(periodFilter, 10)
+          }
+          url = `/api/admin/stats/monthly?months=${months}`
         }
 
-        const response = await fetch(`/api/admin/stats/monthly?months=${months}`)
+        const response = await fetch(url)
         if (!response.ok) {
           throw new Error('Failed to fetch monthly stats')
         }
@@ -87,7 +101,7 @@ export default function AdminDashboardPage() {
     }
 
     fetchMonthlyStats()
-  }, [periodFilter])
+  }, [periodFilter, customStartDate, customEndDate])
 
   if (loading) {
     return (
@@ -217,14 +231,15 @@ export default function AdminDashboardPage() {
 
       {/* Monthly Charts Section */}
       <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h3 className="text-sm font-semibold text-gray-900">월별 통계 그래프</h3>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {[
               { value: '3' as PeriodFilter, label: '3개월' },
               { value: '6' as PeriodFilter, label: '6개월' },
               { value: '12' as PeriodFilter, label: '12개월' },
               { value: 'year' as PeriodFilter, label: '올해' },
+              { value: 'custom' as PeriodFilter, label: '검색' },
             ].map((option) => (
               <button
                 key={option.value}
@@ -240,6 +255,38 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         </div>
+
+        {/* Custom Date Range Picker */}
+        {periodFilter === 'custom' && (
+          <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <label htmlFor="startDate" className="text-xs font-medium text-gray-600">
+                시작
+              </label>
+              <input
+                type="month"
+                id="startDate"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <span className="text-gray-400">~</span>
+            <div className="flex items-center gap-2">
+              <label htmlFor="endDate" className="text-xs font-medium text-gray-600">
+                종료
+              </label>
+              <input
+                type="month"
+                id="endDate"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                min={customStartDate}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        )}
 
         {monthlyLoading ? (
           <div className="flex items-center justify-center py-12">

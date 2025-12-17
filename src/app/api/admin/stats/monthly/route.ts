@@ -31,20 +31,38 @@ export async function GET(request: NextRequest) {
     const supabase = getAdminServiceClient()
     const searchParams = request.nextUrl.searchParams
     const months = parseInt(searchParams.get('months') || '6', 10)
+    const customStartDate = searchParams.get('startDate')
+    const customEndDate = searchParams.get('endDate')
 
     // Calculate date range
     const now = new Date()
-    const startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
+    let startDate: Date
+    let endDate: Date
+
+    if (customStartDate && customEndDate) {
+      // Custom date range mode
+      startDate = new Date(customStartDate)
+      startDate.setDate(1) // First day of month
+      endDate = new Date(customEndDate)
+      endDate.setMonth(endDate.getMonth() + 1)
+      endDate.setDate(1) // First day of next month
+    } else {
+      // Preset months mode
+      startDate = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    }
+
     const startDateStr = startDate.toISOString()
 
     // Generate month labels for the period
     const monthLabels: { month: string; label: string; start: Date; end: Date }[] = []
-    for (let i = 0; i < months; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - months + 1 + i, 1)
-      const nextMonth = new Date(date.getFullYear(), date.getMonth() + 1, 1)
-      const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      const label = `${date.getMonth() + 1}월`
-      monthLabels.push({ month: monthStr, label, start: date, end: nextMonth })
+    const current = new Date(startDate)
+    while (current < endDate) {
+      const nextMonth = new Date(current.getFullYear(), current.getMonth() + 1, 1)
+      const monthStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`
+      const label = `${current.getMonth() + 1}월`
+      monthLabels.push({ month: monthStr, label, start: new Date(current), end: nextMonth })
+      current.setMonth(current.getMonth() + 1)
     }
 
     // Fetch user data with subscription info
