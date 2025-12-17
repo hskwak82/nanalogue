@@ -503,10 +503,6 @@ export const CoverEditor = forwardRef<CoverEditorRef, CoverEditorProps>(function
         </div>
       )}
 
-      {/* Instructions */}
-      <p className="text-xs text-gray-400 text-center">
-        드래그: 이동 | 모서리: 크기 조절 | 상단 원: 회전
-      </p>
     </div>
   )
 })

@@ -1,20 +1,24 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface SpineRegionSelectorProps {
   coverImageUrl: string | null
-  coverRef: React.RefObject<HTMLDivElement | null> // Reference to the cover element for overlay
-  spineWidthRatio?: number // Ratio of spine width to cover width (default 0.1 = 10%)
-  initialPosition?: number // Initial X position as percentage (0-100)
+  coverRef: React.RefObject<HTMLDivElement | null>
+  spineWidthRatio?: number
+  initialPosition?: number
   onPositionChange?: (position: number) => void
+  isEditing?: boolean // Controlled from parent
+  onEditingChange?: (editing: boolean) => void
   className?: string
 }
 
 // Spine width as ratio of cover width - matches dashboard spine:cover ratio
-// Dashboard spine is 32x140, cover is 3:4 ratio (105x140 at that scale)
-// So spine is 32/105 ≈ 0.30 (30%) of cover width
 const DEFAULT_SPINE_WIDTH_RATIO = 0.30
+
+// Dashboard spine dimensions scaled to 400px height
+export const SPINE_PREVIEW_WIDTH = 91
+export const SPINE_PREVIEW_HEIGHT = 400
 
 export function SpineRegionSelector({
   coverImageUrl,
@@ -22,13 +26,13 @@ export function SpineRegionSelector({
   spineWidthRatio = DEFAULT_SPINE_WIDTH_RATIO,
   initialPosition = 0,
   onPositionChange,
+  isEditing = false,
+  onEditingChange,
   className = '',
 }: SpineRegionSelectorProps) {
-  const [isEditing, setIsEditing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [position, setPosition] = useState(initialPosition) // X position as percentage (0-100)
+  const [position, setPosition] = useState(initialPosition)
 
-  // Max position is 100 - spineWidthRatio * 100 (so spine doesn't go off the right edge)
   const maxPosition = 100 - spineWidthRatio * 100
 
   const updatePosition = useCallback((clientX: number) => {
@@ -38,7 +42,6 @@ export function SpineRegionSelector({
     const relativeX = clientX - rect.left
     const percentage = (relativeX / rect.width) * 100
 
-    // Clamp position so spine selector stays within bounds
     const halfSpinePercent = (spineWidthRatio * 100) / 2
     const clampedPosition = Math.max(0, Math.min(maxPosition, percentage - halfSpinePercent))
 
@@ -99,20 +102,14 @@ export function SpineRegionSelector({
     const handleClickOutside = (e: MouseEvent) => {
       if (!isEditing) return
       const target = e.target as HTMLElement
-      // Check if click is outside the spine preview and cover
       if (!target.closest('[data-spine-selector]') && !target.closest('[data-cover-editor]')) {
-        setIsEditing(false)
+        onEditingChange?.(false)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isEditing])
-
-  // Dashboard spine is 32x140 - scale to match 400px height cover
-  // Width = 32 * (400/140) = 91.4 ≈ 91px
-  const SPINE_PREVIEW_WIDTH = 91
-  const SPINE_PREVIEW_HEIGHT = 400
+  }, [isEditing, onEditingChange])
 
   if (!coverImageUrl) {
     return (
@@ -132,11 +129,10 @@ export function SpineRegionSelector({
 
   return (
     <div className={`absolute -right-28 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
-      {/* Spine Preview - positioned to the right of cover, aligned at top */}
+      {/* Spine Preview - no click handler, controlled by external button */}
       <div
-        onClick={() => setIsEditing(!isEditing)}
-        className={`rounded-sm shadow-md overflow-hidden cursor-pointer transition-all ${
-          isEditing ? 'ring-2 ring-pastel-purple' : 'hover:ring-2 hover:ring-gray-300'
+        className={`rounded-sm shadow-md overflow-hidden transition-all ${
+          isEditing ? 'ring-2 ring-pastel-purple' : ''
         }`}
         style={{
           width: SPINE_PREVIEW_WIDTH,
@@ -145,14 +141,10 @@ export function SpineRegionSelector({
           backgroundSize: `${100 / spineWidthRatio}% 100%`,
           backgroundPosition: `${maxPosition > 0 ? (position / maxPosition) * 100 : 0}% center`,
         }}
-        title="클릭하여 영역 조절"
       />
 
       {/* Label below the spine */}
       <span className="text-[10px] text-gray-400">책장</span>
-      {isEditing && (
-        <span className="text-[9px] text-pastel-purple whitespace-nowrap">드래그</span>
-      )}
 
       {/* Selection overlay on cover - only shown when editing */}
       {isEditing && (
@@ -160,7 +152,6 @@ export function SpineRegionSelector({
           className="fixed inset-0 z-40"
           style={{ pointerEvents: 'none' }}
         >
-          {/* Clickable overlay that covers the cover editor area */}
           {coverRef.current && (() => {
             const rect = coverRef.current.getBoundingClientRect()
             return (
@@ -218,7 +209,7 @@ export function SpineRegionSelector({
 
 // Helper to get crop coordinates for spine image capture
 export function getSpineCropCoordinates(
-  position: number, // percentage 0-100
+  position: number,
   spineWidthRatio: number,
   coverWidth: number,
   coverHeight: number

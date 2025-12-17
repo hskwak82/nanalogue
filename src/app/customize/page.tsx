@@ -51,6 +51,7 @@ function CustomizePageContent() {
   // Spine region selector state
   const [spinePosition, setSpinePosition] = useState(0) // X position as percentage
   const [savedCoverImageUrl, setSavedCoverImageUrl] = useState<string | null>(null)
+  const [isSpineEditMode, setIsSpineEditMode] = useState(false)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -479,9 +480,9 @@ function CustomizePageContent() {
           {activeTab === 'cover' ? (
             <>
               {/* Left: Cover Editor with Spine Preview and Bookshelf */}
-              <div className="flex flex-col items-center gap-4">
+              <div className="flex flex-col items-start gap-4">
                 {/* Cover + Spine side by side */}
-                <div className="flex items-start gap-4">
+                <div className="flex items-start">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
                   <div className="relative" data-cover-editor>
                     <CoverEditor
@@ -502,13 +503,51 @@ function CustomizePageContent() {
                       coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
                       initialPosition={spinePosition}
                       onPositionChange={setSpinePosition}
+                      isEditing={isSpineEditMode}
+                      onEditingChange={setIsSpineEditMode}
                     />
                   </div>
                 </div>
 
-                {/* Mini Bookshelf - directly below cover, same width as cover + spine */}
+                {/* Action Buttons - below cover, aligned left */}
+                <div className="flex gap-2" style={{ width: 300 + 112 + 91 }}> {/* cover(300) + gap(-right-28=112) + spine(91) - but actually start from cover left */}
+                  <button
+                    onClick={() => {
+                      setIsTextMode(!isTextMode)
+                      if (!isTextMode) setIsSpineEditMode(false)
+                    }}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      isTextMode
+                        ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                        : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                    }`}
+                  >
+                    <span className="text-base">T</span>
+                    텍스트
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsSpineEditMode(!isSpineEditMode)
+                      if (!isSpineEditMode) setIsTextMode(false)
+                    }}
+                    disabled={!savedCoverImageUrl}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
+                      isSpineEditMode
+                        ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                        : savedCoverImageUrl
+                          ? 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                    }`}
+                  >
+                    <span className="text-base">📍</span>
+                    위치변경
+                  </button>
+                </div>
+
+                {/* Mini Bookshelf - below buttons, aligned with cover left to spine right */}
                 {allDiaries.length > 0 && (
-                  <div style={{ width: 300 + 91 + 16 }}> {/* cover(300) + spine(91) + gap(16) */}
+                  <div style={{ width: 300 + 112 + 91 }}> {/* cover(300) + offset(112) + spine(91) = 503, but spine starts at 300+112=412, ends at 503 */}
                     <MiniBookshelf
                       diaries={allDiaries}
                       selectedDiaryId={diaryId}
@@ -516,20 +555,6 @@ function CustomizePageContent() {
                     />
                   </div>
                 )}
-
-                {/* Text Button */}
-                <button
-                  onClick={() => setIsTextMode(!isTextMode)}
-                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                    isTextMode
-                      ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                      : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                  }`}
-                >
-                  <span className="text-lg">T</span>
-                  텍스트
-                  {isTextMode && <span className="text-xs opacity-80">(클릭하여 위치 선택)</span>}
-                </button>
               </div>
 
               {/* Right: Controls */}
