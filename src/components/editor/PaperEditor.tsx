@@ -53,30 +53,43 @@ function getPaperStyle(template: PaperTemplate | null): React.CSSProperties {
 
   const baseStyle: React.CSSProperties = {
     backgroundColor: template.background_color,
+    backgroundPosition: 'center',
   }
 
-  // Add background image if exists
-  if (template.background_image_url) {
-    baseStyle.backgroundImage = `url(${template.background_image_url})`
-    baseStyle.backgroundSize = 'cover'
-  }
+  const hasBackgroundImage = template.background_image_url && template.background_image_url.length > 0
+  let linePattern = ''
+  let lineSize = ''
 
-  // Add line patterns
+  // Get line pattern if exists
   if (template.line_style !== 'none') {
     const lineColor = template.line_color || '#E5E5E5'
 
     switch (template.line_style) {
       case 'lined':
-        baseStyle.backgroundImage = `repeating-linear-gradient(transparent, transparent 27px, ${lineColor} 27px, ${lineColor} 28px)`
+        linePattern = `repeating-linear-gradient(transparent, transparent 27px, ${lineColor} 27px, ${lineColor} 28px)`
         break
       case 'grid':
-        baseStyle.backgroundImage = `linear-gradient(${lineColor} 1px, transparent 1px), linear-gradient(90deg, ${lineColor} 1px, transparent 1px)`
-        baseStyle.backgroundSize = '28px 28px'
+        linePattern = `linear-gradient(${lineColor} 1px, transparent 1px), linear-gradient(90deg, ${lineColor} 1px, transparent 1px)`
+        lineSize = '28px 28px'
         break
       case 'dotted':
-        baseStyle.backgroundImage = `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`
-        baseStyle.backgroundSize = '20px 20px'
+        linePattern = `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`
+        lineSize = '20px 20px'
         break
+    }
+  }
+
+  // Combine background image and line pattern
+  if (hasBackgroundImage && linePattern) {
+    baseStyle.backgroundImage = `${linePattern}, url(${template.background_image_url})`
+    baseStyle.backgroundSize = lineSize ? `${lineSize}, cover` : 'auto, cover'
+  } else if (hasBackgroundImage) {
+    baseStyle.backgroundImage = `url(${template.background_image_url})`
+    baseStyle.backgroundSize = 'cover'
+  } else if (linePattern) {
+    baseStyle.backgroundImage = linePattern
+    if (lineSize) {
+      baseStyle.backgroundSize = lineSize
     }
   }
 
