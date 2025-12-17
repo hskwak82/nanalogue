@@ -24,12 +24,14 @@ export interface TextMeta {
   font_color: string         // Hex color
   font_weight?: 'normal' | 'bold'
   text_align?: 'left' | 'center' | 'right'
+  opacity?: number           // 0.0 to 1.0, default 1.0
 }
 
 // Default text style values
 export const DEFAULT_TEXT_FONT_SIZE = 24
 export const DEFAULT_TEXT_FONT_COLOR = '#333333'
 export const DEFAULT_TEXT_FONT_FAMILY = 'default'
+export const DEFAULT_TEXT_OPACITY = 0.8
 export const MIN_TEXT_FONT_SIZE = 12
 export const MAX_TEXT_FONT_SIZE = 72
 

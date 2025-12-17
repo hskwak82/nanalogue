@@ -157,6 +157,9 @@ export async function GET(request: NextRequest) {
       diaryId?: string
       isPremium?: boolean
       coverImageUrl?: string | null
+      spineImageUrl?: string | null
+      spinePosition?: number
+      spineWidth?: number
     } = {
       user: {
         id: user.id,
@@ -170,28 +173,35 @@ export async function GET(request: NextRequest) {
       diaryId: currentDiaryId || undefined,
       isPremium,
       coverImageUrl: null, // Will be set from diary data
+      spineImageUrl: null, // Will be set from diary data
     }
 
-    // If we have a diary, get the cover_image_url directly from it
+    // If we have a diary, get the cover_image_url, spine_image_url, spine_position and spine_width directly from it
     if (diaryId) {
       const { data: diaryForImage } = await supabase
         .from('diaries')
-        .select('cover_image_url')
+        .select('cover_image_url, spine_image_url, spine_position, spine_width')
         .eq('id', diaryId)
         .single()
 
       if (diaryForImage) {
         response.coverImageUrl = diaryForImage.cover_image_url
+        response.spineImageUrl = diaryForImage.spine_image_url
+        response.spinePosition = diaryForImage.spine_position ?? 0
+        response.spineWidth = diaryForImage.spine_width ?? 0.30
       }
     } else if (currentDiaryId) {
       const { data: diaryForImage } = await supabase
         .from('diaries')
-        .select('cover_image_url')
+        .select('cover_image_url, spine_image_url, spine_position, spine_width')
         .eq('id', currentDiaryId)
         .single()
 
       if (diaryForImage) {
         response.coverImageUrl = diaryForImage.cover_image_url
+        response.spineImageUrl = diaryForImage.spine_image_url
+        response.spinePosition = diaryForImage.spine_position ?? 0
+        response.spineWidth = diaryForImage.spine_width ?? 0.30
       }
     }
 

@@ -142,7 +142,9 @@ export function DiaryPaper({
                 top: `${decoration.y}%`,
                 transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
                 zIndex: decoration.z_index,
-                opacity: 0.6, // Make decorations subtle on paper
+                opacity: decoration.type === 'text'
+                  ? (decoration.text_meta?.opacity ?? 0.8)
+                  : 0.6, // Make decorations subtle on paper
               }}
             >
               {decoration.type === 'emoji' ? (
@@ -159,6 +161,18 @@ export function DiaryPaper({
                   }}
                   draggable={false}
                 />
+              ) : decoration.type === 'text' ? (
+                <span
+                  className="whitespace-nowrap"
+                  style={{
+                    fontFamily: getFontFamilyCSS(decoration.text_meta?.font_family || 'default'),
+                    fontSize: `${decoration.text_meta?.font_size || 24}px`,
+                    color: decoration.text_meta?.font_color || '#333333',
+                    fontWeight: decoration.text_meta?.font_weight || 'normal',
+                  }}
+                >
+                  {decoration.content}
+                </span>
               ) : (
                 <span
                   className="block w-8 h-8 text-pastel-purple-dark"

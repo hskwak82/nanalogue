@@ -1,20 +1,26 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface SpineRegionSelectorProps {
   coverImageUrl: string | null
-  coverRef: React.RefObject<HTMLDivElement | null> // Reference to the cover element for overlay
-  spineWidthRatio?: number // Ratio of spine width to cover width (default 0.1 = 10%)
-  initialPosition?: number // Initial X position as percentage (0-100)
+  coverRef: React.RefObject<HTMLDivElement | null>
+  spineWidthRatio?: number
+  initialPosition?: number
   onPositionChange?: (position: number) => void
+  isEditing?: boolean // Controlled from parent
+  onEditingChange?: (editing: boolean) => void
+  onEditButtonClick?: () => void // Called when edit button is clicked
+  disabled?: boolean // Disable edit button when there are unsaved changes
   className?: string
 }
 
 // Spine width as ratio of cover width - matches dashboard spine:cover ratio
-// Dashboard spine is 32x140, cover is 3:4 ratio (105x140 at that scale)
-// So spine is 32/105 ≈ 0.30 (30%) of cover width
 const DEFAULT_SPINE_WIDTH_RATIO = 0.30
+
+// Dashboard spine dimensions scaled to 400px height
+export const SPINE_PREVIEW_WIDTH = 91
+export const SPINE_PREVIEW_HEIGHT = 400
 
 export function SpineRegionSelector({
   coverImageUrl,
@@ -22,14 +28,45 @@ export function SpineRegionSelector({
   spineWidthRatio = DEFAULT_SPINE_WIDTH_RATIO,
   initialPosition = 0,
   onPositionChange,
+  isEditing = false,
+  onEditingChange,
+  onEditButtonClick,
+  disabled = false,
   className = '',
 }: SpineRegionSelectorProps) {
-  const [isEditing, setIsEditing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [position, setPosition] = useState(initialPosition) // X position as percentage (0-100)
+  const [position, setPosition] = useState(initialPosition)
+  const [coverRect, setCoverRect] = useState<DOMRect | null>(null)
 
-  // Max position is 100 - spineWidthRatio * 100 (so spine doesn't go off the right edge)
   const maxPosition = 100 - spineWidthRatio * 100
+
+  // Sync internal position with initialPosition prop when it changes (e.g., diary switch)
+  useEffect(() => {
+    setPosition(initialPosition)
+  }, [initialPosition])
+
+  // Update cover rect on scroll/resize when editing
+  useEffect(() => {
+    if (!isEditing || !coverRef.current) return
+
+    const updateRect = () => {
+      if (coverRef.current) {
+        setCoverRect(coverRef.current.getBoundingClientRect())
+      }
+    }
+
+    // Initial update
+    updateRect()
+
+    // Listen for scroll and resize
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [isEditing, coverRef])
 
   const updatePosition = useCallback((clientX: number) => {
     if (!coverRef.current) return
@@ -38,7 +75,6 @@ export function SpineRegionSelector({
     const relativeX = clientX - rect.left
     const percentage = (relativeX / rect.width) * 100
 
-    // Clamp position so spine selector stays within bounds
     const halfSpinePercent = (spineWidthRatio * 100) / 2
     const clampedPosition = Math.max(0, Math.min(maxPosition, percentage - halfSpinePercent))
 
@@ -99,20 +135,14 @@ export function SpineRegionSelector({
     const handleClickOutside = (e: MouseEvent) => {
       if (!isEditing) return
       const target = e.target as HTMLElement
-      // Check if click is outside the spine preview and cover
       if (!target.closest('[data-spine-selector]') && !target.closest('[data-cover-editor]')) {
-        setIsEditing(false)
+        onEditingChange?.(false)
       }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isEditing])
-
-  // Dashboard spine is 32x140 - scale to match 400px height cover
-  // Width = 32 * (400/140) = 91.4 ≈ 91px
-  const SPINE_PREVIEW_WIDTH = 91
-  const SPINE_PREVIEW_HEIGHT = 400
+  }, [isEditing, onEditingChange])
 
   if (!coverImageUrl) {
     return (
@@ -125,91 +155,116 @@ export function SpineRegionSelector({
             저장 후 표시
           </span>
         </div>
-        <span className="text-[10px] text-gray-400">책장</span>
+        <button
+          disabled
+          className="px-4 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+        >
+          위치변경
+        </button>
       </div>
     )
   }
 
   return (
     <div className={`absolute -right-28 top-0 flex flex-col items-center gap-2 ${className}`} data-spine-selector>
-      {/* Spine Preview - positioned to the right of cover, aligned at top */}
+      {/* Spine Preview - use translateX percentage for accurate positioning */}
       <div
-        onClick={() => setIsEditing(!isEditing)}
-        className={`rounded-sm shadow-md overflow-hidden cursor-pointer transition-all ${
-          isEditing ? 'ring-2 ring-pastel-purple' : 'hover:ring-2 hover:ring-gray-300'
+        className={`rounded-sm shadow-md overflow-hidden ${
+          isEditing ? 'ring-2 ring-pastel-purple' : ''
         }`}
         style={{
           width: SPINE_PREVIEW_WIDTH,
           height: SPINE_PREVIEW_HEIGHT,
-          backgroundImage: `url(${coverImageUrl})`,
-          backgroundSize: `${100 / spineWidthRatio}% 100%`,
-          backgroundPosition: `${maxPosition > 0 ? (position / maxPosition) * 100 : 0}% center`,
+          transition: 'box-shadow 0.2s, ring 0.2s',
         }}
-        title="클릭하여 영역 조절"
-      />
+      >
+        <img
+          src={coverImageUrl}
+          alt="Spine preview"
+          style={{
+            height: '100%',
+            width: 'auto',
+            maxWidth: 'none',
+            display: 'block',
+            // translateX percentage is based on image's own width - auto-adapts to any aspect ratio
+            transform: `translateX(-${position}%)`,
+          }}
+        />
+      </div>
 
-      {/* Label below the spine */}
-      <span className="text-[10px] text-gray-400">책장</span>
-      {isEditing && (
-        <span className="text-[9px] text-pastel-purple whitespace-nowrap">드래그</span>
-      )}
+      {/* Edit button below the spine - centered, same style as T텍스트 */}
+      <div className="relative group">
+        <button
+          onClick={onEditButtonClick}
+          disabled={disabled}
+          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            disabled
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+              : isEditing
+                ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+          }`}
+        >
+          위치변경
+        </button>
+        {/* Tooltip when disabled */}
+        {disabled && (
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-700 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            저장 후 위치변경 가능
+          </div>
+        )}
+      </div>
 
       {/* Selection overlay on cover - only shown when editing */}
-      {isEditing && (
+      {isEditing && coverRect && (
         <div
           className="fixed inset-0 z-40"
           style={{ pointerEvents: 'none' }}
         >
-          {/* Clickable overlay that covers the cover editor area */}
-          {coverRef.current && (() => {
-            const rect = coverRef.current.getBoundingClientRect()
-            return (
-              <div
-                className="absolute cursor-ew-resize"
-                style={{
-                  left: rect.left,
-                  top: rect.top,
-                  width: rect.width,
-                  height: rect.height,
-                  pointerEvents: 'auto',
-                }}
-                onMouseDown={handleOverlayMouseDown}
-                onTouchStart={handleTouchStart}
-              >
-                {/* Darkening overlay for non-selected areas */}
-                <div
-                  className="absolute inset-0 pointer-events-none rounded-lg"
-                  style={{
-                    background: `linear-gradient(to right,
-                      rgba(0,0,0,0.4) 0%,
-                      rgba(0,0,0,0.4) ${position}%,
-                      transparent ${position}%,
-                      transparent ${position + spineWidthRatio * 100}%,
-                      rgba(0,0,0,0.4) ${position + spineWidthRatio * 100}%,
-                      rgba(0,0,0,0.4) 100%
-                    )`,
-                  }}
-                />
+          <div
+            className="absolute cursor-ew-resize"
+            style={{
+              left: coverRect.left,
+              top: coverRect.top,
+              width: coverRect.width,
+              height: coverRect.height,
+              pointerEvents: 'auto',
+            }}
+            onMouseDown={handleOverlayMouseDown}
+            onTouchStart={handleTouchStart}
+          >
+            {/* Darkening overlay for non-selected areas */}
+            <div
+              className="absolute inset-0 pointer-events-none rounded-lg"
+              style={{
+                background: `linear-gradient(to right,
+                  rgba(0,0,0,0.75) 0%,
+                  rgba(0,0,0,0.75) ${position}%,
+                  transparent ${position}%,
+                  transparent ${position + spineWidthRatio * 100}%,
+                  rgba(0,0,0,0.75) ${position + spineWidthRatio * 100}%,
+                  rgba(0,0,0,0.75) 100%
+                )`,
+              }}
+            />
 
-                {/* Selection frame */}
-                <div
-                  className="absolute top-0 bottom-0 border-2 border-pastel-purple pointer-events-none"
-                  style={{
-                    left: `${position}%`,
-                    width: `${spineWidthRatio * 100}%`,
-                    boxShadow: '0 0 0 2px rgba(167, 139, 250, 0.3)',
-                  }}
-                >
-                  {/* Drag indicator */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-white/95 rounded-full px-2 py-1 shadow-lg">
-                      <span className="text-xs text-pastel-purple font-medium">⇔</span>
-                    </div>
-                  </div>
+            {/* Selection frame */}
+            <div
+              className="absolute top-0 bottom-0 border-2 border-pastel-purple pointer-events-none"
+              style={{
+                left: `${position}%`,
+                width: `${spineWidthRatio * 100}%`,
+                boxShadow: '0 0 0 2px rgba(167, 139, 250, 0.3)',
+              }}
+            >
+              {/* Drag indicator */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="bg-white/95 rounded-full px-2 py-1 shadow-lg">
+                  <span className="text-xs text-pastel-purple font-medium">⇔</span>
                 </div>
               </div>
-            )
-          })()}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -218,7 +273,7 @@ export function SpineRegionSelector({
 
 // Helper to get crop coordinates for spine image capture
 export function getSpineCropCoordinates(
-  position: number, // percentage 0-100
+  position: number,
   spineWidthRatio: number,
   coverWidth: number,
   coverHeight: number

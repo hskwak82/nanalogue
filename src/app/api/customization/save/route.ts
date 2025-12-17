@@ -6,6 +6,8 @@ interface SaveRequestWithDiary extends CustomizationSaveRequest {
   diary_id?: string
   cover_image_url?: string
   spine_image_url?: string
+  spine_position?: number
+  spine_width?: number
 }
 
 export async function POST(request: Request) {
@@ -67,6 +69,16 @@ export async function POST(request: Request) {
       // Only update spine_image_url if provided
       if (body.spine_image_url) {
         updateData.spine_image_url = body.spine_image_url
+      }
+
+      // Save spine_position if provided
+      if (typeof body.spine_position === 'number') {
+        updateData.spine_position = body.spine_position
+      }
+
+      // Save spine_width if provided (default 0.30)
+      if (typeof body.spine_width === 'number') {
+        updateData.spine_width = body.spine_width
       }
 
       const { error } = await supabase

@@ -31,6 +31,9 @@ interface PaperEditorProps {
   paperOpacity?: number
   paperFontFamily?: string
   paperFontColor?: string
+  isTextMode?: boolean
+  onCanvasClick?: (x: number, y: number) => void
+  onTextDoubleClick?: (index: number) => void
 }
 
 type DragMode = 'none' | 'move' | 'resize' | 'rotate'
@@ -92,6 +95,9 @@ export function PaperEditor({
   paperOpacity = DEFAULT_PAPER_OPACITY,
   paperFontFamily = DEFAULT_PAPER_FONT_FAMILY,
   paperFontColor = DEFAULT_PAPER_FONT_COLOR,
+  isTextMode = false,
+  onCanvasClick,
+  onTextDoubleClick,
 }: PaperEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -241,9 +247,16 @@ export function PaperEditor({
   // Handle canvas click
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
-      onSelect(null)
+      if (isTextMode && onCanvasClick && containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        const x = ((e.clientX - rect.left) / rect.width) * 100
+        const y = ((e.clientY - rect.top) / rect.height) * 100
+        onCanvasClick(x, y)
+      } else {
+        onSelect(null)
+      }
     }
-  }, [onSelect])
+  }, [onSelect, isTextMode, onCanvasClick])
 
   // Mouse event handlers
   const onItemMouseDown = useCallback((index: number) => (e: React.MouseEvent) => {
@@ -270,7 +283,9 @@ export function PaperEditor({
         {/* Paper canvas */}
         <div
           ref={containerRef}
-          className="absolute inset-0 rounded-lg shadow-lg overflow-hidden cursor-crosshair border border-gray-200"
+          className={`absolute inset-0 rounded-lg shadow-lg overflow-hidden border border-gray-200 ${
+            isTextMode ? 'cursor-text' : 'cursor-crosshair'
+          }`}
           style={{ backgroundColor: template?.background_color || '#FFFAF5' }}
           onClick={handleCanvasClick}
         >
@@ -318,7 +333,9 @@ export function PaperEditor({
                 top: `${decoration.y}%`,
                 transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
                 zIndex: selectedIndex === index ? 1000 : decoration.z_index,
-                opacity: 0.8, // Slight transparency for paper decorations
+                opacity: decoration.type === 'text'
+                  ? (decoration.text_meta?.opacity ?? 0.8)
+                  : 0.8, // Slight transparency for paper decorations
               }}
             >
               {decoration.type === 'emoji' ? (
@@ -335,6 +352,18 @@ export function PaperEditor({
                   }}
                   draggable={false}
                 />
+              ) : decoration.type === 'text' ? (
+                <span
+                  className="whitespace-nowrap"
+                  style={{
+                    fontFamily: getFontFamilyCSS(decoration.text_meta?.font_family || 'default'),
+                    fontSize: `${decoration.text_meta?.font_size || 24}px`,
+                    color: decoration.text_meta?.font_color || '#333333',
+                    fontWeight: decoration.text_meta?.font_weight || 'normal',
+                  }}
+                >
+                  {decoration.content}
+                </span>
               ) : (
                 <span
                   className="block w-10 h-10 text-pastel-purple-dark"
@@ -366,6 +395,11 @@ export function PaperEditor({
             }}
             onMouseDown={onItemMouseDown(index)}
             onTouchStart={onItemTouchStart(index)}
+            onDoubleClick={() => {
+              if (decoration.type === 'text' && onTextDoubleClick) {
+                onTextDoubleClick(index)
+              }
+            }}
           >
             {/* Invisible hit area */}
             <div
@@ -479,10 +513,6 @@ export function PaperEditor({
         </div>
       )}
 
-      {/* Instructions */}
-      <p className="text-xs text-gray-400 text-center">
-        드래그: 이동 | 모서리: 크기 조절 | 상단 원: 회전
-      </p>
     </div>
   )
 }

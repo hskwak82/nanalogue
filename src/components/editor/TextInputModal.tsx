@@ -8,6 +8,7 @@ import {
   DEFAULT_TEXT_FONT_SIZE,
   DEFAULT_TEXT_FONT_COLOR,
   DEFAULT_TEXT_FONT_FAMILY,
+  DEFAULT_TEXT_OPACITY,
   MIN_TEXT_FONT_SIZE,
   MAX_TEXT_FONT_SIZE,
 } from '@/types/customization'
@@ -39,6 +40,7 @@ export function TextInputModal({
   const [fontSize, setFontSize] = useState(initialMeta?.font_size || DEFAULT_TEXT_FONT_SIZE)
   const [fontColor, setFontColor] = useState(initialMeta?.font_color || DEFAULT_TEXT_FONT_COLOR)
   const [fontWeight, setFontWeight] = useState<'normal' | 'bold'>(initialMeta?.font_weight || 'normal')
+  const [opacity, setOpacity] = useState(initialMeta?.opacity ?? DEFAULT_TEXT_OPACITY)
 
   // Focus input when modal opens
   useEffect(() => {
@@ -55,6 +57,7 @@ export function TextInputModal({
       setFontSize(initialMeta?.font_size || DEFAULT_TEXT_FONT_SIZE)
       setFontColor(initialMeta?.font_color || DEFAULT_TEXT_FONT_COLOR)
       setFontWeight(initialMeta?.font_weight || 'normal')
+      setOpacity(initialMeta?.opacity ?? DEFAULT_TEXT_OPACITY)
     }
   }, [isOpen, initialText, initialMeta])
 
@@ -65,6 +68,7 @@ export function TextInputModal({
       font_size: fontSize,
       font_color: fontColor,
       font_weight: fontWeight,
+      opacity: opacity,
     })
     setText('')
     onClose()
@@ -198,7 +202,7 @@ export function TextInputModal({
         </div>
 
         {/* Bold Toggle */}
-        <div className="mb-6">
+        <div className="mb-4">
           <label className="block text-xs text-gray-600 mb-2">스타일</label>
           <button
             onClick={() => setFontWeight(fontWeight === 'normal' ? 'bold' : 'normal')}
@@ -212,6 +216,25 @@ export function TextInputModal({
           </button>
         </div>
 
+        {/* Opacity */}
+        <div className="mb-6">
+          <label className="block text-xs text-gray-600 mb-2">
+            투명도: {Math.round(opacity * 100)}%
+          </label>
+          <input
+            type="range"
+            min={10}
+            max={100}
+            value={opacity * 100}
+            onChange={(e) => setOpacity(parseInt(e.target.value) / 100)}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pastel-purple"
+          />
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>10%</span>
+            <span>100%</span>
+          </div>
+        </div>
+
         {/* Preview */}
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <label className="block text-xs text-gray-400 mb-2">미리보기</label>
@@ -222,6 +245,7 @@ export function TextInputModal({
               fontSize: `${fontSize}px`,
               color: fontColor,
               fontWeight: fontWeight,
+              opacity: opacity,
             }}
           >
             {text || '텍스트를 입력하세요'}
