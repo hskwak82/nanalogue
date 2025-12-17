@@ -391,6 +391,13 @@ function CustomizePageContent() {
         throw new Error('Failed to save')
       }
 
+      // Refresh diaries to update bookshelf with new cover/spine images
+      const diariesResponse = await fetch('/api/diaries')
+      if (diariesResponse.ok) {
+        const diariesData = await diariesResponse.json()
+        setAllDiaries(diariesData.diaries || [])
+      }
+
       markSaved()
       toast.success('저장되었습니다!')
     } catch (err) {
