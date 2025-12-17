@@ -202,7 +202,7 @@ export function ItemPalette({
             />
           )}
 
-          <div className="grid grid-cols-6 gap-2 max-h-32 overflow-y-auto">
+          <div className="grid grid-cols-6 gap-2 max-h-64 overflow-y-auto">
             {displayItems.map(renderItem)}
             {displayItems.length === 0 && (
               <p className="col-span-6 text-center text-gray-400 text-sm py-4">
