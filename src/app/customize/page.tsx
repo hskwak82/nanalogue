@@ -360,11 +360,11 @@ function CustomizePageContent() {
 
           <button
             onClick={handleSave}
-            disabled={isSaving || !state.isDirty}
+            disabled={isSaving}
             className={`px-6 py-2 rounded-full font-medium transition-all ${
-              state.isDirty
-                ? 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              isSaving
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
             }`}
           >
             {isSaving ? '저장 중...' : '저장'}
