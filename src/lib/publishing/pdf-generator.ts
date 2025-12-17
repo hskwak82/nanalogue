@@ -37,11 +37,12 @@ interface DiaryWithTemplates {
 interface DiaryEntry {
   id: string
   diary_id: string
-  date: string
-  title: string | null
+  entry_date: string
   content: string
-  mood: string | null
-  weather: string | null
+  summary: string | null
+  emotions: string[]
+  gratitude: string[]
+  tomorrow_plan: string | null
   created_at: string
 }
 
@@ -301,9 +302,9 @@ async function generateInnerPagesPDF(
   const backgroundColor = hexToRgb(diary.paper_template?.background_color || '#FFFEF0')
   const lineColor = hexToRgb(diary.paper_template?.line_color || '#E5E7EB')
 
-  // Sort entries by date
+  // Sort entries by entry_date
   const sortedEntries = [...entries].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    (a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime()
   )
 
   // Generate pages for each entry
@@ -359,7 +360,7 @@ async function generateInnerPagesPDF(
     }
 
     // Draw date header
-    const dateStr = new Date(entry.date).toLocaleDateString('ko-KR', {
+    const dateStr = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -373,10 +374,10 @@ async function generateInnerPagesPDF(
       color: rgb(0.3, 0.3, 0.3),
     })
 
-    // Draw title if present
+    // Draw summary if present
     let currentY = pageHeight - margin - 45
-    if (entry.title) {
-      page.drawText(entry.title, {
+    if (entry.summary) {
+      page.drawText(entry.summary, {
         x: margin,
         y: currentY,
         size: 14,
@@ -386,12 +387,9 @@ async function generateInnerPagesPDF(
       currentY -= 25
     }
 
-    // Draw mood and weather if present
-    const metadata: string[] = []
-    if (entry.mood) metadata.push(`기분: ${entry.mood}`)
-    if (entry.weather) metadata.push(`날씨: ${entry.weather}`)
-    if (metadata.length > 0) {
-      page.drawText(metadata.join(' | '), {
+    // Draw emotions if present
+    if (entry.emotions && entry.emotions.length > 0) {
+      page.drawText(`감정: ${entry.emotions.join(', ')}`, {
         x: margin,
         y: currentY,
         size: 9,
