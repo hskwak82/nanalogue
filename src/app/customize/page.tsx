@@ -40,6 +40,7 @@ function CustomizePageContent() {
   const [isTextMode, setIsTextMode] = useState(false)
   const [isTextModalOpen, setIsTextModalOpen] = useState(false)
   const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
+  const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null } | null>(null)
@@ -78,18 +79,31 @@ function CustomizePageContent() {
 
   // Handle text confirmation from modal
   const handleTextConfirm = (text: string, textMeta: TextMeta) => {
-    if (!pendingTextPosition) return
+    if (editingTextIndex !== null) {
+      // Editing existing text
+      updateDecoration(editingTextIndex, {
+        content: text,
+        text_meta: textMeta,
+      })
+      setEditingTextIndex(null)
+    } else if (pendingTextPosition) {
+      // Adding new text
+      addCoverDecoration({
+        item_id: `text-${Date.now()}`,
+        type: 'text',
+        content: text,
+        text_meta: textMeta,
+        x: pendingTextPosition.x,
+        y: pendingTextPosition.y,
+      })
+      setPendingTextPosition(null)
+    }
+  }
 
-    addCoverDecoration({
-      item_id: `text-${Date.now()}`,
-      type: 'text',
-      content: text,
-      text_meta: textMeta,
-      x: pendingTextPosition.x,
-      y: pendingTextPosition.y,
-    })
-
-    setPendingTextPosition(null)
+  // Handle text double click for editing
+  const handleTextDoubleClick = (index: number) => {
+    setEditingTextIndex(index)
+    setIsTextModalOpen(true)
   }
 
   // Sync active tab with active editor
@@ -302,6 +316,7 @@ function CustomizePageContent() {
                   onRemove={removeDecoration}
                   isTextMode={isTextMode}
                   onCanvasClick={handleCanvasClickForText}
+                  onTextDoubleClick={handleTextDoubleClick}
                 />
 
                 {/* Text Button */}
@@ -387,8 +402,11 @@ function CustomizePageContent() {
         onClose={() => {
           setIsTextModalOpen(false)
           setPendingTextPosition(null)
+          setEditingTextIndex(null)
         }}
         onConfirm={handleTextConfirm}
+        initialText={editingTextIndex !== null ? state.coverDecorations[editingTextIndex]?.content : ''}
+        initialMeta={editingTextIndex !== null ? state.coverDecorations[editingTextIndex]?.text_meta : undefined}
       />
     </div>
   )

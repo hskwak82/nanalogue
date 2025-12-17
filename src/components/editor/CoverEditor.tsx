@@ -37,6 +37,7 @@ interface CoverEditorProps {
   onRemove: (index: number) => void
   isTextMode?: boolean
   onCanvasClick?: (x: number, y: number) => void
+  onTextDoubleClick?: (index: number) => void
 }
 
 type DragMode = 'none' | 'move' | 'resize' | 'rotate'
@@ -72,6 +73,7 @@ export function CoverEditor({
   onRemove,
   isTextMode = false,
   onCanvasClick,
+  onTextDoubleClick,
 }: CoverEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const dragIndexRef = useRef<number | null>(null)
@@ -371,6 +373,13 @@ export function CoverEditor({
             }}
             onMouseDown={onItemMouseDown(index)}
             onTouchStart={onItemTouchStart(index)}
+            onDoubleClick={(e) => {
+              if (decoration.type === 'text' && onTextDoubleClick) {
+                e.preventDefault()
+                e.stopPropagation()
+                onTextDoubleClick(index)
+              }
+            }}
           >
             {/* Invisible hit area for dragging */}
             <div
