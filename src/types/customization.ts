@@ -160,7 +160,7 @@ export interface DecorationCategory {
 }
 
 export const DECORATION_CATEGORIES: DecorationCategory[] = [
-  { id: 'photo', name: '사진', icon: '📷' },
+  { id: 'photo', name: '이미지 업로드', icon: '📷' },
   { id: 'nature', name: '자연/꽃', icon: '🌸' },
   { id: 'hearts', name: '하트', icon: '❤️' },
   { id: 'stars', name: '별/날씨', icon: '⭐' },
