@@ -80,16 +80,31 @@ export function PaperStyleSettings({
               title={color}
             />
           ))}
-          {/* Custom color input */}
-          <label className="relative w-8 h-8 rounded-full border-2 border-dashed border-gray-300 cursor-pointer hover:border-gray-400 transition-colors flex items-center justify-center">
-            <span className="text-gray-400 text-xs pointer-events-none">+</span>
-            <input
-              type="color"
-              value={fontColor}
-              onChange={(e) => onFontColorChange(e.target.value)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-          </label>
+          {/* Custom color input - shows selected color if not a preset */}
+          {(() => {
+            const isCustomColor = !FONT_COLOR_PRESETS.includes(fontColor)
+            return (
+              <label
+                className={`relative w-8 h-8 rounded-full border-2 cursor-pointer transition-all flex items-center justify-center ${
+                  isCustomColor
+                    ? 'border-pastel-purple ring-2 ring-pastel-purple/30'
+                    : 'border-dashed border-gray-300 hover:border-gray-400'
+                }`}
+                style={isCustomColor ? { backgroundColor: fontColor } : undefined}
+                title={isCustomColor ? fontColor : '사용자 색상 선택'}
+              >
+                {!isCustomColor && (
+                  <span className="text-gray-400 text-xs pointer-events-none">+</span>
+                )}
+                <input
+                  type="color"
+                  value={fontColor}
+                  onChange={(e) => onFontColorChange(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+              </label>
+            )
+          })()}
         </div>
       </div>
     </div>
