@@ -84,13 +84,30 @@ export function DiaryPaper({
   )
   const backgroundSize = getBackgroundSize(paper.line_style as LineStyle)
 
+  // Build background styles with image support
+  const hasBackgroundImage = paper.background_image_url && paper.background_image_url.length > 0
+
+  let backgroundImageStyle = linePattern
+  let backgroundSizeStyle = backgroundSize
+
+  if (hasBackgroundImage) {
+    // Layer: line pattern on top of background image
+    backgroundImageStyle = linePattern !== 'none'
+      ? `${linePattern}, url(${paper.background_image_url})`
+      : `url(${paper.background_image_url})`
+    backgroundSizeStyle = linePattern !== 'none'
+      ? `${backgroundSize}, cover`
+      : 'cover'
+  }
+
   return (
     <div
       className={`relative min-h-[400px] p-6 rounded-lg overflow-hidden ${className}`}
       style={{
         backgroundColor: paper.background_color,
-        backgroundImage: linePattern,
-        backgroundSize: backgroundSize,
+        backgroundImage: backgroundImageStyle,
+        backgroundSize: backgroundSizeStyle,
+        backgroundPosition: 'center',
       }}
     >
       {/* Paper decorations layer */}
@@ -163,6 +180,22 @@ export function PaperPreview({
   )
   const backgroundSize = getBackgroundSize(template.line_style as LineStyle)
 
+  // Build background styles with image support
+  const hasBackgroundImage = template.background_image_url && template.background_image_url.length > 0
+
+  let backgroundImageStyle = linePattern
+  let backgroundSizeStyle = backgroundSize
+
+  if (hasBackgroundImage) {
+    // Layer: line pattern on top of background image
+    backgroundImageStyle = linePattern !== 'none'
+      ? `${linePattern}, url(${template.background_image_url})`
+      : `url(${template.background_image_url})`
+    backgroundSizeStyle = linePattern !== 'none'
+      ? `${backgroundSize}, cover`
+      : 'cover'
+  }
+
   return (
     <button
       onClick={onClick}
@@ -173,8 +206,9 @@ export function PaperPreview({
       }`}
       style={{
         backgroundColor: template.background_color,
-        backgroundImage: linePattern,
-        backgroundSize: backgroundSize,
+        backgroundImage: backgroundImageStyle,
+        backgroundSize: backgroundSizeStyle,
+        backgroundPosition: 'center',
       }}
     >
       {/* Sample text lines */}

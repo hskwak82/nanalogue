@@ -31,6 +31,117 @@ interface PaperTemplate {
 
 type TemplateType = 'cover' | 'paper'
 
+function CoverTemplatePreview({ template }: { template: CoverTemplate }) {
+  const imageUrl = template.thumbnail_url || template.image_url
+
+  if (!imageUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-gray-400">
+        No Image
+      </div>
+    )
+  }
+
+  // Handle gradient: prefix
+  if (imageUrl.startsWith('gradient:')) {
+    const gradient = imageUrl.replace('gradient:', '')
+    return (
+      <div
+        className="w-full h-full"
+        style={{ background: gradient }}
+      />
+    )
+  }
+
+  // Handle solid: prefix
+  if (imageUrl.startsWith('solid:')) {
+    const color = imageUrl.replace('solid:', '')
+    return (
+      <div
+        className="w-full h-full"
+        style={{ backgroundColor: color }}
+      />
+    )
+  }
+
+  // Regular image URL
+  return (
+    <img
+      src={imageUrl}
+      alt={template.name}
+      className="w-full h-full object-cover"
+    />
+  )
+}
+
+function PaperTemplatePreview({ template }: { template: PaperTemplate }) {
+  const renderLines = () => {
+    const lineColor = template.line_color || '#E5E5E5'
+
+    switch (template.line_style) {
+      case 'lined':
+        return (
+          <div className="absolute inset-0 flex flex-col justify-start pt-4 px-2">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-full h-px mb-3"
+                style={{ backgroundColor: lineColor }}
+              />
+            ))}
+          </div>
+        )
+      case 'grid':
+        return (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `
+                linear-gradient(${lineColor} 1px, transparent 1px),
+                linear-gradient(90deg, ${lineColor} 1px, transparent 1px)
+              `,
+              backgroundSize: '20px 20px',
+            }}
+          />
+        )
+      case 'dotted':
+        return (
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`,
+              backgroundSize: '15px 15px',
+            }}
+          />
+        )
+      default:
+        return null
+    }
+  }
+
+  return (
+    <div
+      className="w-full h-full relative"
+      style={{
+        backgroundColor: template.background_color,
+        backgroundImage: template.background_image_url
+          ? `url(${template.background_image_url})`
+          : undefined,
+        backgroundSize: 'cover',
+      }}
+    >
+      {renderLines()}
+      {template.line_style !== 'none' && (
+        <div className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/30 rounded text-[10px] text-white">
+          {template.line_style === 'lined' && '줄노트'}
+          {template.line_style === 'grid' && '모눈'}
+          {template.line_style === 'dotted' && '점선'}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AdminTemplatesPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<TemplateType>('cover')
@@ -156,27 +267,9 @@ export default function AdminTemplatesPage() {
             {/* Thumbnail */}
             <div className="aspect-[3/4] bg-gray-100 rounded-lg mb-3 overflow-hidden">
               {activeTab === 'cover' ? (
-                (template as CoverTemplate).thumbnail_url ? (
-                  <img
-                    src={(template as CoverTemplate).thumbnail_url!}
-                    alt={template.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    No Image
-                  </div>
-                )
+                <CoverTemplatePreview template={template as CoverTemplate} />
               ) : (
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundColor: (template as PaperTemplate).background_color,
-                    backgroundImage: (template as PaperTemplate).background_image_url
-                      ? `url(${(template as PaperTemplate).background_image_url})`
-                      : undefined,
-                  }}
-                />
+                <PaperTemplatePreview template={template as PaperTemplate} />
               )}
             </div>
 

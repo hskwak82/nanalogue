@@ -39,32 +39,32 @@ export async function GET(request: Request) {
       userPlan = subscription?.plan || 'free'
     }
 
-    // Build base query conditions
-    const baseConditions = (query: ReturnType<typeof supabase.from>) => {
-      let q = query
-        .eq('is_active', true)
-        .lte('starts_at', now)
-        .or(`ends_at.is.null,ends_at.gt.${now}`)
-        .or(`target_audience.eq.all,target_audience.eq.${userPlan}`)
-
-      if (popupOnly) {
-        q = q.eq('is_popup', true)
-      }
-      return q
-    }
-
     // Get total count
     let countQuery = supabase
       .from('announcements')
       .select('*', { count: 'exact', head: true })
-    countQuery = baseConditions(countQuery)
+      .eq('is_active', true)
+      .lte('starts_at', now)
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
+      .or(`target_audience.eq.all,target_audience.eq.${userPlan}`)
+
+    if (popupOnly) {
+      countQuery = countQuery.eq('is_popup', true)
+    }
     const { count } = await countQuery
 
     // Get paginated announcements
     let dataQuery = supabase
       .from('announcements')
       .select('id, title, content, type, is_popup, starts_at, ends_at, target_audience, created_at')
-    dataQuery = baseConditions(dataQuery)
+      .eq('is_active', true)
+      .lte('starts_at', now)
+      .or(`ends_at.is.null,ends_at.gt.${now}`)
+      .or(`target_audience.eq.all,target_audience.eq.${userPlan}`)
+
+    if (popupOnly) {
+      dataQuery = dataQuery.eq('is_popup', true)
+    }
 
     const { data: announcements, error } = await dataQuery
       .order('created_at', { ascending: false })

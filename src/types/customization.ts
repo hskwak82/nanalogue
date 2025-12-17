@@ -169,6 +169,11 @@ export const DECORATION_CATEGORIES: DecorationCategory[] = [
   { id: 'objects', name: '사물', icon: '📖' },
   { id: 'shapes', name: '도형', icon: '⬡' },
   { id: 'decorative', name: '장식', icon: '✨' },
+  { id: 'travel', name: '여행', icon: '✈️' },
+  { id: 'celestial', name: '우주', icon: '🌙' },
+  { id: 'luxury', name: '럭셔리', icon: '💎' },
+  { id: 'art', name: '예술', icon: '🎨' },
+  { id: 'seasons', name: '계절', icon: '🍂' },
 ]
 
 // Default values
