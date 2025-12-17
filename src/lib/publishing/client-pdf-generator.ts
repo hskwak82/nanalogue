@@ -14,6 +14,7 @@ interface DiaryData {
   end_date: string | null
   cover_image_url: string | null
   spine_color: string | null
+  spine_position: number | null
   cover_template?: {
     image_url: string
   } | null
@@ -21,6 +22,7 @@ interface DiaryData {
     line_style: string
     line_color: string
     background_color: string
+    background_image?: string | null
   } | null
 }
 
@@ -184,21 +186,43 @@ export async function generateBackCoverPDF(
     bgColor = match?.[0] || '#f0eef5'
   }
 
+  // Calculate text color based on background luminance
+  const hex = bgColor.replace('#', '')
+  const r = parseInt(hex.substr(0, 2), 16) / 255
+  const g = parseInt(hex.substr(2, 2), 16) / 255
+  const b = parseInt(hex.substr(4, 2), 16) / 255
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+  const textColor = luminance > 0.5 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.9)'
+  const subtextColor = luminance > 0.5 ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.6)'
+
   container.innerHTML = `
     <div style="
       width: ${previewWidth}px;
       height: ${previewHeight}px;
       background: ${bgColor};
       display: flex;
-      align-items: flex-end;
+      flex-direction: column;
+      align-items: center;
       justify-content: center;
-      padding-bottom: 40px;
+      padding: 40px 30px;
+      box-sizing: border-box;
+      font-family: 'Pretendard', sans-serif;
     ">
-      <div style="
-        font-size: 10px;
-        color: rgba(0,0,0,0.3);
-        font-family: 'Pretendard', sans-serif;
-      ">
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+        <div style="font-size: 20px; font-weight: 700; color: ${textColor}; margin-bottom: 12px;">
+          나날로그
+        </div>
+        <div style="font-size: 11px; color: ${subtextColor}; margin-bottom: 24px;">
+          글 쓰기 싫은 사람을 위한<br/>AI 대화형 일기 서비스
+        </div>
+        <div style="font-size: 9px; color: ${subtextColor}; line-height: 1.8; max-width: 200px;">
+          <div style="margin-bottom: 8px;">🗣️ 대화로 기록</div>
+          <div style="margin-bottom: 8px;">📅 일정까지 회고</div>
+          <div style="margin-bottom: 8px;">✨ 아날로그 감성</div>
+          <div>🧠 나만의 AI</div>
+        </div>
+      </div>
+      <div style="font-size: 9px; color: ${subtextColor};">
         nanalogue.com
       </div>
     </div>
@@ -227,7 +251,11 @@ export async function generateSpinePDF(
   const previewHeight = 400
   const previewWidth = Math.round(previewHeight * (PRINT_SPECS.SPINE_WIDTH_MM / heightWithBleed))
 
-  // Get spine color
+  // Check if we have a cover image to crop
+  const hasCoverImage = !!diary.cover_image_url
+  const spinePosition = diary.spine_position ?? 0
+
+  // Fallback spine color if no cover image
   let spineColor = diary.spine_color || '#C9B8DA'
   if (!diary.spine_color && diary.cover_template?.image_url) {
     if (diary.cover_template.image_url.startsWith('solid:')) {
@@ -238,51 +266,80 @@ export async function generateSpinePDF(
     }
   }
 
-  // Calculate text color based on background luminance
-  const hex = spineColor.replace('#', '')
-  const r = parseInt(hex.substr(0, 2), 16) / 255
-  const g = parseInt(hex.substr(2, 2), 16) / 255
-  const b = parseInt(hex.substr(4, 2), 16) / 255
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b
-  const textColor = luminance > 0.5 ? '#333' : '#fff'
+  // Spine content - either cropped cover image or solid color with text
+  let spineContent: string
 
-  const spineText = diary.title || `${diary.volume_number}권`
-  const year = new Date(diary.start_date).getFullYear()
+  if (hasCoverImage) {
+    // Use cropped cover image
+    spineContent = `
+      <div style="
+        width: ${previewWidth}px;
+        height: ${previewHeight}px;
+        overflow: hidden;
+        position: relative;
+      ">
+        <img
+          src="${diary.cover_image_url}"
+          crossorigin="anonymous"
+          style="
+            height: 100%;
+            width: auto;
+            max-width: none;
+            display: block;
+            transform: translateX(-${spinePosition}%);
+          "
+        />
+      </div>
+    `
+  } else {
+    // Fallback: solid color with text
+    const hex = spineColor.replace('#', '')
+    const r = parseInt(hex.substr(0, 2), 16) / 255
+    const g = parseInt(hex.substr(2, 2), 16) / 255
+    const b = parseInt(hex.substr(4, 2), 16) / 255
+    const luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    const textColor = luminance > 0.5 ? '#333' : '#fff'
 
-  container.innerHTML = `
-    <div style="
-      width: ${previewWidth}px;
-      height: ${previewHeight}px;
-      background: ${spineColor};
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    ">
+    const spineText = diary.title || `${diary.volume_number}권`
+    const year = new Date(diary.start_date).getFullYear()
+
+    spineContent = `
       <div style="
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        font-size: 12px;
-        font-weight: 500;
-        color: ${textColor};
-        font-family: 'Pretendard', sans-serif;
-        letter-spacing: 2px;
+        width: ${previewWidth}px;
+        height: ${previewHeight}px;
+        background: ${spineColor};
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
       ">
-        ${spineText}
+        <div style="
+          writing-mode: vertical-rl;
+          text-orientation: mixed;
+          font-size: 12px;
+          font-weight: 500;
+          color: ${textColor};
+          font-family: 'Pretendard', sans-serif;
+          letter-spacing: 2px;
+        ">
+          ${spineText}
+        </div>
+        <div style="
+          position: absolute;
+          bottom: 20px;
+          font-size: 8px;
+          color: ${textColor};
+          opacity: 0.8;
+          font-family: 'Pretendard', sans-serif;
+        ">
+          ${year}
+        </div>
       </div>
-      <div style="
-        position: absolute;
-        bottom: 20px;
-        font-size: 8px;
-        color: ${textColor};
-        opacity: 0.8;
-        font-family: 'Pretendard', sans-serif;
-      ">
-        ${year}
-      </div>
-    </div>
-  `
+    `
+  }
+
+  container.innerHTML = spineContent
 
   const element = container.firstElementChild as HTMLElement
   const pngDataUrl = await captureElement(element, previewWidth, previewHeight)
@@ -300,6 +357,31 @@ function formatDateKorean(dateStr: string): string {
 }
 
 // Generate inner pages PDF
+// Get paper line pattern CSS based on line_style
+function getPaperLineStyle(lineStyle: string, lineColor: string): string {
+  switch (lineStyle) {
+    case 'lined':
+      return `repeating-linear-gradient(transparent, transparent 27px, ${lineColor} 27px, ${lineColor} 28px)`
+    case 'grid':
+      return `linear-gradient(${lineColor} 1px, transparent 1px), linear-gradient(90deg, ${lineColor} 1px, transparent 1px)`
+    case 'dotted':
+      return `radial-gradient(circle, ${lineColor} 1px, transparent 1px)`
+    default:
+      return 'none'
+  }
+}
+
+function getPaperBackgroundSize(lineStyle: string): string {
+  switch (lineStyle) {
+    case 'grid':
+      return '28px 28px'
+    case 'dotted':
+      return '20px 20px'
+    default:
+      return 'auto'
+  }
+}
+
 export async function generateInnerPagesPDF(
   diary: DiaryData,
   entries: DiaryEntry[],
@@ -327,37 +409,52 @@ export async function generateInnerPagesPDF(
   // Paper template styles
   const bgColor = diary.paper_template?.background_color || '#FFFEF0'
   const lineColor = diary.paper_template?.line_color || '#E5E7EB'
+  const lineStyle = diary.paper_template?.line_style || 'lined'
+  const backgroundImage = diary.paper_template?.background_image
+
+  // Generate line pattern CSS
+  const linePattern = getPaperLineStyle(lineStyle, lineColor)
+  const backgroundSize = getPaperBackgroundSize(lineStyle)
 
   for (let i = 0; i < sortedEntries.length; i++) {
     const entry = sortedEntries[i]
     onProgress?.(`내지 렌더링 중... (${i + 1}/${sortedEntries.length})`)
 
-    // Create lined background
-    const lineSpacing = 24
-    const lineCount = Math.floor(previewHeight / lineSpacing)
-    let linesHtml = ''
-    for (let j = 0; j < lineCount; j++) {
-      linesHtml += `<div style="
-        position: absolute;
-        top: ${60 + j * lineSpacing}px;
-        left: 20px;
-        right: 20px;
-        height: 1px;
-        background: ${lineColor};
-      "></div>`
+    // Build background style
+    let backgroundStyle = `background-color: ${bgColor};`
+    if (linePattern !== 'none') {
+      backgroundStyle += ` background-image: ${linePattern};`
+      if (backgroundSize !== 'auto') {
+        backgroundStyle += ` background-size: ${backgroundSize};`
+      }
     }
+
+    // Background image layer (if exists)
+    const bgImageHtml = backgroundImage ? `
+      <div style="
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url('${backgroundImage}');
+        background-size: cover;
+        background-position: center;
+        opacity: 0.3;
+      "></div>
+    ` : ''
 
     container.innerHTML = `
       <div style="
         width: ${previewWidth}px;
         height: ${previewHeight}px;
-        background: ${bgColor};
+        ${backgroundStyle}
         padding: 30px 25px;
         box-sizing: border-box;
         position: relative;
         font-family: 'Pretendard', sans-serif;
       ">
-        ${linesHtml}
+        ${bgImageHtml}
         <div style="position: relative; z-index: 1;">
           <div style="
             font-size: 12px;
