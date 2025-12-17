@@ -91,10 +91,23 @@ export interface DiaryDetailResponse {
   nextDiary: { id: string; volume_number: number; title: string | null } | null
 }
 
-// Spine calculation constants
-export const SPINE_MIN_WIDTH = 36
-export const SPINE_MAX_WIDTH = 70
-export const SPINE_HEIGHT = 200
+// Print dimensions (180mm x 250mm)
+export const PRINT_COVER_WIDTH_MM = 180
+export const PRINT_COVER_HEIGHT_MM = 250
+export const PRINT_SPINE_WIDTH_MM = 12  // 100 sheets @ 100g/m²
+export const PRINT_ASPECT_RATIO = PRINT_COVER_WIDTH_MM / PRINT_COVER_HEIGHT_MM  // 0.72
+
+// Display preview dimensions (matching print aspect ratio)
+export const PREVIEW_COVER_WIDTH = 270
+export const PREVIEW_COVER_HEIGHT = Math.round(PREVIEW_COVER_WIDTH / PRINT_ASPECT_RATIO)  // 375
+
+// Spine calculation constants for display
+// Spine width is proportional to cover width: 12mm / 180mm = 6.67%
+// But for visibility, we use a scaled version
+export const SPINE_WIDTH_RATIO = PRINT_SPINE_WIDTH_MM / PRINT_COVER_WIDTH_MM  // 0.0667
+export const SPINE_MIN_WIDTH = 24  // Minimum visible width
+export const SPINE_MAX_WIDTH = 50  // Maximum width
+export const SPINE_HEIGHT = Math.round(150 / PRINT_ASPECT_RATIO)  // 208px (matches 150px width at 0.72 ratio)
 export const ENTRIES_PER_PX = 5  // 5 entries = 1px extra width
 
 // Helper to calculate spine width from entry count

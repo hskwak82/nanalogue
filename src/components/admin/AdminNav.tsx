@@ -11,6 +11,7 @@ import {
   SwatchIcon,
   SparklesIcon,
   MegaphoneIcon,
+  BookOpenIcon,
 } from '@heroicons/react/24/outline'
 
 const navItems = [
@@ -21,6 +22,7 @@ const navItems = [
   { href: '/settings/admin/templates', label: '템플릿', icon: SwatchIcon },
   { href: '/settings/admin/decorations', label: '데코레이션', icon: SparklesIcon },
   { href: '/settings/admin/announcements', label: '공지사항', icon: MegaphoneIcon },
+  { href: '/settings/admin/publishing', label: '출판', icon: BookOpenIcon },
 ]
 
 export function AdminNav() {
