@@ -60,6 +60,21 @@ function CustomizePageContent() {
     setActiveEditor(activeTab)
   }, [activeTab, setActiveEditor])
 
+  // Handle keyboard delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete or Backspace key to remove selected decoration
+      if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedItemIndex !== null) {
+        // Prevent default backspace navigation
+        e.preventDefault()
+        removeDecoration(state.selectedItemIndex)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [state.selectedItemIndex, removeDecoration])
+
   // Load data on mount
   useEffect(() => {
     async function loadData() {
