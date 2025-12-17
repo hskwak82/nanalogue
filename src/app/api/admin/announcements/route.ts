@@ -16,24 +16,47 @@ export interface Announcement {
   updated_at: string
 }
 
-// GET /api/admin/announcements - Get all announcements for admin
-export async function GET() {
+// GET /api/admin/announcements - Get all announcements for admin with pagination
+export async function GET(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const offset = (page - 1) * limit
+
     const supabase = getAdminServiceClient()
 
+    // Get total count
+    const { count } = await supabase
+      .from('announcements')
+      .select('*', { count: 'exact', head: true })
+
+    // Get paginated announcements
     const { data: announcements, error } = await supabase
       .from('announcements')
       .select('*')
       .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) throw error
 
-    return NextResponse.json({ announcements })
+    const total = count || 0
+    const totalPages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      announcements,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error('Error fetching announcements:', error)
     return NextResponse.json({ error: 'Failed to fetch announcements' }, { status: 500 })

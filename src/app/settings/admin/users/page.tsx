@@ -587,10 +587,10 @@ export default function AdminUsersPage() {
           }}
           className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         >
-          <option value={10}>10명씩</option>
-          <option value={20}>20명씩</option>
-          <option value={50}>50명씩</option>
-          <option value={100}>100명씩</option>
+          <option value={10}>10개씩</option>
+          <option value={20}>20개씩</option>
+          <option value={50}>50개씩</option>
+          <option value={100}>100개씩</option>
         </select>
         <select
           value={planFilter}
@@ -794,7 +794,7 @@ export default function AdminUsersPage() {
         {/* Pagination */}
         <div className="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-sm text-gray-500">
-            전체 <span className="font-medium text-gray-900">{pagination.total}</span>명
+            전체 <span className="font-medium text-gray-900">{pagination.total}</span>개
             {pagination.total > 0 && (
               <span className="ml-2">
                 ({(pagination.page - 1) * pagination.limit + 1} ~ {Math.min(pagination.page * pagination.limit, pagination.total)})

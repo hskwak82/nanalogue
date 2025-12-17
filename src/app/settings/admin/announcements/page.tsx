@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
 import type { Announcement } from '@/app/api/admin/announcements/route'
@@ -47,23 +47,35 @@ export default function AdminAnnouncementsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState<FormData>(defaultFormData)
   const [saving, setSaving] = useState(false)
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  })
 
-  const fetchAnnouncements = async () => {
+  const fetchAnnouncements = useCallback(async () => {
+    setLoading(true)
     try {
-      const response = await fetch('/api/admin/announcements')
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString(),
+      })
+      const response = await fetch(`/api/admin/announcements?${params}`)
       if (!response.ok) throw new Error('Failed to fetch')
       const data = await response.json()
       setAnnouncements(data.announcements)
+      setPagination(data.pagination)
     } catch (error) {
       console.error('Error fetching announcements:', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [pagination.page, pagination.limit])
 
   useEffect(() => {
     fetchAnnouncements()
-  }, [])
+  }, [fetchAnnouncements])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -163,21 +175,35 @@ export default function AdminAnnouncementsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-gray-900">
-          공지사항 ({announcements.length})
+          공지사항
         </h2>
-        <button
-          onClick={() => {
-            setFormData(defaultFormData)
-            setEditingId(null)
-            setShowForm(true)
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
-        >
-          <PlusIcon className="h-4 w-4" />
-          새 공지
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={pagination.limit}
+            onChange={(e) => {
+              setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
+            }}
+            className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value={10}>10개씩</option>
+            <option value={20}>20개씩</option>
+            <option value={50}>50개씩</option>
+            <option value={100}>100개씩</option>
+          </select>
+          <button
+            onClick={() => {
+              setFormData(defaultFormData)
+              setEditingId(null)
+              setShowForm(true)
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+          >
+            <PlusIcon className="h-4 w-4" />
+            새 공지
+          </button>
+        </div>
       </div>
 
       {/* Form Modal */}
@@ -370,6 +396,39 @@ export default function AdminAnnouncementsPage() {
             등록된 공지사항이 없습니다.
           </div>
         )}
+
+        {/* Pagination */}
+        <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-gray-500">
+            전체 <span className="font-medium text-gray-900">{pagination.total}</span>개
+            {pagination.total > 0 && (
+              <span className="ml-2">
+                ({(pagination.page - 1) * pagination.limit + 1} ~ {Math.min(pagination.page * pagination.limit, pagination.total)})
+              </span>
+            )}
+          </p>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-500">
+              <span className="font-medium text-gray-900">{pagination.page}</span> / {pagination.totalPages || 1} 페이지
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="px-3 py-1 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                이전
+              </button>
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                disabled={pagination.page === pagination.totalPages || pagination.totalPages === 0}
+                className="px-3 py-1 text-sm border border-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                다음
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
