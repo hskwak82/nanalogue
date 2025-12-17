@@ -10,6 +10,8 @@ import {
   CheckCircleIcon,
   ExclamationCircleIcon,
   ClockIcon,
+  StopIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { useToast, useConfirm } from '@/components/ui'
 import { PRINT_SPECS } from '@/lib/publishing/print-constants'
@@ -99,14 +101,21 @@ function CoverPreview({ imageUrl, title }: { imageUrl: string | null; title: str
   )
 }
 
-// Job card component for completed jobs
+// Job card component for all jobs
 function JobCard({
   job,
   onDownload,
+  onCancel,
+  onDelete,
 }: {
   job: PublishJobWithDiary
   onDownload: (job: PublishJobWithDiary, type: string) => void
+  onCancel: (jobId: string) => void
+  onDelete: (jobId: string) => void
 }) {
+  const canCancel = job.status === 'pending' || job.status === 'processing'
+  const canDelete = job.status === 'completed' || job.status === 'failed'
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 bg-white">
       <div className="flex items-start gap-3">
@@ -125,6 +134,27 @@ function JobCard({
             {formatDate(job.created_at)}
             {job.completed_at && ` → ${formatDate(job.completed_at)}`}
           </p>
+        </div>
+        {/* Cancel/Delete buttons */}
+        <div className="flex-shrink-0">
+          {canCancel && (
+            <button
+              onClick={() => onCancel(job.id)}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+              title="작업 취소"
+            >
+              <StopIcon className="h-4 w-4" />
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => onDelete(job.id)}
+              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+              title="작업 삭제"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -389,6 +419,62 @@ export default function AdminPublishingPage() {
     }
   }
 
+  // Cancel job handler
+  const handleCancelJob = async (jobId: string) => {
+    const confirmed = await confirm({
+      title: '작업 취소',
+      message: '이 작업을 취소하시겠습니까? 진행 중인 작업이 중단됩니다.',
+      confirmText: '취소하기',
+    })
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/admin/publishing/${jobId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to cancel job')
+      }
+
+      toast.success('작업이 취소되었습니다.')
+      fetchJobs()
+      fetchDiaries()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '취소 실패')
+    }
+  }
+
+  // Delete job handler
+  const handleDeleteJob = async (jobId: string) => {
+    const confirmed = await confirm({
+      title: '작업 삭제',
+      message: '이 작업을 삭제하시겠습니까? 생성된 파일도 함께 삭제됩니다.',
+      confirmText: '삭제하기',
+    })
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/admin/publishing/${jobId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete job')
+      }
+
+      toast.success('작업이 삭제되었습니다.')
+      fetchJobs()
+      fetchDiaries()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '삭제 실패')
+    }
+  }
+
   const isAllSelected = diaries.length > 0 && selectedIds.size === diaries.length
   const isSomeSelected = selectedIds.size > 0
 
@@ -613,7 +699,13 @@ export default function AdminPublishingPage() {
           </div>
           <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {activeJobs.map((job) => (
-              <JobCard key={job.id} job={job} onDownload={handleDownload} />
+              <JobCard
+                key={job.id}
+                job={job}
+                onDownload={handleDownload}
+                onCancel={handleCancelJob}
+                onDelete={handleDeleteJob}
+              />
             ))}
           </div>
         </div>
@@ -628,7 +720,13 @@ export default function AdminPublishingPage() {
           </div>
           <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {completedJobs.slice(0, 9).map((job) => (
-              <JobCard key={job.id} job={job} onDownload={handleDownload} />
+              <JobCard
+                key={job.id}
+                job={job}
+                onDownload={handleDownload}
+                onCancel={handleCancelJob}
+                onDelete={handleDeleteJob}
+              />
             ))}
           </div>
           {completedJobs.length > 9 && (
@@ -650,7 +748,13 @@ export default function AdminPublishingPage() {
           </div>
           <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {failedJobs.slice(0, 6).map((job) => (
-              <JobCard key={job.id} job={job} onDownload={handleDownload} />
+              <JobCard
+                key={job.id}
+                job={job}
+                onDownload={handleDownload}
+                onCancel={handleCancelJob}
+                onDelete={handleDeleteJob}
+              />
             ))}
           </div>
         </div>

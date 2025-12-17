@@ -1,0 +1,171 @@
+import { NextResponse } from 'next/server'
+import { checkAdminAuth, getAdminServiceClient } from '@/lib/admin'
+
+// GET /api/admin/publishing/[id] - Get single job status
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await checkAdminAuth()
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { id } = await params
+    const supabase = getAdminServiceClient()
+
+    const { data: job, error } = await supabase
+      .from('diary_publish_jobs')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !job) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ job })
+  } catch (error) {
+    console.error('Error fetching job:', error)
+    return NextResponse.json({ error: 'Failed to fetch job' }, { status: 500 })
+  }
+}
+
+// PATCH /api/admin/publishing/[id] - Cancel a pending/processing job
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await checkAdminAuth()
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { id } = await params
+    const body = await request.json()
+    const { action } = body
+
+    if (action !== 'cancel') {
+      return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    }
+
+    const supabase = getAdminServiceClient()
+
+    // Check current job status
+    const { data: existingJob, error: fetchError } = await supabase
+      .from('diary_publish_jobs')
+      .select('id, status')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !existingJob) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+
+    // Only cancel pending or processing jobs
+    if (existingJob.status !== 'pending' && existingJob.status !== 'processing') {
+      return NextResponse.json(
+        { error: 'Can only cancel pending or processing jobs' },
+        { status: 400 }
+      )
+    }
+
+    // Update job status to failed with cancel message
+    const { data: job, error: updateError } = await supabase
+      .from('diary_publish_jobs')
+      .update({
+        status: 'failed',
+        error_message: '관리자에 의해 취소됨',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    return NextResponse.json({ job, message: 'Job cancelled successfully' })
+  } catch (error) {
+    console.error('Error cancelling job:', error)
+    return NextResponse.json({ error: 'Failed to cancel job' }, { status: 500 })
+  }
+}
+
+// DELETE /api/admin/publishing/[id] - Delete a job (completed or failed only)
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await checkAdminAuth()
+  if (!auth) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    const { id } = await params
+    const supabase = getAdminServiceClient()
+
+    // Check current job status
+    const { data: existingJob, error: fetchError } = await supabase
+      .from('diary_publish_jobs')
+      .select('id, status, front_cover_url, back_cover_url, spine_url, inner_pages_url, diary_id')
+      .eq('id', id)
+      .single()
+
+    if (fetchError || !existingJob) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+
+    // Only delete completed or failed jobs
+    if (existingJob.status === 'pending' || existingJob.status === 'processing') {
+      return NextResponse.json(
+        { error: 'Cannot delete pending or processing jobs. Cancel first.' },
+        { status: 400 }
+      )
+    }
+
+    // Delete associated files from storage if they exist
+    const filesToDelete: string[] = []
+    const diaryId = existingJob.diary_id
+
+    if (existingJob.front_cover_url) {
+      filesToDelete.push(`${diaryId}/front_cover.pdf`)
+    }
+    if (existingJob.back_cover_url) {
+      filesToDelete.push(`${diaryId}/back_cover.pdf`)
+    }
+    if (existingJob.spine_url) {
+      filesToDelete.push(`${diaryId}/spine.pdf`)
+    }
+    if (existingJob.inner_pages_url) {
+      filesToDelete.push(`${diaryId}/inner_pages.pdf`)
+    }
+
+    // Delete files from storage
+    if (filesToDelete.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from('publishing')
+        .remove(filesToDelete)
+
+      if (storageError) {
+        console.error('Error deleting files from storage:', storageError)
+        // Continue with job deletion even if storage delete fails
+      }
+    }
+
+    // Delete the job record
+    const { error: deleteError } = await supabase
+      .from('diary_publish_jobs')
+      .delete()
+      .eq('id', id)
+
+    if (deleteError) throw deleteError
+
+    return NextResponse.json({ message: 'Job deleted successfully' })
+  } catch (error) {
+    console.error('Error deleting job:', error)
+    return NextResponse.json({ error: 'Failed to delete job' }, { status: 500 })
+  }
+}
