@@ -28,8 +28,8 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
       >
         <defs>
           <linearGradient id="leafGradient" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#B8D4C8" />
-            <stop offset="1" stopColor="#A89BC4" />
+            <stop stopColor="#86EFAC" />
+            <stop offset="1" stopColor="#4ADE80" />
           </linearGradient>
         </defs>
         {/* Leaf shape */}
