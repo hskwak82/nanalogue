@@ -1,6 +1,12 @@
 'use client'
 
-import { CoverTemplate, PlacedDecoration, ShapeType } from '@/types/customization'
+import { CoverTemplate, PlacedDecoration, ShapeType, FONT_OPTIONS } from '@/types/customization'
+
+// Helper function to get font family CSS value
+function getFontFamilyCSS(fontFamilyId: string): string {
+  const font = FONT_OPTIONS.find(f => f.id === fontFamilyId)
+  return font?.fontFamily || 'inherit'
+}
 
 // Helper function to get CSS clip-path for shape types
 function getClipPathForShape(shapeType: ShapeType): string {
@@ -89,43 +95,60 @@ export function DiaryCover({
       onClick={onClick}
     >
       {/* Decorations */}
-      {decorations.map((decoration, index) => (
-        <div
-          key={index}
-          className="absolute select-none pointer-events-none"
-          style={{
-            left: `${decoration.x}%`,
-            top: `${decoration.y}%`,
-            transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
-            zIndex: decoration.z_index,
-            fontSize: size === 'preview' ? '1.5rem' : '2.5rem',
-          }}
-        >
-          {decoration.type === 'emoji' ? (
-            <span>{decoration.content}</span>
-          ) : decoration.type === 'photo' ? (
-            <img
-              src={decoration.content}
-              alt="Photo decoration"
-              style={{
-                width: size === 'preview' ? '40px' : '80px',
-                height: size === 'preview' ? '40px' : '80px',
-                objectFit: 'cover',
-                clipPath: decoration.photo_meta?.shape_type
-                  ? getClipPathForShape(decoration.photo_meta.shape_type)
-                  : undefined,
-              }}
-              draggable={false}
-            />
-          ) : (
-            <span
-              className="block text-pastel-purple-dark"
-              style={{ width: size === 'preview' ? '24px' : '40px', height: size === 'preview' ? '24px' : '40px' }}
-              dangerouslySetInnerHTML={{ __html: decoration.content }}
-            />
-          )}
-        </div>
-      ))}
+      {decorations.map((decoration, index) => {
+        // Text scale factor based on size (preview is smaller)
+        const textScaleFactor = size === 'preview' ? 0.4 : 0.8
+
+        return (
+          <div
+            key={index}
+            className="absolute select-none pointer-events-none"
+            style={{
+              left: `${decoration.x}%`,
+              top: `${decoration.y}%`,
+              transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
+              zIndex: decoration.z_index,
+              fontSize: size === 'preview' ? '1.5rem' : '2.5rem',
+            }}
+          >
+            {decoration.type === 'emoji' ? (
+              <span>{decoration.content}</span>
+            ) : decoration.type === 'photo' ? (
+              <img
+                src={decoration.content}
+                alt="Photo decoration"
+                style={{
+                  width: size === 'preview' ? '40px' : '80px',
+                  height: size === 'preview' ? '40px' : '80px',
+                  objectFit: 'cover',
+                  clipPath: decoration.photo_meta?.shape_type
+                    ? getClipPathForShape(decoration.photo_meta.shape_type)
+                    : undefined,
+                }}
+                draggable={false}
+              />
+            ) : decoration.type === 'text' ? (
+              <span
+                className="whitespace-nowrap"
+                style={{
+                  fontFamily: getFontFamilyCSS(decoration.text_meta?.font_family || 'default'),
+                  fontSize: `${(decoration.text_meta?.font_size || 24) * textScaleFactor}px`,
+                  color: decoration.text_meta?.font_color || '#333333',
+                  fontWeight: decoration.text_meta?.font_weight || 'normal',
+                }}
+              >
+                {decoration.content}
+              </span>
+            ) : (
+              <span
+                className="block text-pastel-purple-dark"
+                style={{ width: size === 'preview' ? '24px' : '40px', height: size === 'preview' ? '24px' : '40px' }}
+                dangerouslySetInnerHTML={{ __html: decoration.content }}
+              />
+            )}
+          </div>
+        )
+      })}
 
       {/* Book spine effect */}
       <div
