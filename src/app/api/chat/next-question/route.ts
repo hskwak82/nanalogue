@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getAIProvider, generateWithProvider } from '@/lib/ai/provider'
 import type { ConversationMessage, ParsedSchedule } from '@/types/database'
 
 interface PendingScheduleInput {
@@ -37,6 +38,10 @@ export async function POST(request: Request) {
       })
     }
 
+    // Get the current AI provider
+    const provider = await getAIProvider()
+    console.log(`[chat/next-question] Using AI provider: ${provider}`)
+
     // Generate natural conversational response
     const conversationContext = messages
       .map(
@@ -44,11 +49,6 @@ export async function POST(request: Request) {
           `${m.role === 'user' ? '사용자' : 'AI'}: ${m.content}`
       )
       .join('\n')
-
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not configured')
-    }
 
     // Determine conversation phase
     let phaseGuidance = ''
@@ -140,47 +140,31 @@ ${conversationContext}
 
 사용자의 마지막 메시지에서 일정이 있다면 감지하고, 부족한 정보가 있으면 자연스럽게 물어보는 응답을 JSON 형식으로 생성하세요:`
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-      }),
+    const responseText = await generateWithProvider(provider, {
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`OpenAI API error: ${error}`)
-    }
-
-    const data = await response.json()
-    let responseText = (data.choices?.[0]?.message?.content || '').trim()
+    let cleanedResponse = responseText.trim()
 
     // Clean up the response - remove markdown code blocks if present
-    if (responseText.startsWith('```json')) {
-      responseText = responseText.slice(7)
+    if (cleanedResponse.startsWith('```json')) {
+      cleanedResponse = cleanedResponse.slice(7)
     }
-    if (responseText.startsWith('```')) {
-      responseText = responseText.slice(3)
+    if (cleanedResponse.startsWith('```')) {
+      cleanedResponse = cleanedResponse.slice(3)
     }
-    if (responseText.endsWith('```')) {
-      responseText = responseText.slice(0, -3)
+    if (cleanedResponse.endsWith('```')) {
+      cleanedResponse = cleanedResponse.slice(0, -3)
     }
-    responseText = responseText.trim()
+    cleanedResponse = cleanedResponse.trim()
 
     let question = '그렇군요, 더 자세히 이야기해 주실 수 있어요?'
     let detectedSchedules: ParsedSchedule[] = []
     let updatedPendingSchedule: ParsedSchedule | null = null
 
     try {
-      const parsed = JSON.parse(responseText)
+      const parsed = JSON.parse(cleanedResponse)
       question = parsed.question || question
 
       if (parsed.detectedSchedules && Array.isArray(parsed.detectedSchedules)) {
@@ -221,7 +205,7 @@ ${conversationContext}
       }
     } catch {
       // If JSON parsing fails, use the raw text as question
-      question = responseText || question
+      question = cleanedResponse || question
     }
 
     return NextResponse.json({
@@ -230,6 +214,7 @@ ${conversationContext}
       shouldEnd: false,
       detectedSchedules,
       updatedPendingSchedule,
+      provider, // Include which provider was used
     })
   } catch (error) {
     console.error('Error generating question:', error)

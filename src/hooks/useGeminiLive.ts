@@ -17,9 +17,9 @@ interface UseGeminiLiveOptions {
 }
 
 // Gemini Live API WebSocket client
-// API: wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent
+// API: wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent
 
-const GEMINI_LIVE_MODEL = 'gemini-2.5-flash-preview-native-audio-dialog'
+const GEMINI_LIVE_MODEL = 'gemini-2.0-flash-exp'
 const SAMPLE_RATE = 16000 // 16kHz for input
 const OUTPUT_SAMPLE_RATE = 24000 // 24kHz for output
 
@@ -160,7 +160,7 @@ export function useGeminiLive(options: UseGeminiLiveOptions = {}) {
       audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE })
       
       // Connect WebSocket
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${session.apiKey}`
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${session.apiKey}`
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
       

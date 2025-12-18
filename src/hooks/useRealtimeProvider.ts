@@ -33,7 +33,7 @@ interface UseRealtimeProviderOptions {
 // Constants for audio processing
 const GEMINI_INPUT_SAMPLE_RATE = 16000 // 16kHz for Gemini input
 const GEMINI_OUTPUT_SAMPLE_RATE = 24000 // 24kHz for Gemini output
-const GEMINI_LIVE_MODEL = 'gemini-2.5-flash-preview-native-audio-dialog'
+const GEMINI_LIVE_MODEL = 'gemini-2.0-flash-exp'
 
 export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
   const { onTranscript, onAIResponse, onError, onStateChange } = options
@@ -282,78 +282,178 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
   // Gemini WebSocket Implementation
   // ========================================
 
+  // Audio queue for sequential playback
+  const audioQueueRef = useRef<AudioBuffer[]>([])
+  const isPlayingRef = useRef(false)
+
+  // Accumulated transcripts (use refs to avoid stale closures)
+  const accumulatedAiTextRef = useRef('')
+  const accumulatedUserTextRef = useRef('')
+
+  const playNextInQueue = useCallback(() => {
+    if (!playbackContextRef.current || audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false
+      if (!isEndingRef.current) updateState('connected')
+      return
+    }
+
+    isPlayingRef.current = true
+    const audioBuffer = audioQueueRef.current.shift()!
+    const source = playbackContextRef.current.createBufferSource()
+    source.buffer = audioBuffer
+    source.connect(playbackContextRef.current.destination)
+    source.onended = playNextInQueue
+    source.start()
+  }, [updateState])
+
   const playGeminiAudioChunk = useCallback(async (base64Audio: string) => {
     if (!playbackContextRef.current) {
-      playbackContextRef.current = new AudioContext({ sampleRate: GEMINI_OUTPUT_SAMPLE_RATE })
+      // Gemini outputs 24kHz PCM audio
+      playbackContextRef.current = new AudioContext({ sampleRate: 24000 })
     }
 
     try {
       const audioData = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0))
-      const audioBuffer = playbackContextRef.current.createBuffer(1, audioData.length / 2, GEMINI_OUTPUT_SAMPLE_RATE)
+
+      // Check if data is large enough for 16-bit PCM (at least 2 bytes)
+      if (audioData.length < 2) {
+        return
+      }
+
+      // Number of 16-bit samples
+      const numSamples = Math.floor(audioData.length / 2)
+
+      // Gemini outputs 24kHz 16-bit PCM little-endian mono
+      const audioBuffer = playbackContextRef.current.createBuffer(1, numSamples, 24000)
       const channelData = audioBuffer.getChannelData(0)
 
-      const dataView = new DataView(audioData.buffer)
-      for (let i = 0; i < audioData.length / 2; i++) {
+      // Create DataView with proper offset handling
+      const dataView = new DataView(audioData.buffer, audioData.byteOffset, audioData.byteLength)
+      for (let i = 0; i < numSamples; i++) {
         channelData[i] = dataView.getInt16(i * 2, true) / 32768
       }
 
-      const source = playbackContextRef.current.createBufferSource()
-      source.buffer = audioBuffer
-      source.connect(playbackContextRef.current.destination)
-      source.start()
+      // Queue audio for sequential playback
+      audioQueueRef.current.push(audioBuffer)
 
-      updateState('speaking')
-      source.onended = () => {
-        if (!isEndingRef.current) updateState('connected')
+      if (!isPlayingRef.current) {
+        playNextInQueue()
       }
     } catch (e) {
       console.error('[Gemini] Failed to play audio:', e)
     }
-  }, [updateState])
+  }, [playNextInQueue])
 
-  const handleGeminiMessage = useCallback((event: MessageEvent) => {
+  const handleGeminiMessage = useCallback(async (event: MessageEvent) => {
+    // Ignore messages if we're ending the connection
+    if (isEndingRef.current) return
+
     try {
-      const data = JSON.parse(event.data)
+      let data: Record<string, unknown>
 
+      // Handle Blob messages (Gemini sends JSON as Blob sometimes)
+      if (event.data instanceof Blob) {
+        const text = await event.data.text()
+        if (!text || !text.startsWith('{')) {
+          // Raw audio data or empty - ignore
+          return
+        }
+        data = JSON.parse(text)
+      } else if (typeof event.data === 'string') {
+        data = JSON.parse(event.data)
+      } else {
+        console.warn('[Gemini] Unknown message type:', typeof event.data)
+        return
+      }
+
+      // Handle serverContent
       if (data.serverContent) {
-        const content = data.serverContent
+        const content = data.serverContent as Record<string, unknown>
 
-        // Model turn (AI response)
+        // Model turn (AI response with audio) - this means user stopped speaking
         if (content.modelTurn) {
-          const parts = content.modelTurn.parts || []
-          for (const part of parts) {
-            if (part.text) {
-              setAiTranscript(prev => prev + part.text)
-              onAIResponseRef.current?.(part.text)
-            }
-            if (part.inlineData?.mimeType?.includes('audio')) {
+          // Finalize user transcript if there's pending text
+          if (accumulatedUserTextRef.current) {
+            onTranscriptRef.current?.(accumulatedUserTextRef.current, true)
+            accumulatedUserTextRef.current = ''
+            setUserTranscript('')
+          }
+
+          const modelTurn = content.modelTurn as { parts?: Array<{ inlineData?: { mimeType?: string; data?: string }; text?: string }> }
+          for (const part of modelTurn.parts || []) {
+            if (part.inlineData?.mimeType?.includes('audio') && part.inlineData?.data) {
+              updateState('speaking')
               playGeminiAudioChunk(part.inlineData.data)
             }
           }
         }
 
+        // Output transcription (AI speech to text) - Gemini sends incremental text
+        if (content.outputTranscription) {
+          const outputTrans = content.outputTranscription as { text?: string }
+          if (outputTrans.text) {
+            // Append incremental text
+            accumulatedAiTextRef.current += outputTrans.text
+            setAiTranscript(accumulatedAiTextRef.current)
+          }
+        }
+
+        // Input transcription (User speech to text) - Gemini sends incremental text
+        if (content.inputTranscription) {
+          const inputTrans = content.inputTranscription as { text?: string; finished?: boolean }
+          if (inputTrans.text) {
+            // Append incremental text
+            accumulatedUserTextRef.current += inputTrans.text
+            setUserTranscript(accumulatedUserTextRef.current)
+            onTranscriptRef.current?.(accumulatedUserTextRef.current, inputTrans.finished || false)
+          }
+          if (inputTrans.finished) {
+            // Clear for next turn after sending final
+            accumulatedUserTextRef.current = ''
+            setUserTranscript('')
+            updateState('processing')
+          }
+        }
+
         // Turn complete
         if (content.turnComplete) {
+          // Save final AI response
+          if (accumulatedAiTextRef.current) {
+            onAIResponseRef.current?.(accumulatedAiTextRef.current)
+          }
+          // Clear for next turn
+          accumulatedAiTextRef.current = ''
           setAiTranscript('')
           updateState('connected')
         }
 
-        // User speech transcription
-        if (content.inputTranscription) {
-          const text = content.inputTranscription.text || ''
-          setUserTranscript(text)
-          onTranscriptRef.current?.(text, content.inputTranscription.finished || false)
+        // Interrupted by user - AI was speaking and user started talking
+        if (content.interrupted) {
+          console.log('[Gemini] Interrupted by user - stopping AI playback')
+          // Stop current playback
+          audioQueueRef.current = []
+          isPlayingRef.current = false
+          // Keep accumulated text for history, just clear current display
+          if (accumulatedAiTextRef.current) {
+            onAIResponseRef.current?.(accumulatedAiTextRef.current)
+          }
+          accumulatedAiTextRef.current = ''
+          setAiTranscript('')
+          // Don't change state here - let the next inputTranscription handle it
         }
       }
 
+      // Setup complete
       if (data.setupComplete) {
         console.log('[Gemini] Setup complete')
         updateState('connected')
       }
 
+      // Error
       if (data.error) {
-        console.error('[Gemini] Error:', data.error)
-        onErrorRef.current?.(new Error(data.error.message || 'Gemini Live error'))
+        const error = data.error as { message?: string }
+        console.error('[Gemini] Error:', error)
+        onErrorRef.current?.(new Error(error.message || 'Gemini Live error'))
         updateState('error')
       }
     } catch (e) {
@@ -361,8 +461,14 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
     }
   }, [playGeminiAudioChunk, updateState])
 
+  // Store session instructions for Gemini startConversation
+  const geminiInstructionsRef = useRef<string>('')
+
   const connectGemini = useCallback(async (session: SessionResponse) => {
     if (!session.apiKey) throw new Error('Gemini API key is missing')
+
+    // Store instructions for later use in startConversation
+    geminiInstructionsRef.current = session.instructions
 
     // Get microphone with Gemini's sample rate
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -395,15 +501,15 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
     startAudioVisualization()
 
     // Connect WebSocket
-    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${session.apiKey}`
+    const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${session.apiKey}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
       console.log('[Gemini] WebSocket connected')
 
-      // Send setup message
-      ws.send(JSON.stringify({
+      // Send setup message - Gemini Live API format with system instruction
+      const setupMsg = {
         setup: {
           model: `models/${GEMINI_LIVE_MODEL}`,
           generationConfig: {
@@ -416,11 +522,17 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
               }
             }
           },
+          // System instruction for diary conversation
           systemInstruction: {
             parts: [{ text: session.instructions }]
-          }
+          },
+          // Enable transcription for both input (user) and output (AI)
+          outputAudioTranscription: {},
+          inputAudioTranscription: {}
         }
-      }))
+      }
+      console.log('[Gemini] Sending setup with systemInstruction')
+      ws.send(JSON.stringify(setupMsg))
     }
 
     ws.onmessage = handleGeminiMessage
@@ -431,40 +543,57 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
       updateState('error')
     }
 
-    ws.onclose = () => {
-      console.log('[Gemini] WebSocket closed')
-      if (!isEndingRef.current) updateState('idle')
+    ws.onclose = (event) => {
+      console.log(`[Gemini] WebSocket closed: code=${event.code}, reason="${event.reason}", wasClean=${event.wasClean}`)
+      if (event.code === 1007) {
+        console.error('[Gemini] Invalid argument error - check setup message format')
+        onErrorRef.current?.(new Error(`Gemini setup error: ${event.reason || 'Invalid argument'}`))
+        updateState('error')
+      } else if (!isEndingRef.current) {
+        updateState('idle')
+      }
     }
 
     // Setup audio capture with ScriptProcessor
     const processor = audioContext.createScriptProcessor(4096, 1, 1)
     scriptProcessorRef.current = processor
 
+    // Track if we've started listening to avoid repeated state updates
+    let hasStartedListening = false
+
     processor.onaudioprocess = (e) => {
-      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || isEndingRef.current) return
+      try {
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || isEndingRef.current) return
 
-      const inputData = e.inputBuffer.getChannelData(0)
+        const inputData = e.inputBuffer.getChannelData(0)
 
-      // Convert float to 16-bit PCM
-      const pcmData = new Int16Array(inputData.length)
-      for (let i = 0; i < inputData.length; i++) {
-        pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768))
-      }
-
-      // Convert to base64
-      const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)))
-
-      // Send audio chunk
-      wsRef.current.send(JSON.stringify({
-        realtimeInput: {
-          mediaChunks: [{
-            mimeType: 'audio/pcm;rate=16000',
-            data: base64Audio
-          }]
+        // Convert float to 16-bit PCM
+        const pcmData = new Int16Array(inputData.length)
+        for (let i = 0; i < inputData.length; i++) {
+          pcmData[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768))
         }
-      }))
 
-      updateState('listening')
+        // Convert to base64
+        const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcmData.buffer)))
+
+        // Send audio chunk
+        wsRef.current.send(JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [{
+              mimeType: 'audio/pcm;rate=16000',
+              data: base64Audio
+            }]
+          }
+        }))
+
+        // Only update state once when starting to listen
+        if (!hasStartedListening) {
+          hasStartedListening = true
+          updateState('listening')
+        }
+      } catch (err) {
+        console.error('[Gemini] Audio process error:', err)
+      }
     }
 
     source.connect(processor)
@@ -627,14 +756,15 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
 
   const startConversation = useCallback(() => {
     if (provider === 'gemini') {
-      // Gemini: Send a text prompt to start conversation
+      // Gemini: Send a trigger to start conversation based on system instructions
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
 
+      // Send a minimal trigger that prompts the AI to greet based on its system instruction
       wsRef.current.send(JSON.stringify({
         clientContent: {
           turns: [{
             role: 'user',
-            parts: [{ text: '안녕하세요! 오늘 하루 어떠셨어요?' }]
+            parts: [{ text: '대화를 시작해주세요.' }]
           }],
           turnComplete: true
         }

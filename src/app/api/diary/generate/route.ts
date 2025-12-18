@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
+import { getAIProvider, streamWithProvider, generateWithProvider } from '@/lib/ai/provider'
 import type { ConversationMessage } from '@/types/database'
 
 const createDiaryPrompt = (dateInfo: string) => `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
 
   try {
     const { sessionId, messages, timezone } = await request.json()
-    const userTimezone = timezone || 'Asia/Seoul'  // Default to Korea if not provided
+    const userTimezone = timezone || 'Asia/Seoul'
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -28,10 +29,9 @@ export async function POST(request: Request) {
       })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not configured')
-    }
+    // Get the current AI provider
+    const provider = await getAIProvider()
+    console.log(`[diary/generate] Using AI provider: ${provider}`)
 
     const conversationText = messages
       .map((m: ConversationMessage) => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`)
@@ -53,7 +53,7 @@ export async function POST(request: Request) {
             .eq('entry_date', today)
             .single()
 
-          // Format date/time for diary header (user's local timezone)
+          // Format date/time for diary header
           const now = new Date()
           const formatDateTime = (date: Date) => {
             return date.toLocaleString('ko-KR', {
@@ -76,88 +76,61 @@ export async function POST(request: Request) {
           }
 
           // Step 1: Stream diary content
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
+          let diaryContent = ''
+
+          await streamWithProvider(
+            provider,
+            {
               messages: [
                 { role: 'system', content: createDiaryPrompt(dateInfo) },
                 { role: 'user', content: conversationText },
               ],
-              stream: true,
-            }),
-          })
-
-          if (!response.ok) {
-            throw new Error(`OpenAI API error: ${response.status}`)
-          }
-
-          const reader = response.body?.getReader()
-          if (!reader) throw new Error('No response body')
-
-          let diaryContent = ''
-          const decoder = new TextDecoder()
-
-          // Stream the content
-          while (true) {
-            const { done, value } = await reader.read()
-            if (done) break
-
-            const chunk = decoder.decode(value)
-            const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
-
-            for (const line of lines) {
-              const data = line.slice(6)
-              if (data === '[DONE]') continue
-
-              try {
-                const parsed = JSON.parse(data)
-                const content = parsed.choices?.[0]?.delta?.content
-                if (content) {
-                  diaryContent += content
-                  // Send content chunk to client
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', text: content })}\n\n`))
-                }
-              } catch {
-                // Skip invalid JSON
-              }
+            },
+            {
+              onChunk: (text) => {
+                diaryContent += text
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'content', text })}\n\n`))
+              },
+              onDone: () => {
+                // Continue to metadata step
+              },
+              onError: (error) => {
+                throw error
+              },
             }
-          }
+          )
 
-          // Step 2: Get metadata (quick, non-streaming)
+          // Step 2: Get metadata
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'status', text: '메타데이터 생성 중...' })}\n\n`))
 
-          const metaResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'gpt-4o-mini',
+          let metadata = { summary: '', emotions: [], gratitude: [], tomorrow_plan: '' }
+
+          try {
+            const metaResponse = await generateWithProvider(provider, {
               messages: [
                 { role: 'system', content: METADATA_PROMPT },
                 { role: 'user', content: diaryContent },
               ],
-              response_format: { type: 'json_object' },
-            }),
-          })
+              jsonMode: true,
+            })
 
-          let metadata = { summary: '', emotions: [], gratitude: [], tomorrow_plan: '' }
-          if (metaResponse.ok) {
-            const metaData = await metaResponse.json()
-            const metaContent = metaData.choices?.[0]?.message?.content
-            if (metaContent) {
-              try {
-                metadata = JSON.parse(metaContent)
-              } catch {
-                // Use defaults
+            if (metaResponse) {
+              // Clean up response if needed
+              let cleanedResponse = metaResponse.trim()
+              if (cleanedResponse.startsWith('```json')) {
+                cleanedResponse = cleanedResponse.slice(7)
               }
+              if (cleanedResponse.startsWith('```')) {
+                cleanedResponse = cleanedResponse.slice(3)
+              }
+              if (cleanedResponse.endsWith('```')) {
+                cleanedResponse = cleanedResponse.slice(0, -3)
+              }
+              metadata = JSON.parse(cleanedResponse.trim())
             }
+          } catch (e) {
+            console.error('Metadata parsing error:', e)
+            // Use defaults
           }
 
           // Step 3: Save to database
@@ -196,7 +169,8 @@ export async function POST(request: Request) {
           // Send completion
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: 'done',
-            diary: { content: diaryContent, ...metadata }
+            diary: { content: diaryContent, ...metadata },
+            provider, // Include which provider was used
           })}\n\n`))
 
           controller.close()

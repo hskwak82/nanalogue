@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getAIProvider, generateWithProvider } from '@/lib/ai/provider'
 
 interface CurrentSchedule {
   title?: string
@@ -43,10 +44,9 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not configured')
-    }
+    // Get the current AI provider
+    const provider = await getAIProvider()
+    console.log(`[chat/parse-schedule] Using AI provider: ${provider}`)
 
     // Build current schedule context
     let currentScheduleContext = ''
@@ -133,28 +133,10 @@ ${conversationContext}
 - 시간일정인데 시간 없음: "몇 시에 시작하나요?"
 - 모든 정보 수집 완료: null`
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-      }),
+    let responseText = await generateWithProvider(provider, {
+      messages: [{ role: 'user', content: prompt }],
+      jsonMode: true,
     })
-
-    if (!response.ok) {
-      const error = await response.text()
-      throw new Error(`OpenAI API error: ${error}`)
-    }
-
-    const data = await response.json()
-    let responseText = (data.choices?.[0]?.message?.content || '').trim()
 
     // Clean up markdown
     if (responseText.startsWith('```json')) {
