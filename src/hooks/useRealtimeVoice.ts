@@ -195,6 +195,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
+          autoGainControl: true,
         },
       })
       mediaStreamRef.current = stream
@@ -220,9 +221,9 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
               instructions: session.instructions,
               turn_detection: {
                 type: 'server_vad',
-                threshold: 0.5,
+                threshold: 0.7,  // Higher = less sensitive (reduces echo pickup)
                 prefix_padding_ms: 300,
-                silence_duration_ms: 500,
+                silence_duration_ms: 700,  // Longer silence required before AI responds
               },
               input_audio_transcription: {
                 model: 'whisper-1',
