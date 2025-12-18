@@ -22,6 +22,7 @@ export default function BookshelfPage() {
   const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedDiary, setSelectedDiary] = useState<DiaryWithTemplates | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   // Load diaries
   const loadDiaries = useCallback(async () => {
@@ -45,7 +46,7 @@ export default function BookshelfPage() {
     }
   }, [router])
 
-  // Load user info
+  // Load user info and admin status
   useEffect(() => {
     async function loadUser() {
       try {
@@ -58,7 +59,21 @@ export default function BookshelfPage() {
         console.error('Error loading user:', error)
       }
     }
+
+    async function checkAdminStatus() {
+      try {
+        const response = await fetch('/api/user/admin-status')
+        if (response.ok) {
+          const data = await response.json()
+          setIsAdmin(data.isAdmin)
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error)
+      }
+    }
+
     loadUser()
+    checkAdminStatus()
     loadDiaries()
   }, [loadDiaries])
 
@@ -170,6 +185,7 @@ export default function BookshelfPage() {
             setSelectedDiary(diary)
             setShowEditModal(true)
           }}
+          isAdmin={isAdmin}
         />
       </main>
 

@@ -54,6 +54,10 @@ export const CAPTURE_PIXEL_RATIO = Math.ceil(
 // 12mm spine / 180mm cover = 6.67% of cover width
 export const DISPLAY_SPINE_WIDTH_RATIO = PRINT_SPECS.SPINE_WIDTH_MM / PRINT_SPECS.COVER_WIDTH_MM
 
+// Bookshelf display spine width ratio (wider for visibility)
+// Actual print ratio is 6.67%, but 30% makes titles readable on screen
+export const BOOKSHELF_SPINE_WIDTH_RATIO = 0.30
+
 // Helper functions
 export function mmToPx(mm: number): number {
   return Math.round(mm * PRINT_SPECS.MM_TO_PX)

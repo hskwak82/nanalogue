@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { SPINE_WIDTH_RATIO } from '@/types/diary'
 import type { PlacedDecoration } from '@/types/customization'
+import {
+  getQuarterFromDate,
+  getQuarterTitle,
+  getQuarterDateRange,
+} from '@/lib/quarter'
 
 // POST /api/diaries/active - Set a diary as active
 export async function POST(request: NextRequest) {
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/diaries/active - Get current active diary (or create first one)
+// GET /api/diaries/active - Get current active diary (or auto-create quarterly diary)
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -74,8 +79,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Try to find active diary
-    let { data: diary, error } = await supabase
+    // Calculate current quarter
+    const now = new Date()
+    const currentQuarter = getQuarterFromDate(now)
+    const { start: quarterStart, end: quarterEnd } = getQuarterDateRange(
+      currentQuarter.year,
+      currentQuarter.quarter
+    )
+
+    // Try to find diary for current quarter (based on start_date)
+    let { data: diary } = await supabase
       .from('diaries')
       .select(`
         *,
@@ -83,72 +96,83 @@ export async function GET() {
         paper_templates(*)
       `)
       .eq('user_id', user.id)
-      .eq('status', 'active')
-      .order('volume_number', { ascending: false })
+      .gte('start_date', quarterStart)
+      .lte('start_date', quarterEnd)
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    // If no active diary, check if there are any diaries at all
+    // If no diary for current quarter, auto-create one
     if (!diary) {
-      const { count } = await supabase
+      // Get the most recent diary for inheriting customization
+      const { data: prevDiary } = await supabase
         .from('diaries')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('user_id', user.id)
+        .order('volume_number', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-      // If no diaries exist, create the first one
-      if (count === 0) {
-        // Check if user has existing customization to inherit
+      // Mark previous diary as completed if it's active
+      if (prevDiary && prevDiary.status === 'active') {
+        const prevQuarter = getQuarterFromDate(new Date(prevDiary.start_date))
+        const prevRange = getQuarterDateRange(prevQuarter.year, prevQuarter.quarter)
+
+        await supabase
+          .from('diaries')
+          .update({
+            status: 'completed',
+            end_date: prevRange.end,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', prevDiary.id)
+      }
+
+      // Calculate next volume number
+      const nextVolumeNumber = (prevDiary?.volume_number || 0) + 1
+
+      // Check for legacy customization if this is the first diary
+      let legacyCustomization = null
+      if (!prevDiary) {
         const { data: customization } = await supabase
           .from('diary_customization')
           .select('*')
           .eq('user_id', user.id)
           .maybeSingle()
-
-        // Get first entry date if exists
-        const { data: firstEntry } = await supabase
-          .from('diary_entries')
-          .select('entry_date')
-          .eq('user_id', user.id)
-          .order('entry_date', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-
-        const startDate = firstEntry?.entry_date || new Date().toISOString().split('T')[0]
-
-        const { data: newDiary, error: createError } = await supabase
-          .from('diaries')
-          .insert({
-            user_id: user.id,
-            volume_number: 1,
-            title: '나의 일기장',
-            status: 'active',
-            start_date: startDate,
-            cover_template_id: customization?.cover_template_id || null,
-            paper_template_id: customization?.paper_template_id || null,
-            cover_decorations: customization?.cover_decorations || [],
-          })
-          .select(`
-            *,
-            cover_templates(*),
-            paper_templates(*)
-          `)
-          .single()
-
-        if (createError) {
-          console.error('Error creating first diary:', createError)
-          return NextResponse.json({ error: 'Failed to create diary' }, { status: 500 })
-        }
-
-        diary = newDiary
-      } else {
-        // If there are diaries but none active, return null (user needs to create new one)
-        return NextResponse.json({ diary: null, needsNewDiary: true })
+        legacyCustomization = customization
       }
-    }
 
-    if (error) {
-      console.error('Error fetching active diary:', error)
-      return NextResponse.json({ error: 'Failed to fetch diary' }, { status: 500 })
+      // Create new quarterly diary
+      const { data: newDiary, error: createError } = await supabase
+        .from('diaries')
+        .insert({
+          user_id: user.id,
+          volume_number: nextVolumeNumber,
+          title: getQuarterTitle(currentQuarter.year, currentQuarter.quarter),
+          status: 'active',
+          start_date: quarterStart,
+          // Inherit customization from previous diary or legacy
+          cover_template_id: prevDiary?.cover_template_id || legacyCustomization?.cover_template_id || null,
+          paper_template_id: prevDiary?.paper_template_id || legacyCustomization?.paper_template_id || null,
+          cover_decorations: prevDiary?.cover_decorations || legacyCustomization?.cover_decorations || [],
+          paper_decorations: prevDiary?.paper_decorations || [],
+          spine_color: prevDiary?.spine_color || null,
+          spine_gradient: prevDiary?.spine_gradient || null,
+        })
+        .select(`
+          *,
+          cover_templates(*),
+          paper_templates(*)
+        `)
+        .single()
+
+      if (createError) {
+        console.error('Error creating quarterly diary:', createError)
+        return NextResponse.json({ error: 'Failed to create diary' }, { status: 500 })
+      }
+
+      diary = newDiary
+      console.log(`[diary/active] Auto-created quarterly diary: ${newDiary.title} (Volume ${newDiary.volume_number})`)
     }
 
     // Get entry count

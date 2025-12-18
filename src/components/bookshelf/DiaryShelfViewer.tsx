@@ -6,15 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
 import { useSpineCalculations } from './hooks/useSpineCalculations'
-import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
+import { BOOKSHELF_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
 
-// Calculate bookshelf spine dimensions based on print ratio
-// Spine height 140px, aspect ratio 0.72, spine ratio 6.67%
+// Calculate bookshelf spine dimensions for display
+// Spine height 140px, aspect ratio 0.72, display ratio 30% (wider than print for readability)
 const BOOKSHELF_SPINE_HEIGHT = 140
-const BOOKSHELF_SPINE_WIDTH = Math.max(
-  14, // Minimum width for usability
-  Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO)
-)
+const BOOKSHELF_SPINE_WIDTH = Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * BOOKSHELF_SPINE_WIDTH_RATIO)
 
 interface DiaryShelfViewerProps {
   diaries: DiaryWithTemplates[]
@@ -42,23 +39,25 @@ function parseImageUrl(imageUrl: string): {
 function MiniSpine({
   diary,
   isActive,
+  isSelected,
   onClick
 }: {
   diary: DiaryWithTemplates
   isActive: boolean
+  isSelected: boolean
   onClick: () => void
 }) {
   const { textColor } = useSpineCalculations(diary)
   const title = diary.title || `${diary.volume_number}권`
 
-  // Get spine style - crop cover image at spine_position
+  // Get spine style - stretch cover image to fill spine container
   const getSpineStyle = () => {
-    // 1. First priority: crop cover image at spine_position
+    // 1. First priority: stretch cover image to fill spine (uses spine_position for horizontal offset)
     if (diary.cover_image_url) {
       const spinePosition = diary.spine_position ?? 0
       return {
         backgroundImage: `url(${diary.cover_image_url})`,
-        backgroundSize: 'auto 100%',
+        backgroundSize: 'cover',
         backgroundPosition: `${spinePosition}% center`,
       }
     }
@@ -74,7 +73,7 @@ function MiniSpine({
         case 'image':
           return {
             backgroundImage: `url(${parsed.value})`,
-            backgroundSize: 'auto 100%',
+            backgroundSize: 'cover',
             backgroundPosition: 'left center',
           }
       }
@@ -95,13 +94,19 @@ function MiniSpine({
   return (
     <motion.div
       layoutId={`diary-spine-${diary.id}`}
-      whileHover={{ scale: 1.05, y: -3 }}
+      animate={{
+        y: isSelected ? 0 : 8,
+      }}
+      whileHover={!isSelected ? { y: 0 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0 overflow-hidden"
+      className={`relative cursor-pointer rounded-sm flex-shrink-0 overflow-hidden ${
+        isSelected ? 'shadow-xl ring-2 ring-pastel-purple z-10' : 'shadow-md'
+      }`}
       style={{
         width: BOOKSHELF_SPINE_WIDTH,
         height: BOOKSHELF_SPINE_HEIGHT,
+        transformStyle: 'preserve-3d',
         ...getSpineStyle(),
       }}
     >
@@ -173,9 +178,8 @@ export function DiaryShelfViewer({
   }, [displayedDiaryId, isInitialized])
 
   const displayedDiary = diaries.find(d => d.id === displayedDiaryId)
-  const shelfDiaries = diaries
-    .filter(d => d.id !== displayedDiaryId)
-    .sort((a, b) => a.volume_number - b.volume_number)
+  // Show ALL diaries in shelf (don't filter out the displayed one)
+  const shelfDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
 
   const handleSpineClick = (diary: DiaryWithTemplates) => {
     setDisplayedDiaryId(diary.id)
@@ -290,13 +294,14 @@ export function DiaryShelfViewer({
             {/* Shelf */}
             <div className="relative pb-3">
               {/* Books - scrollable container */}
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2">
-                <div className="flex items-end gap-1 min-h-[160px]">
+              <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4">
+                <div className="flex items-end gap-1 min-h-[160px]" style={{ perspective: '800px' }}>
                   {shelfDiaries.map((diary) => (
                     <MiniSpine
                       key={diary.id}
                       diary={diary}
                       isActive={diary.id === activeDiaryId}
+                      isSelected={diary.id === displayedDiaryId}
                       onClick={() => handleSpineClick(diary)}
                     />
                   ))}
