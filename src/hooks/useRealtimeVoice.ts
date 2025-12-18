@@ -361,7 +361,33 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const disconnect = useCallback(() => {
     console.log('[useRealtimeVoice] Disconnecting')
 
-    // Use global cleanup first
+    // First, cancel any ongoing AI response via data channel
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      try {
+        console.log('[useRealtimeVoice] Sending response.cancel')
+        dataChannelRef.current.send(
+          JSON.stringify({
+            type: 'response.cancel',
+          })
+        )
+      } catch (e) {
+        console.log('[useRealtimeVoice] Failed to send cancel:', e)
+      }
+    }
+
+    // Stop audio immediately
+    if (audioElementRef.current) {
+      console.log('[useRealtimeVoice] Stopping audio')
+      audioElementRef.current.pause()
+      audioElementRef.current.currentTime = 0
+      audioElementRef.current.srcObject = null
+      audioElementRef.current.src = ''
+      audioElementRef.current.load()
+      audioElementRef.current.remove()
+      audioElementRef.current = null
+    }
+
+    // Use global cleanup
     cleanupWebRTC()
 
     // Also clean up local refs
@@ -381,13 +407,6 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close()
       peerConnectionRef.current = null
-    }
-
-    // Remove audio element
-    if (audioElementRef.current) {
-      audioElementRef.current.pause()
-      audioElementRef.current.srcObject = null
-      audioElementRef.current = null
     }
 
     updateState('idle')
@@ -461,6 +480,30 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const cleanup = useCallback(() => {
     console.log('[useRealtimeVoice] Cleanup triggered')
 
+    // First, cancel any ongoing AI response via data channel
+    if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
+      try {
+        dataChannelRef.current.send(
+          JSON.stringify({
+            type: 'response.cancel',
+          })
+        )
+      } catch {}
+    }
+
+    // Stop audio immediately
+    if (audioElementRef.current) {
+      audioElementRef.current.pause()
+      audioElementRef.current.currentTime = 0
+      audioElementRef.current.srcObject = null
+      audioElementRef.current.src = ''
+      try {
+        audioElementRef.current.load()
+        audioElementRef.current.remove()
+      } catch {}
+      audioElementRef.current = null
+    }
+
     // Use global cleanup
     cleanupWebRTC()
 
@@ -472,19 +515,17 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     }
     // Close data channel
     if (dataChannelRef.current) {
-      dataChannelRef.current.close()
+      try {
+        dataChannelRef.current.close()
+      } catch {}
       dataChannelRef.current = null
     }
     // Close peer connection
     if (peerConnectionRef.current) {
-      peerConnectionRef.current.close()
+      try {
+        peerConnectionRef.current.close()
+      } catch {}
       peerConnectionRef.current = null
-    }
-    // Remove audio element
-    if (audioElementRef.current) {
-      audioElementRef.current.pause()
-      audioElementRef.current.srcObject = null
-      audioElementRef.current = null
     }
   }, [])
 

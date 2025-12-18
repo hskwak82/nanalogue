@@ -81,16 +81,23 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   }, [realtime])
 
   const handleDisconnect = useCallback(() => {
-    realtime.disconnect()
-    // Export conversation
-    if (transcripts.length > 0 && onComplete) {
-      onComplete(
-        transcripts.map((t) => ({
-          role: t.role,
-          content: t.content,
-        }))
-      )
-    }
+    // First, interrupt any ongoing AI response
+    realtime.interrupt()
+
+    // Then disconnect after a small delay to ensure interrupt is processed
+    setTimeout(() => {
+      realtime.disconnect()
+
+      // Export conversation
+      if (transcripts.length > 0 && onComplete) {
+        onComplete(
+          transcripts.map((t) => ({
+            role: t.role,
+            content: t.content,
+          }))
+        )
+      }
+    }, 100)
   }, [realtime, transcripts, onComplete])
 
   // Update ref for voice command callback
