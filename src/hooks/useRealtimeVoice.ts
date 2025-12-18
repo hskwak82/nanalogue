@@ -69,6 +69,22 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
 
+  // ========================================
+  // REFS FOR CALLBACKS - 항상 최신 버전 유지
+  // ========================================
+  const onTranscriptRef = useRef(onTranscript)
+  const onAIResponseRef = useRef(onAIResponse)
+  const onErrorRef = useRef(onError)
+  const onStateChangeRef = useRef(onStateChange)
+  const onEndCommandRef = useRef(onEndCommand)
+
+  // Keep refs updated
+  useEffect(() => { onTranscriptRef.current = onTranscript }, [onTranscript])
+  useEffect(() => { onAIResponseRef.current = onAIResponse }, [onAIResponse])
+  useEffect(() => { onErrorRef.current = onError }, [onError])
+  useEffect(() => { onStateChangeRef.current = onStateChange }, [onStateChange])
+  useEffect(() => { onEndCommandRef.current = onEndCommand }, [onEndCommand])
+
   // Use ref for isEnding to avoid closure issues in event handlers
   const isEndingRef = useRef(false)
 
@@ -96,14 +112,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     }
   }, [])
 
-  // Update state with callback
-  const updateState = useCallback(
-    (newState: RealtimeState) => {
-      setState(newState)
-      onStateChange?.(newState)
-    },
-    [onStateChange]
-  )
+  // Update state with callback (uses ref)
+  const updateState = useCallback((newState: RealtimeState) => {
+    setState(newState)
+    onStateChangeRef.current?.(newState)
+  }, [])
 
   // Get ephemeral token from server
   const getSession = useCallback(async (): Promise<RealtimeSession> => {
@@ -118,6 +131,83 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     return response.json()
   }, [])
+
+  // Handle server events - NO CALLBACK DEPENDENCIES (uses refs)
+  const handleServerEvent = useCallback((event: Record<string, unknown>) => {
+    const eventType = event.type as string
+
+    switch (eventType) {
+      case 'session.created':
+      case 'session.updated':
+        console.log('Session event:', eventType)
+        break
+
+      case 'input_audio_buffer.speech_started':
+        updateState('listening')
+        break
+
+      case 'input_audio_buffer.speech_stopped':
+        updateState('processing')
+        break
+
+      case 'conversation.item.input_audio_transcription.completed':
+        const userText = (event as { transcript?: string }).transcript || ''
+        setUserTranscript(userText)
+        onTranscriptRef.current?.(userText, true)
+
+        // Check for end command keywords (only if not already ending)
+        if (userText && containsEndCommand(userText) && !isEndingRef.current) {
+          console.log('[useRealtimeVoice] End command detected:', userText)
+          isEndingRef.current = true
+
+          // Cancel any ongoing response
+          if (dataChannelRef.current?.readyState === 'open') {
+            dataChannelRef.current.send(
+              JSON.stringify({ type: 'response.cancel' })
+            )
+          }
+
+          // Trigger end callback immediately (uses ref!)
+          console.log('[useRealtimeVoice] Triggering onEndCommand')
+          setTimeout(() => {
+            onEndCommandRef.current?.()
+          }, 50)
+        }
+        break
+
+      case 'response.audio_transcript.delta':
+        const delta = (event as { delta?: string }).delta || ''
+        setAiTranscript((prev) => prev + delta)
+        break
+
+      case 'response.audio_transcript.done':
+        const fullText = (event as { transcript?: string }).transcript || ''
+        setAiTranscript(fullText)
+        onAIResponseRef.current?.(fullText)
+        break
+
+      case 'response.audio.delta':
+        updateState('speaking')
+        break
+
+      case 'response.done':
+        updateState('connected')
+        setAiTranscript('')
+        break
+
+      case 'error':
+        const errorEvent = event as { error?: { message?: string; type?: string; code?: string } }
+        console.error('Server error:', JSON.stringify(errorEvent.error, null, 2))
+        onErrorRef.current?.(new Error(errorEvent.error?.message || errorEvent.error?.type || 'Server error'))
+        break
+
+      default:
+        // Log unknown events for debugging
+        if (eventType && !eventType.includes('delta')) {
+          console.log('Unhandled event:', eventType)
+        }
+    }
+  }, [updateState]) // Only depends on updateState which is stable
 
   // Initialize WebRTC connection
   const connect = useCallback(async () => {
@@ -156,7 +246,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     }
 
     if (!isSupported) {
-      onError?.(new Error('WebRTC is not supported in this browser'))
+      onErrorRef.current?.(new Error('WebRTC is not supported in this browser'))
       return
     }
 
@@ -238,13 +328,14 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         // Connection ready, wait for startConversation() to trigger AI greeting
       }
 
+      // handleServerEvent uses refs, so it's always up-to-date
       dc.onmessage = (event) => {
         handleServerEvent(JSON.parse(event.data))
       }
 
       dc.onerror = (error) => {
         console.error('Data channel error:', error)
-        onError?.(new Error('Data channel error'))
+        onErrorRef.current?.(new Error('Data channel error'))
         updateState('error')
       }
 
@@ -276,103 +367,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       })
     } catch (error) {
       console.error('Connection error:', error)
-      onError?.(error instanceof Error ? error : new Error('Connection failed'))
+      onErrorRef.current?.(error instanceof Error ? error : new Error('Connection failed'))
       updateState('error')
       disconnect()
     }
-  }, [isSupported, getSession, onError, updateState])
-
-  // Handle server events
-  const handleServerEvent = useCallback(
-    (event: Record<string, unknown>) => {
-      const eventType = event.type as string
-
-      switch (eventType) {
-        case 'session.created':
-        case 'session.updated':
-          console.log('Session event:', eventType)
-          break
-
-        case 'input_audio_buffer.speech_started':
-          updateState('listening')
-          break
-
-        case 'input_audio_buffer.speech_stopped':
-          updateState('processing')
-          break
-
-        case 'conversation.item.input_audio_transcription.completed':
-          const userText = (event as { transcript?: string }).transcript || ''
-          setUserTranscript(userText)
-          onTranscript?.(userText, true)
-          // Check for end command keywords (only if not already ending)
-          if (userText && containsEndCommand(userText) && !isEndingRef.current) {
-            isEndingRef.current = true
-            if (dataChannelRef.current?.readyState === 'open') {
-              // First, cancel any ongoing response
-              dataChannelRef.current.send(
-                JSON.stringify({
-                  type: 'response.cancel',
-                })
-              )
-              // Then request AI to say closing message
-              setTimeout(() => {
-                if (dataChannelRef.current?.readyState === 'open') {
-                  dataChannelRef.current.send(
-                    JSON.stringify({
-                      type: 'response.create',
-                      response: {
-                        modalities: ['text', 'audio'],
-                        instructions: '지금 바로 대화를 종료합니다. "네, 오늘 대화를 마무리하고 일기를 작성할게요." 라고만 말하세요. 절대 다른 말이나 질문을 하지 마세요.',
-                      },
-                    })
-                  )
-                }
-              }, 100)
-            }
-          }
-          break
-
-        case 'response.audio_transcript.delta':
-          const delta = (event as { delta?: string }).delta || ''
-          setAiTranscript((prev) => prev + delta)
-          break
-
-        case 'response.audio_transcript.done':
-          const fullText = (event as { transcript?: string }).transcript || ''
-          setAiTranscript(fullText)
-          onAIResponse?.(fullText)
-          break
-
-        case 'response.audio.delta':
-          updateState('speaking')
-          break
-
-        case 'response.done':
-          updateState('connected')
-          setAiTranscript('')
-          // If ending, trigger the end command callback after AI finishes speaking
-          if (isEndingRef.current) {
-            console.log('[useRealtimeVoice] End command detected, triggering callback')
-            onEndCommand?.()
-          }
-          break
-
-        case 'error':
-          const errorEvent = event as { error?: { message?: string; type?: string; code?: string } }
-          console.error('Server error:', JSON.stringify(errorEvent.error, null, 2))
-          onError?.(new Error(errorEvent.error?.message || errorEvent.error?.type || 'Server error'))
-          break
-
-        default:
-          // Log unknown events for debugging
-          if (eventType && !eventType.includes('delta')) {
-            console.log('Unhandled event:', eventType)
-          }
-      }
-    },
-    [onTranscript, onAIResponse, onError, updateState, onEndCommand]
-  )
+  }, [isSupported, getSession, updateState, handleServerEvent])
 
   // Disconnect and cleanup
   const disconnect = useCallback(() => {

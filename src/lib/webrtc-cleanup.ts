@@ -176,6 +176,29 @@ export function hasActiveConnection(): boolean {
   )
 }
 
+// Force stop all microphone tracks (emergency cleanup)
+export function stopAllMicrophones() {
+  console.log('[WebRTC Cleanup] Force stopping all microphones')
+
+  // Stop all tracked media streams
+  allMediaStreams.forEach((stream) => {
+    stream.getTracks().forEach((track) => {
+      if (track.kind === 'audio') {
+        console.log(`[WebRTC Cleanup] Force stopping mic track: readyState=${track.readyState}`)
+        track.stop()
+      }
+    })
+  })
+
+  if (activeMediaStream) {
+    activeMediaStream.getTracks().forEach((track) => {
+      if (track.kind === 'audio') {
+        track.stop()
+      }
+    })
+  }
+}
+
 // Get connection state for debugging
 export function getConnectionState(): string {
   if (!activePeerConnection) return 'none'

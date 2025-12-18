@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRealtimeVoice, type RealtimeState } from '@/hooks/useRealtimeVoice'
 import { MicrophoneIcon, StopIcon, PhoneXMarkIcon } from '@heroicons/react/24/solid'
 import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
-import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
+import { cleanupWebRTC, stopAllMicrophones } from '@/lib/webrtc-cleanup'
 
 interface RealtimeSessionProps {
   onComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void
@@ -87,27 +87,40 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   }, [realtime])
 
   const handleDisconnect = useCallback(() => {
+    console.log('[RealtimeSession] handleDisconnect called')
+
     // Prevent reconnection
     isDisconnecting.current = true
+
+    // FIRST: Stop microphones immediately (user feedback is important)
+    stopAllMicrophones()
 
     // Interrupt any ongoing AI response
     realtime.interrupt()
 
-    // Disconnect immediately (no setTimeout to avoid race conditions)
+    // Disconnect WebRTC connection
     realtime.disconnect()
 
-    // Extra safety: call global cleanup
+    // Full cleanup
     cleanupWebRTC()
 
-    // Export conversation
-    if (transcripts.length > 0 && onComplete) {
-      onComplete(
-        transcripts.map((t) => ({
-          role: t.role,
-          content: t.content,
-        }))
-      )
-    }
+    // Small delay to ensure all resources are released before proceeding
+    setTimeout(() => {
+      // Double-check cleanup
+      stopAllMicrophones()
+      cleanupWebRTC()
+
+      // Export conversation
+      if (transcripts.length > 0 && onComplete) {
+        console.log('[RealtimeSession] Calling onComplete with', transcripts.length, 'messages')
+        onComplete(
+          transcripts.map((t) => ({
+            role: t.role,
+            content: t.content,
+          }))
+        )
+      }
+    }, 300)
   }, [realtime, transcripts, onComplete])
 
   // Update ref for voice command callback
@@ -124,7 +137,9 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   // Cleanup on unmount - disconnect when navigating away
   useEffect(() => {
     return () => {
+      console.log('[RealtimeSession] Unmounting, cleaning up')
       isDisconnecting.current = true
+      stopAllMicrophones()
       disconnectRef.current()
       cleanupWebRTC()
     }
