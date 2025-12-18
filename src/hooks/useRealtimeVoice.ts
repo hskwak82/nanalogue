@@ -177,21 +177,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           })
         )
         updateState('connected')
-
-        // AI greets first
-        setTimeout(() => {
-          if (dc.readyState === 'open') {
-            dc.send(
-              JSON.stringify({
-                type: 'response.create',
-                response: {
-                  modalities: ['text', 'audio'],
-                  instructions: '사용자에게 따뜻하게 인사하고, 오늘 하루 어땠는지 물어봐주세요. 한국어로 짧게 인사해주세요.',
-                },
-              })
-            )
-          }
-        }, 500)
+        // Connection ready, wait for startConversation() to trigger AI greeting
       }
 
       dc.onmessage = (event) => {
@@ -394,6 +380,24 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     )
   }, [])
 
+  // Start conversation - trigger AI greeting
+  const startConversation = useCallback(() => {
+    if (!dataChannelRef.current || dataChannelRef.current.readyState !== 'open') {
+      console.warn('Data channel not ready for conversation start')
+      return
+    }
+
+    dataChannelRef.current.send(
+      JSON.stringify({
+        type: 'response.create',
+        response: {
+          modalities: ['text', 'audio'],
+          instructions: '사용자에게 따뜻하게 인사하고, 오늘 하루 어땠는지 물어봐주세요. 한국어로 짧게 인사해주세요.',
+        },
+      })
+    )
+  }, [])
+
   // Cleanup on unmount - use ref to avoid dependency issues
   useEffect(() => {
     return () => {
@@ -424,12 +428,14 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     state,
     isSupported,
     isConnected: state !== 'idle' && state !== 'error',
+    isReady: state === 'connected',
     isListening: state === 'listening',
     isSpeaking: state === 'speaking',
     userTranscript,
     aiTranscript,
     connect,
     disconnect,
+    startConversation,
     sendMessage,
     interrupt,
   }
