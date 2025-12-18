@@ -180,15 +180,21 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   }
 
   if (!realtime.isSupported) {
+    const isSecure = typeof window !== 'undefined' && window.isSecureContext
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
         <div className="text-center space-y-4">
           <div className="text-6xl">🎤</div>
           <h2 className="text-xl font-semibold text-gray-900">
-            실시간 대화를 지원하지 않는 브라우저입니다
+            {isSecure
+              ? '실시간 대화를 지원하지 않는 브라우저입니다'
+              : '보안 연결(HTTPS)이 필요합니다'}
           </h2>
           <p className="text-gray-500">
-            Chrome, Edge, Safari 최신 버전을 사용해주세요.
+            {isSecure
+              ? 'Chrome, Edge, Safari 최신 버전을 사용해주세요.'
+              : '마이크 접근을 위해 HTTPS 연결이 필요합니다. 데스크톱에서 localhost로 접속하거나 HTTPS를 사용해주세요.'}
           </p>
         </div>
       </div>

@@ -75,15 +75,23 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
 
-  // Check browser support
+  // Check browser support (requires HTTPS or localhost for mediaDevices)
   useEffect(() => {
     const supported =
       typeof window !== 'undefined' &&
       'RTCPeerConnection' in window &&
-      'mediaDevices' in navigator &&
-      'getUserMedia' in navigator.mediaDevices
+      typeof navigator !== 'undefined' &&
+      navigator.mediaDevices !== undefined &&
+      typeof navigator.mediaDevices.getUserMedia === 'function'
 
     setIsSupported(supported)
+
+    if (!supported && typeof window !== 'undefined') {
+      // Check if it's a secure context issue
+      if (!window.isSecureContext) {
+        console.warn('[useRealtimeVoice] Not in secure context. HTTPS required for microphone access.')
+      }
+    }
   }, [])
 
   // Update state with callback
@@ -176,6 +184,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       }
 
       // Get microphone access
+      // Check if mediaDevices is available (requires HTTPS or localhost)
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('마이크 접근이 불가능합니다. HTTPS 연결이 필요합니다.')
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 24000,
