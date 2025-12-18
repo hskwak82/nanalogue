@@ -557,7 +557,7 @@ function CustomizePageContent() {
               <div className="flex flex-col items-start gap-4">
                 {/* Paper + Spine side by side */}
                 <div className="flex items-start">
-                  <div className="relative flex flex-col items-center" style={{ width: 320 }}>
+                  <div className="relative flex flex-col items-center" style={{ width: 300 }}>
                     <PaperEditor
                       template={state.selectedPaper}
                       decorations={state.paperDecorations}

@@ -16,6 +16,7 @@
   --pastel-mint-light: #D4E8E0;
   --pastel-blue: #B8D4E3;
   --pastel-blue-light: #D4E8F5;
+  --pastel-lavender: #D8D0E8;
   --pastel-cream: #FAF8F5;
   --pastel-warm: #F5F0E8;
 }
@@ -38,6 +39,7 @@
   --color-pastel-mint-light: var(--pastel-mint-light);
   --color-pastel-blue: var(--pastel-blue);
   --color-pastel-blue-light: var(--pastel-blue-light);
+  --color-pastel-lavender: var(--pastel-lavender);
   --color-pastel-cream: var(--pastel-cream);
   --color-pastel-warm: var(--pastel-warm);
 }
