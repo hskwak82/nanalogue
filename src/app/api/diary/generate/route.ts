@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
-import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import type { ConversationMessage } from '@/types/database'
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 export async function POST(request: Request) {
   try {
@@ -48,16 +43,34 @@ export async function POST(request: Request) {
   "tomorrow_plan": "내일 계획이나 다짐"
 }`
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `다음 대화를 바탕으로 오늘의 일기를 작성해주세요:\n\n${conversationText}` },
-      ],
-      response_format: { type: 'json_object' },
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `다음 대화를 바탕으로 오늘의 일기를 작성해주세요:\n\n${conversationText}` },
+        ],
+        response_format: { type: 'json_object' },
+      }),
     })
 
-    let diaryContent = response.choices[0]?.message?.content
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`OpenAI API error: ${error}`)
+    }
+
+    const data = await response.json()
+    let diaryContent = data.choices?.[0]?.message?.content
 
     if (!diaryContent) {
       throw new Error('Failed to generate diary content')
