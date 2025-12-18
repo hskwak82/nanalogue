@@ -41,7 +41,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSupported, setIsSupported] = useState(true)
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
-  const [audioLevel, setAudioLevel] = useState<number[]>(new Array(32).fill(0))
+  const [audioLevel, setAudioLevel] = useState<number[]>(new Array(64).fill(0))
 
   // ========================================
   // REFS FOR CALLBACKS - 항상 최신 버전 유지
@@ -125,6 +125,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
       case 'input_audio_buffer.speech_started':
         updateState('listening')
+        // Signal that we're waiting for user transcript (isFinal=false)
+        onTranscriptRef.current?.('', false)
         break
 
       case 'input_audio_buffer.speech_stopped':
@@ -287,8 +289,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       try {
         const audioContext = new AudioContext()
         const analyser = audioContext.createAnalyser()
-        analyser.fftSize = 64
-        analyser.smoothingTimeConstant = 0.8
+        analyser.fftSize = 256  // More samples for smoother waveform
+        analyser.smoothingTimeConstant = 0.3  // Less smoothing for responsive waveform
 
         const source = audioContext.createMediaStreamSource(stream)
         source.connect(analyser)
@@ -296,18 +298,26 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         audioContextRef.current = audioContext
         analyserRef.current = analyser
 
-        // Start animation loop for audio levels
+        // Start animation loop for audio waveform (time-domain data)
         const updateAudioLevel = () => {
           if (!analyserRef.current || isEndingRef.current) {
             return
           }
 
-          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
-          analyserRef.current.getByteFrequencyData(dataArray)
+          // Use time-domain data for oscilloscope-style waveform
+          const dataArray = new Uint8Array(analyserRef.current.fftSize)
+          analyserRef.current.getByteTimeDomainData(dataArray)
 
-          // Normalize to 0-1 range and update state
-          const levels = Array.from(dataArray).map(v => v / 255)
-          setAudioLevel(levels)
+          // Sample 64 points for visualization, normalize to -1 to 1 range
+          const samples = 64
+          const step = Math.floor(dataArray.length / samples)
+          const waveform: number[] = []
+          for (let i = 0; i < samples; i++) {
+            const value = dataArray[i * step]
+            // Convert from 0-255 to -1 to 1 range (128 is center/silence)
+            waveform.push((value - 128) / 128)
+          }
+          setAudioLevel(waveform)
 
           animationFrameRef.current = requestAnimationFrame(updateAudioLevel)
         }
@@ -432,7 +442,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       audioContextRef.current = null
     }
     analyserRef.current = null
-    setAudioLevel(new Array(32).fill(0))
+    setAudioLevel(new Array(64).fill(0))
 
     // First, cancel any ongoing AI response via data channel
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {

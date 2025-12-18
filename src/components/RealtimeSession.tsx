@@ -32,6 +32,10 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
   // Track if disconnect was triggered (to prevent reconnection)
   const isDisconnecting = useRef(false)
 
+  // Track pending AI response to ensure correct ordering (user message before AI response)
+  const pendingAIResponse = useRef<string | null>(null)
+  const waitingForUserTranscript = useRef(false)
+
   const realtime = useRealtimeVoice({
     onTranscript: (text, isFinal) => {
       console.log('[RealtimeSession] onTranscript:', { text, isFinal, isDisconnecting: isDisconnecting.current })
@@ -39,13 +43,26 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
       if (isDisconnecting.current) return
 
       if (isFinal && text.trim()) {
+        // Add user message first
         setTranscripts((prev) => [
           ...prev,
           { role: 'user', content: text, timestamp: new Date() },
         ])
         setCurrentUserText('')
+        waitingForUserTranscript.current = false
+
+        // Now add any pending AI response that was waiting
+        if (pendingAIResponse.current) {
+          const aiText = pendingAIResponse.current
+          pendingAIResponse.current = null
+          setTranscripts((prev) => [
+            ...prev,
+            { role: 'assistant', content: aiText, timestamp: new Date() },
+          ])
+        }
       } else {
         setCurrentUserText(text)
+        waitingForUserTranscript.current = true
       }
     },
     onAIResponse: (text) => {
@@ -53,10 +70,15 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
       if (isDisconnecting.current) return
 
       if (text.trim()) {
-        setTranscripts((prev) => [
-          ...prev,
-          { role: 'assistant', content: text, timestamp: new Date() },
-        ])
+        // If we're waiting for user transcript, queue the AI response
+        if (waitingForUserTranscript.current) {
+          pendingAIResponse.current = text
+        } else {
+          setTranscripts((prev) => [
+            ...prev,
+            { role: 'assistant', content: text, timestamp: new Date() },
+          ])
+        }
       }
       setCurrentAIText('')
     },
@@ -376,28 +398,51 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
         {/* Current User Speech - show when listening or has interim text */}
         {(realtime.isListening || currentUserText) && (
           <div className="flex justify-end">
-            <div className="max-w-[80%] rounded-2xl rounded-br-md px-4 py-3 bg-pastel-purple/70 text-white">
+            <div className="min-w-[280px] max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 bg-pastel-purple/70 text-white">
               {currentUserText ? (
                 <p className="whitespace-pre-wrap">{currentUserText}</p>
               ) : (
-                <div className="flex items-center gap-2">
-                  {/* Real-time audio waveform */}
-                  <div className="flex items-center gap-0.5 h-6">
-                    {realtime.audioLevel.slice(0, 16).map((level, i) => (
-                      <div
-                        key={i}
-                        className="w-1 bg-white/90 rounded-full transition-all duration-75"
-                        style={{
-                          height: `${Math.max(15, level * 100)}%`,
-                          opacity: 0.5 + level * 0.5,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-sm ml-1">듣는 중...</span>
+                <div className="flex flex-col gap-2">
+                  {/* Real-time oscilloscope waveform */}
+                  <svg
+                    viewBox="0 0 256 64"
+                    className="w-full h-12"
+                    preserveAspectRatio="none"
+                  >
+                    {/* Waveform path */}
+                    <path
+                      d={`M 0 32 ${realtime.audioLevel.map((v, i) =>
+                        `L ${(i / realtime.audioLevel.length) * 256} ${32 - v * 28}`
+                      ).join(' ')}`}
+                      fill="none"
+                      stroke="rgba(255,255,255,0.9)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {/* Glow effect */}
+                    <path
+                      d={`M 0 32 ${realtime.audioLevel.map((v, i) =>
+                        `L ${(i / realtime.audioLevel.length) * 256} ${32 - v * 28}`
+                      ).join(' ')}`}
+                      fill="none"
+                      stroke="rgba(255,255,255,0.4)"
+                      strokeWidth="6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    {/* Center line */}
+                    <line
+                      x1="0" y1="32" x2="256" y2="32"
+                      stroke="rgba(255,255,255,0.2)"
+                      strokeWidth="1"
+                      strokeDasharray="4 4"
+                    />
+                  </svg>
+                  <span className="text-sm text-center">듣는 중...</span>
                 </div>
               )}
-              <p className="text-xs mt-1 text-pastel-purple-light">
+              <p className="text-xs mt-1 text-pastel-purple-light text-right">
                 {currentUserText ? '말하는 중...' : '음성 인식 중'}
               </p>
             </div>
