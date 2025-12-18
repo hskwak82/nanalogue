@@ -29,7 +29,21 @@ interface PaperTemplate {
   is_active: boolean
 }
 
-type TemplateType = 'cover' | 'paper'
+interface SpineTemplate {
+  id: string
+  name: string
+  background: string
+  top_band_color: string | null
+  top_band_height: string | null
+  bottom_band_color: string | null
+  bottom_band_height: string | null
+  text_color: string
+  is_free: boolean
+  sort_order: number
+  is_active: boolean
+}
+
+type TemplateType = 'cover' | 'paper' | 'spine'
 
 function CoverTemplatePreview({ template }: { template: CoverTemplate }) {
   const imageUrl = template.thumbnail_url || template.image_url
@@ -142,11 +156,59 @@ function PaperTemplatePreview({ template }: { template: PaperTemplate }) {
   )
 }
 
+function SpineTemplatePreview({ template }: { template: SpineTemplate }) {
+  return (
+    <div
+      className="w-full h-full relative flex items-center justify-center"
+      style={{ background: template.background }}
+    >
+      {/* Top band */}
+      {template.top_band_color && template.top_band_height && (
+        <div
+          className="absolute top-0 left-0 right-0"
+          style={{
+            backgroundColor: template.top_band_color,
+            height: template.top_band_height,
+          }}
+        />
+      )}
+
+      {/* Title preview */}
+      <span
+        className="text-xs font-medium text-center"
+        style={{
+          color: template.text_color,
+          writingMode: 'vertical-rl',
+          textOrientation: 'upright',
+        }}
+      >
+        {template.name.slice(0, 4)}
+      </span>
+
+      {/* Bottom band */}
+      {template.bottom_band_color && template.bottom_band_height && (
+        <div
+          className="absolute bottom-0 left-0 right-0"
+          style={{
+            backgroundColor: template.bottom_band_color,
+            height: template.bottom_band_height,
+          }}
+        />
+      )}
+
+      {/* Edge effects */}
+      <div className="absolute left-0 top-0 bottom-0 w-[1px]" style={{ background: 'rgba(0,0,0,0.1)' }} />
+      <div className="absolute right-0 top-0 bottom-0 w-[1px]" style={{ background: 'rgba(255,255,255,0.2)' }} />
+    </div>
+  )
+}
+
 export default function AdminTemplatesPage() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<TemplateType>('cover')
   const [coverTemplates, setCoverTemplates] = useState<CoverTemplate[]>([])
   const [paperTemplates, setPaperTemplates] = useState<PaperTemplate[]>([])
+  const [spineTemplates, setSpineTemplates] = useState<SpineTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -157,8 +219,10 @@ export default function AdminTemplatesPage() {
       const data = await response.json()
       if (type === 'cover') {
         setCoverTemplates(data.templates)
-      } else {
+      } else if (type === 'paper') {
         setPaperTemplates(data.templates)
+      } else {
+        setSpineTemplates(data.templates)
       }
     } catch (error) {
       console.error('Error fetching templates:', error)
@@ -167,9 +231,11 @@ export default function AdminTemplatesPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([fetchTemplates('cover'), fetchTemplates('paper')]).finally(() =>
-      setLoading(false)
-    )
+    Promise.all([
+      fetchTemplates('cover'),
+      fetchTemplates('paper'),
+      fetchTemplates('spine'),
+    ]).finally(() => setLoading(false))
   }, [])
 
   const togglePremium = async (id: string, type: TemplateType, currentIsFree: boolean) => {
@@ -219,7 +285,18 @@ export default function AdminTemplatesPage() {
     }
   }
 
-  const templates = activeTab === 'cover' ? coverTemplates : paperTemplates
+  const getTemplates = () => {
+    switch (activeTab) {
+      case 'cover':
+        return coverTemplates
+      case 'paper':
+        return paperTemplates
+      case 'spine':
+        return spineTemplates
+    }
+  }
+
+  const templates = getTemplates()
 
   if (loading) {
     return (
@@ -253,10 +330,24 @@ export default function AdminTemplatesPage() {
         >
           속지 템플릿 ({paperTemplates.length})
         </button>
+        <button
+          onClick={() => setActiveTab('spine')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            activeTab === 'spine'
+              ? 'border-indigo-500 text-indigo-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          책등 템플릿 ({spineTemplates.length})
+        </button>
       </div>
 
       {/* Templates Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${
+        activeTab === 'spine'
+          ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+          : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+      }`}>
         {templates.map((template) => (
           <div
             key={template.id}
@@ -265,18 +356,24 @@ export default function AdminTemplatesPage() {
             }`}
           >
             {/* Thumbnail */}
-            <div className="aspect-[3/4] bg-gray-100 rounded-lg mb-3 overflow-hidden">
+            <div
+              className={`bg-gray-100 rounded-lg mb-3 overflow-hidden ${
+                activeTab === 'spine' ? 'aspect-[1/3]' : 'aspect-[3/4]'
+              }`}
+            >
               {activeTab === 'cover' ? (
                 <CoverTemplatePreview template={template as CoverTemplate} />
-              ) : (
+              ) : activeTab === 'paper' ? (
                 <PaperTemplatePreview template={template as PaperTemplate} />
+              ) : (
+                <SpineTemplatePreview template={template as SpineTemplate} />
               )}
             </div>
 
             {/* Info */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900 truncate">{template.name}</h3>
+                <h3 className="font-medium text-gray-900 truncate text-sm">{template.name}</h3>
                 <div className="flex gap-1">
                   <span
                     className={`px-2 py-0.5 text-xs rounded-full ${
@@ -295,20 +392,20 @@ export default function AdminTemplatesPage() {
                 <button
                   onClick={() => togglePremium(template.id, activeTab, template.is_free)}
                   disabled={saving}
-                  className="flex-1 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 px-2 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50"
                 >
-                  {template.is_free ? '프리미엄으로' : '무료로'}
+                  {template.is_free ? '프리미엄' : '무료'}
                 </button>
                 <button
                   onClick={() => toggleActive(template.id, activeTab, template.is_active)}
                   disabled={saving}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg ${
+                  className={`px-2 py-1.5 text-xs font-medium rounded-lg ${
                     template.is_active
                       ? 'bg-red-50 text-red-600 hover:bg-red-100'
                       : 'bg-green-50 text-green-600 hover:bg-green-100'
                   } disabled:opacity-50`}
                 >
-                  {template.is_active ? '비활성화' : '활성화'}
+                  {template.is_active ? '비활성' : '활성'}
                 </button>
               </div>
 
@@ -321,7 +418,7 @@ export default function AdminTemplatesPage() {
                   onChange={(e) =>
                     updateSortOrder(template.id, activeTab, parseInt(e.target.value) || 0)
                   }
-                  className="w-16 px-2 py-1 border border-gray-200 rounded text-center"
+                  className="w-14 px-2 py-1 border border-gray-200 rounded text-center text-xs"
                 />
               </div>
             </div>

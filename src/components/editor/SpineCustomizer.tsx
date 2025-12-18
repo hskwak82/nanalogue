@@ -1,8 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { SPINE_PRESETS, SpinePreset, DEFAULT_SPINE_PRESET_ID, FREE_SPINE_PRESETS, PREMIUM_SPINE_PRESETS } from '@/types/spine'
 import { getSpinePreset, getSpineBackgroundStyle, getSpineBandStyles } from '@/lib/spine-renderer'
+
+interface SpineTemplateFromDB {
+  id: string
+  name: string
+  background: string
+  top_band_color: string | null
+  top_band_height: string | null
+  bottom_band_color: string | null
+  bottom_band_height: string | null
+  text_color: string
+  is_free: boolean
+  sort_order: number
+}
 
 interface SpineCustomizerProps {
   selectedPresetId: string | null
@@ -16,6 +29,23 @@ interface SpineCustomizerProps {
 // Large spine preview dimensions (matches cover height of 400px)
 const LARGE_PREVIEW_HEIGHT = 400
 const LARGE_PREVIEW_WIDTH = 48
+
+// Convert DB template to SpinePreset format
+function dbTemplateToPreset(template: SpineTemplateFromDB): SpinePreset {
+  return {
+    id: template.id,
+    name: template.name,
+    background: template.background,
+    textColor: template.text_color,
+    topBand: template.top_band_color && template.top_band_height
+      ? { color: template.top_band_color, height: template.top_band_height }
+      : undefined,
+    bottomBand: template.bottom_band_color && template.bottom_band_height
+      ? { color: template.bottom_band_color, height: template.bottom_band_height }
+      : undefined,
+    isPremium: !template.is_free,
+  }
+}
 
 // Spine preview component (large version for spine tab)
 function LargeSpinePreview({ preset, title }: { preset: SpinePreset; title: string }) {
@@ -127,8 +157,45 @@ export function SpineCustomizer({
   selectorMode,
   isPremium = false,
 }: SpineCustomizerProps) {
-  const selectedPreset = getSpinePreset(selectedPresetId)
   const [activeCategory, setActiveCategory] = useState<'free' | 'premium'>('free')
+  const [dbTemplates, setDbTemplates] = useState<SpinePreset[] | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Load templates from database
+  useEffect(() => {
+    async function loadTemplates() {
+      setIsLoading(true)
+      try {
+        const response = await fetch('/api/spine-templates')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.templates && data.templates.length > 0) {
+            const presets = data.templates.map(dbTemplateToPreset)
+            setDbTemplates(presets)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading spine templates:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadTemplates()
+  }, [])
+
+  // Use DB templates if available, otherwise fallback to static
+  const allPresets = dbTemplates || SPINE_PRESETS
+  const freePresets = dbTemplates
+    ? dbTemplates.filter(p => !p.isPremium)
+    : FREE_SPINE_PRESETS
+  const premiumPresets = dbTemplates
+    ? dbTemplates.filter(p => p.isPremium)
+    : PREMIUM_SPINE_PRESETS
+
+  // Get selected preset
+  const selectedPreset = dbTemplates
+    ? (dbTemplates.find(p => p.id === selectedPresetId) || dbTemplates[0] || getSpinePreset(selectedPresetId))
+    : getSpinePreset(selectedPresetId)
 
   // Large preview mode only (left side of spine tab)
   if (previewMode === 'large') {
@@ -142,7 +209,7 @@ export function SpineCustomizer({
 
   // Selector mode (right side of spine tab, similar to template selectors)
   if (selectorMode) {
-    const presetsToShow = activeCategory === 'free' ? FREE_SPINE_PRESETS : PREMIUM_SPINE_PRESETS
+    const presetsToShow = activeCategory === 'free' ? freePresets : premiumPresets
 
     return (
       <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
@@ -158,7 +225,7 @@ export function SpineCustomizer({
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            무료 ({FREE_SPINE_PRESETS.length})
+            무료 ({freePresets.length})
           </button>
           <button
             onClick={() => setActiveCategory('premium')}
@@ -168,22 +235,28 @@ export function SpineCustomizer({
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            ✨ 프리미엄 ({PREMIUM_SPINE_PRESETS.length})
+            ✨ 프리미엄 ({premiumPresets.length})
           </button>
         </div>
 
         {/* Preset grid */}
-        <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
-          {presetsToShow.map((preset) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              selected={selectedPresetId === preset.id || (!selectedPresetId && preset.id === DEFAULT_SPINE_PRESET_ID)}
-              onClick={() => onChange(preset.id)}
-              disabled={preset.isPremium && !isPremium}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-pastel-purple"></div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
+            {presetsToShow.map((preset) => (
+              <PresetCard
+                key={preset.id}
+                preset={preset}
+                selected={selectedPresetId === preset.id || (!selectedPresetId && preset.id === DEFAULT_SPINE_PRESET_ID)}
+                onClick={() => onChange(preset.id)}
+                disabled={preset.isPremium && !isPremium}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Premium notice */}
         {activeCategory === 'premium' && !isPremium && (
@@ -196,8 +269,6 @@ export function SpineCustomizer({
   }
 
   // Default: compact mode (original behavior - preview + small grid)
-  const allPresets = [...FREE_SPINE_PRESETS, ...PREMIUM_SPINE_PRESETS]
-
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-gray-700">책등 꾸미기</h3>
