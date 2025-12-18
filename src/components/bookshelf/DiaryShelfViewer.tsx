@@ -6,15 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
 import { useSpineCalculations } from './hooks/useSpineCalculations'
-import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
+import { BOOKSHELF_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
 
-// Calculate bookshelf spine dimensions based on print ratio
-// Spine height 140px, aspect ratio 0.72, spine ratio 6.67%
+// Calculate bookshelf spine dimensions for display
+// Spine height 140px, aspect ratio 0.72, display ratio 30% (wider than print for readability)
 const BOOKSHELF_SPINE_HEIGHT = 140
-const BOOKSHELF_SPINE_WIDTH = Math.max(
-  14, // Minimum width for usability
-  Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO)
-)
+const BOOKSHELF_SPINE_WIDTH = Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * BOOKSHELF_SPINE_WIDTH_RATIO)
 
 interface DiaryShelfViewerProps {
   diaries: DiaryWithTemplates[]
@@ -53,14 +50,14 @@ function MiniSpine({
   const { textColor } = useSpineCalculations(diary)
   const title = diary.title || `${diary.volume_number}권`
 
-  // Get spine style - crop cover image at spine_position
+  // Get spine style - stretch cover image to fill spine container
   const getSpineStyle = () => {
-    // 1. First priority: crop cover image at spine_position
+    // 1. First priority: stretch cover image to fill spine (uses spine_position for horizontal offset)
     if (diary.cover_image_url) {
       const spinePosition = diary.spine_position ?? 0
       return {
         backgroundImage: `url(${diary.cover_image_url})`,
-        backgroundSize: 'auto 100%',
+        backgroundSize: 'cover',
         backgroundPosition: `${spinePosition}% center`,
       }
     }
@@ -76,7 +73,7 @@ function MiniSpine({
         case 'image':
           return {
             backgroundImage: `url(${parsed.value})`,
-            backgroundSize: 'auto 100%',
+            backgroundSize: 'cover',
             backgroundPosition: 'left center',
           }
       }
@@ -98,12 +95,9 @@ function MiniSpine({
     <motion.div
       layoutId={`diary-spine-${diary.id}`}
       animate={{
-        y: isSelected ? -10 : 0,
-        scale: isSelected ? 1.1 : 1,
-        rotateY: isSelected ? -12 : 0,
-        z: isSelected ? 30 : 0,
+        y: isSelected ? 0 : 8,
       }}
-      whileHover={!isSelected ? { scale: 1.05, y: -3 } : undefined}
+      whileHover={!isSelected ? { y: 0 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={`relative cursor-pointer rounded-sm flex-shrink-0 overflow-hidden ${

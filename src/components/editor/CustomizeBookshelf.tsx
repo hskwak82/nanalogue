@@ -5,15 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
 import { useSpineCalculations } from '@/components/bookshelf/hooks/useSpineCalculations'
-import { DISPLAY_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
+import { BOOKSHELF_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
 
-// Calculate bookshelf spine dimensions based on print ratio
-// Spine height 140px, aspect ratio 0.72, spine ratio 6.67%
+// Calculate bookshelf spine dimensions for display
+// Spine height 140px, aspect ratio 0.72, display ratio 30% (wider than print for readability)
 const BOOKSHELF_SPINE_HEIGHT = 140
-const BOOKSHELF_SPINE_WIDTH = Math.max(
-  14, // Minimum width for usability
-  Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * DISPLAY_SPINE_WIDTH_RATIO)
-)
+const BOOKSHELF_SPINE_WIDTH = Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PRINT_ASPECT_RATIO * BOOKSHELF_SPINE_WIDTH_RATIO)
 
 interface CustomizeBookshelfProps {
   diaries: DiaryWithTemplates[]
@@ -55,8 +52,18 @@ function MiniSpine({
   // Check if we have a saved cover image to crop
   const hasCoverImage = !!diary.cover_image_url
 
-  // Fallback style when no cover image
-  const getFallbackStyle = () => {
+  // Get spine style - stretch cover image to fill spine container
+  const getSpineStyle = () => {
+    // 1. First priority: stretch cover image to fill spine
+    if (hasCoverImage) {
+      return {
+        backgroundImage: `url(${diary.cover_image_url})`,
+        backgroundSize: 'cover',
+        backgroundPosition: `${spinePosition}% center`,
+      }
+    }
+
+    // 2. Second priority: use cover template
     if (diary.cover_template?.image_url) {
       const parsed = parseImageUrl(diary.cover_template.image_url)
       switch (parsed.type) {
@@ -67,11 +74,13 @@ function MiniSpine({
         case 'image':
           return {
             backgroundImage: `url(${parsed.value})`,
-            backgroundSize: 'auto 100%',
+            backgroundSize: 'cover',
             backgroundPosition: 'left center',
           }
       }
     }
+
+    // 3. Fallback: use spine_gradient or spine_color
     if (diary.spine_gradient) {
       return { background: diary.spine_gradient }
     }
@@ -85,12 +94,9 @@ function MiniSpine({
     <motion.div
       layoutId={`customize-spine-${diary.id}`}
       animate={{
-        y: isSelected ? -10 : 0,
-        scale: isSelected ? 1.1 : 1,
-        rotateY: isSelected ? -12 : 0,
-        z: isSelected ? 30 : 0,
+        y: isSelected ? 0 : 8,
       }}
-      whileHover={!isSelected ? { scale: 1.05, y: -3 } : undefined}
+      whileHover={!isSelected ? { y: 0 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={`relative cursor-pointer rounded-sm flex-shrink-0 overflow-hidden ${
@@ -100,23 +106,9 @@ function MiniSpine({
         width: BOOKSHELF_SPINE_WIDTH,
         height: BOOKSHELF_SPINE_HEIGHT,
         transformStyle: 'preserve-3d',
-        ...(hasCoverImage ? {} : getFallbackStyle()),
+        ...getSpineStyle(),
       }}
     >
-      {/* Crop cover image at spine_position - no extra text rendering */}
-      {hasCoverImage && (
-        <img
-          src={diary.cover_image_url!}
-          alt=""
-          style={{
-            height: '100%',
-            width: 'auto',
-            maxWidth: 'none',
-            display: 'block',
-            transform: `translateX(-${spinePosition}%)`,
-          }}
-        />
-      )}
 
       {/* Active indicator */}
       {isActive && (
