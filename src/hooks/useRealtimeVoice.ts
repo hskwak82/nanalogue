@@ -61,6 +61,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSupported, setIsSupported] = useState(true)
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
+  const [isEnding, setIsEnding] = useState(false)
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
@@ -260,9 +261,21 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           const userText = (event as { transcript?: string }).transcript || ''
           setUserTranscript(userText)
           onTranscript?.(userText, true)
-          // Check for end command keywords
-          if (userText && containsEndCommand(userText)) {
-            onEndCommand?.()
+          // Check for end command keywords (only if not already ending)
+          if (userText && containsEndCommand(userText) && !isEnding) {
+            setIsEnding(true)
+            // Request AI to say closing message
+            if (dataChannelRef.current?.readyState === 'open') {
+              dataChannelRef.current.send(
+                JSON.stringify({
+                  type: 'response.create',
+                  response: {
+                    modalities: ['text', 'audio'],
+                    instructions: '사용자가 대화 종료를 요청했습니다. "네, 오늘 대화를 마무리하고 일기를 작성할게요. 잠시만 기다려주세요." 라고 짧게 말하고 끝내주세요. 다른 말은 하지 마세요.',
+                  },
+                })
+              )
+            }
           }
           break
 
@@ -284,6 +297,10 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         case 'response.done':
           updateState('connected')
           setAiTranscript('')
+          // If ending, trigger the end command callback after AI finishes speaking
+          if (isEnding) {
+            onEndCommand?.()
+          }
           break
 
         case 'error':
@@ -299,7 +316,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           }
       }
     },
-    [onTranscript, onAIResponse, onError, updateState, onEndCommand]
+    [onTranscript, onAIResponse, onError, updateState, onEndCommand, isEnding]
   )
 
   // Disconnect and cleanup

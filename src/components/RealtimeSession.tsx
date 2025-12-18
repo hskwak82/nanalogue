@@ -58,11 +58,8 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
       if (endCommandTriggered.current) return
       endCommandTriggered.current = true
 
-      console.log('End command detected via voice')
-      // Small delay to allow final transcript to be added
-      setTimeout(() => {
-        handleDisconnectRef.current?.()
-      }, 500)
+      console.log('End command: AI finished closing message, disconnecting')
+      handleDisconnectRef.current?.()
     },
   })
 
