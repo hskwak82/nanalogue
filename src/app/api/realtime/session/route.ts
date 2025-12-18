@@ -47,8 +47,9 @@ export async function POST() {
     })
   } catch (error) {
     console.error('Error creating realtime session:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json(
-      { error: 'Failed to create realtime session' },
+      { error: `Failed to create realtime session: ${errorMessage}` },
       { status: 500 }
     )
   }
