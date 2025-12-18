@@ -32,7 +32,7 @@ export function Navigation({ user }: NavigationProps) {
 
   const navItems = [
     { href: '/dashboard', label: '홈', icon: HomeIcon, exact: true },
-    { href: '/session', label: '기록', icon: PencilSquareIcon, exact: false },
+    { href: '/session?entry=true', label: '기록', icon: PencilSquareIcon, exact: false },
     { href: '/diary', label: '일기', icon: BookOpenIcon, exact: false },
   ]
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
@@ -36,7 +36,11 @@ export default function SessionPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Check if accessed via valid entry point
+  const isValidEntry = searchParams.get('entry') === 'true'
 
   // Ref to store sendMessage function for voice callback
   const sendMessageRef = useRef<(text: string) => void>(() => {})
@@ -781,6 +785,30 @@ export default function SessionPage() {
     )
   }
 
+  // Invalid entry - accessed via direct URL or back button
+  if (!isValidEntry) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-6 text-6xl">📝</div>
+          <h1 className="mb-3 text-xl font-bold text-gray-700">
+            잘못된 접근입니다
+          </h1>
+          <p className="mb-6 text-gray-500">
+            일기 기록은 대시보드의 &quot;기록&quot; 버튼을 통해<br />
+            시작해 주세요.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
+          >
+            대시보드로 이동
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Realtime mode - use dedicated component
   if (conversationMode === 'realtime') {
     // Show loading while generating diary
@@ -863,6 +891,7 @@ export default function SessionPage() {
         <div className="flex-1">
           <RealtimeSession
             onComplete={handleRealtimeComplete}
+            autoStart
           />
         </div>
       </div>

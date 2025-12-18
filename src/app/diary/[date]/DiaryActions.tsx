@@ -28,7 +28,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
         .update({ status: 'active', completed_at: null })
         .eq('id', sessionId)
 
-      router.push('/session')
+      router.push('/session?entry=true')
     } catch (error) {
       console.error('Failed to continue session:', error)
       toast.error('대화를 이어가는데 실패했습니다.')
@@ -66,7 +66,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
         .eq('user_id', user.id)
         .eq('session_date', date)
 
-      router.push('/session')
+      router.push('/session?entry=true')
     } catch (error) {
       console.error('Failed to rewrite:', error)
       toast.error('새로 작성하기에 실패했습니다.')

@@ -112,7 +112,7 @@ export default async function DashboardPage() {
                         {todaySession.status === 'completed' ? '완료' : '진행 중'}
                       </span>
                       <Link
-                        href="/session"
+                        href={todaySession.status === 'completed' ? `/diary/${today}` : '/session?entry=true'}
                         className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
                       >
                         {todaySession.status === 'completed'
@@ -125,7 +125,7 @@ export default async function DashboardPage() {
                   <div className="text-center py-4">
                     <p className="mb-4 text-gray-500">아직 오늘의 기록이 없습니다.</p>
                     <Link
-                      href="/session"
+                      href="/session?entry=true"
                       className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
                     >
                       오늘 기록 시작하기

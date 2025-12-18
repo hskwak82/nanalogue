@@ -7,6 +7,7 @@ import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
 
 interface RealtimeSessionProps {
   onComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void
+  autoStart?: boolean
 }
 
 interface TranscriptMessage {
@@ -15,11 +16,12 @@ interface TranscriptMessage {
   timestamp: Date
 }
 
-export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
+export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessionProps) {
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([])
   const [currentUserText, setCurrentUserText] = useState('')
   const [currentAIText, setCurrentAIText] = useState('')
   const [isMuted, setIsMuted] = useState(false)
+  const [autoStartAttempted, setAutoStartAttempted] = useState(false)
   const transcriptsEndRef = useRef<HTMLDivElement>(null)
   const handleDisconnectRef = useRef<(() => void) | null>(null)
 
@@ -99,6 +101,14 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
     setIsMuted(!isMuted)
     // TODO: Actually mute the microphone stream
   }, [isMuted])
+
+  // Auto-start connection when autoStart prop is true
+  useEffect(() => {
+    if (autoStart && !autoStartAttempted && realtime.isSupported && realtime.state === 'idle') {
+      setAutoStartAttempted(true)
+      realtime.connect()
+    }
+  }, [autoStart, autoStartAttempted, realtime])
 
   const getStateLabel = (state: RealtimeState): string => {
     switch (state) {

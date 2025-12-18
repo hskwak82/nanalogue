@@ -135,7 +135,7 @@ export function CalendarWidget({
       } else {
         const today = new Date().toISOString().split('T')[0]
         if (date === today) {
-          router.push('/session')
+          router.push('/session?entry=true')
         }
       }
     } else {
@@ -332,7 +332,7 @@ export function CalendarWidget({
           {/* Quick action for today */}
           {selectedDate === new Date().toISOString().split('T')[0] && !selectedDateDiary && (
             <button
-              onClick={() => router.push('/session')}
+              onClick={() => router.push('/session?entry=true')}
               className="w-full mt-2 text-sm text-pastel-purple hover:text-pastel-purple-dark font-medium"
             >
               오늘 기록 시작하기 →
