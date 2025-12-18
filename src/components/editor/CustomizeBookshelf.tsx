@@ -41,10 +41,12 @@ function parseImageUrl(imageUrl: string): {
 function MiniSpine({
   diary,
   isActive,
+  isSelected,
   onClick
 }: {
   diary: DiaryWithTemplates
   isActive: boolean
+  isSelected: boolean
   onClick: () => void
 }) {
   const { textColor } = useSpineCalculations(diary)
@@ -82,13 +84,22 @@ function MiniSpine({
   return (
     <motion.div
       layoutId={`customize-spine-${diary.id}`}
-      whileHover={{ scale: 1.05, y: -3 }}
+      animate={{
+        y: isSelected ? -10 : 0,
+        scale: isSelected ? 1.1 : 1,
+        rotateY: isSelected ? -12 : 0,
+        z: isSelected ? 30 : 0,
+      }}
+      whileHover={!isSelected ? { scale: 1.05, y: -3 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative cursor-pointer rounded-sm shadow-md flex-shrink-0 overflow-hidden"
+      className={`relative cursor-pointer rounded-sm flex-shrink-0 overflow-hidden ${
+        isSelected ? 'shadow-xl ring-2 ring-pastel-purple z-10' : 'shadow-md'
+      }`}
       style={{
         width: BOOKSHELF_SPINE_WIDTH,
         height: BOOKSHELF_SPINE_HEIGHT,
+        transformStyle: 'preserve-3d',
         ...(hasCoverImage ? {} : getFallbackStyle()),
       }}
     >
@@ -155,9 +166,8 @@ export function CustomizeBookshelf({
   }, [selectedDiaryId])
 
   const displayedDiary = diaries.find(d => d.id === displayedDiaryId)
-  const shelfDiaries = diaries
-    .filter(d => d.id !== displayedDiaryId)
-    .sort((a, b) => a.volume_number - b.volume_number)
+  // Show ALL diaries in shelf (don't filter out the displayed one)
+  const shelfDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
 
   const handleSpineClick = (diary: DiaryWithTemplates) => {
     setDisplayedDiaryId(diary.id)
@@ -234,19 +244,20 @@ export function CustomizeBookshelf({
           </AnimatePresence>
         </div>
 
-        {/* Mini bookshelf with other diaries */}
+        {/* Mini bookshelf with all diaries */}
         {shelfDiaries.length > 0 && (
           <div className="flex-1 relative min-w-0">
             {/* Shelf */}
             <div className="relative pb-3">
               {/* Books - scrollable container */}
-              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2">
-                <div className="flex items-end gap-1 min-h-[160px]">
+              <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4">
+                <div className="flex items-end gap-1 min-h-[160px]" style={{ perspective: '800px' }}>
                   {shelfDiaries.map((diary) => (
                     <MiniSpine
                       key={diary.id}
                       diary={diary}
                       isActive={diary.id === activeDiaryId}
+                      isSelected={diary.id === displayedDiaryId}
                       onClick={() => handleSpineClick(diary)}
                     />
                   ))}
