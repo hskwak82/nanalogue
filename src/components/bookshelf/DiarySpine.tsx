@@ -79,16 +79,16 @@ export function DiarySpine({ diary, index, isSelected, isActive, onClick }: Diar
       >
         {/* Title - vertical text */}
         <span
-          className="font-medium text-[10px] text-center leading-tight drop-shadow-sm"
+          className="font-medium text-[8px] text-center leading-tight drop-shadow-sm"
           style={{
             color: preset.textColor,
             writingMode: 'vertical-rl',
             textOrientation: 'upright',
-            letterSpacing: '0.02em',
+            letterSpacing: '-0.02em',
             textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3)',
           }}
         >
-          {title.length > 10 ? title.slice(0, 10) + '..' : title}
+          {title.length > 14 ? title.slice(0, 14) + '..' : title}
         </span>
       </div>
 

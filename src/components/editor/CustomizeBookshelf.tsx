@@ -73,16 +73,16 @@ function MiniSpine({
       {/* Title - always displayed */}
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
         <span
-          className="text-[11px] font-medium text-center drop-shadow-sm"
+          className="text-[8px] font-medium text-center drop-shadow-sm"
           style={{
             color: preset.textColor,
             writingMode: 'vertical-rl',
             textOrientation: 'upright',
-            letterSpacing: '0.05em',
+            letterSpacing: '-0.02em',
             textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3)',
           }}
         >
-          {title.length > 6 ? title.slice(0, 6) : title}
+          {title.length > 12 ? title.slice(0, 12) + '..' : title}
         </span>
       </div>
     </motion.div>

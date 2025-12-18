@@ -66,16 +66,16 @@ function LargeSpinePreview({ preset, title }: { preset: SpinePreset; title: stri
       {/* Title */}
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
         <span
-          className="text-xs font-medium text-center drop-shadow-sm"
+          className="text-[10px] font-medium text-center drop-shadow-sm"
           style={{
             color: preset.textColor,
             writingMode: 'vertical-rl',
             textOrientation: 'upright',
-            letterSpacing: '0.02em',
+            letterSpacing: '-0.02em',
             textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3)',
           }}
         >
-          {title.length > 12 ? title.slice(0, 12) : title}
+          {title.length > 18 ? title.slice(0, 18) + '..' : title}
         </span>
       </div>
 
