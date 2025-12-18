@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getAdminServiceClient } from '@/lib/admin'
 
 export interface SpineTemplateFromDB {
   id: string
@@ -17,7 +17,7 @@ export interface SpineTemplateFromDB {
 // GET /api/spine-templates - Get active spine templates
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = getAdminServiceClient()
 
     const { data: templates, error } = await supabase
       .from('spine_templates')
