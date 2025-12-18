@@ -242,7 +242,7 @@ export default function AdminTTSPage() {
               type="range"
               min="0.5"
               max="2.0"
-              step="0.1"
+              step="0.05"
               value={speakingRate}
               onChange={(e) => setSpeakingRate(Number(e.target.value))}
               className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
@@ -252,7 +252,7 @@ export default function AdminTTSPage() {
 
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600">
-              현재 속도: <span className="font-semibold text-indigo-600">{speakingRate.toFixed(1)}x</span>
+              현재 속도: <span className="font-semibold text-indigo-600">{speakingRate.toFixed(2)}x</span>
               <span className="ml-2 text-gray-400">({getSpeedLabel(speakingRate)})</span>
             </span>
             <button

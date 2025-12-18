@@ -49,8 +49,9 @@ export class NaverClovaTTSProvider implements TTSProvider {
     const selectedVoice = this.getVoices().find(v => v.id === voice) ? voice : this.getDefaultVoice()
 
     // Naver expects volume as integer: -5 to 5, speed: -5 to 5
+    // Note: Naver API speed is inverted - negative is faster, positive is slower
     const volume = Math.round((options?.volume ?? 0) * 5)
-    const speed = Math.round(((options?.speakingRate ?? 1) - 1) * 5)
+    const speed = Math.round((1 - (options?.speakingRate ?? 1)) * 5)
     const pitch = Math.round((options?.pitch ?? 0) * 5)
 
     const params = new URLSearchParams({
