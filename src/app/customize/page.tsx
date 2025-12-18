@@ -635,9 +635,26 @@ function CustomizePageContent() {
             </>
           ) : activeTab === 'spine' ? (
             <>
-              {/* Left: Spine Preview */}
+              {/* Left: Cover Preview + Spine */}
               <div className="flex flex-col items-start gap-4">
-                <div className="flex items-start">
+                <div className="flex items-start gap-4">
+                  {/* Cover Preview (read-only) */}
+                  <div className="relative" style={{ width: 300 }}>
+                    <CoverEditor
+                      ref={coverEditorRef}
+                      template={state.selectedCover}
+                      decorations={state.coverDecorations}
+                      selectedIndex={null}
+                      onUpdate={() => {}}
+                      onSelect={() => {}}
+                      onRemove={() => {}}
+                      isTextMode={false}
+                      onCanvasClick={() => {}}
+                      onTextDoubleClick={() => {}}
+                    />
+                  </div>
+
+                  {/* Spine Preview */}
                   <SpineCustomizer
                     selectedPresetId={spinePresetId}
                     diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
