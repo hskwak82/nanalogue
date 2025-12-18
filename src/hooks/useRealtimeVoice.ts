@@ -75,6 +75,12 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Initialize WebRTC connection
   const connect = useCallback(async () => {
+    // Prevent duplicate connections
+    if (peerConnectionRef.current || state === 'connecting') {
+      console.log('Already connecting or connected')
+      return
+    }
+
     if (!isSupported) {
       onError?.(new Error('WebRTC is not supported in this browser'))
       return
@@ -141,6 +147,21 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           })
         )
         updateState('connected')
+
+        // AI greets first
+        setTimeout(() => {
+          if (dc.readyState === 'open') {
+            dc.send(
+              JSON.stringify({
+                type: 'response.create',
+                response: {
+                  modalities: ['text', 'audio'],
+                  instructions: '사용자에게 따뜻하게 인사하고, 오늘 하루 어땠는지 물어봐주세요. 한국어로 짧게 인사해주세요.',
+                },
+              })
+            )
+          }
+        }, 500)
       }
 
       dc.onmessage = (event) => {
@@ -323,12 +344,31 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     )
   }, [])
 
-  // Cleanup on unmount
+  // Cleanup on unmount - use ref to avoid dependency issues
   useEffect(() => {
     return () => {
-      disconnect()
+      // Stop media stream
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+      }
+      // Close data channel
+      if (dataChannelRef.current) {
+        dataChannelRef.current.close()
+        dataChannelRef.current = null
+      }
+      // Close peer connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close()
+        peerConnectionRef.current = null
+      }
+      // Remove audio element
+      if (audioElementRef.current) {
+        audioElementRef.current.srcObject = null
+        audioElementRef.current = null
+      }
     }
-  }, [disconnect])
+  }, [])
 
   return {
     state,

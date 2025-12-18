@@ -28,6 +28,8 @@ export default function SessionPage() {
   const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
   const [conversationMode, setConversationMode] = useState<ConversationMode>('classic')
   const [checkingMode, setCheckingMode] = useState(true)
+  const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null)
+  const [realtimeLoading, setRealtimeLoading] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -162,6 +164,105 @@ export default function SessionPage() {
     }
     checkMode()
   }, [])
+
+  // Initialize session for realtime mode
+  useEffect(() => {
+    if (conversationMode !== 'realtime' || realtimeSessionId) return
+
+    async function initRealtimeSession() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      const today = new Date().toISOString().split('T')[0]
+
+      // Check for existing session
+      const { data: existingSession } = await supabase
+        .from('daily_sessions')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('session_date', today)
+        .single()
+
+      if (existingSession) {
+        setRealtimeSessionId(existingSession.id)
+      } else {
+        // Create new session
+        const { data: newSession } = await supabase
+          .from('daily_sessions')
+          .insert({
+            user_id: user.id,
+            session_date: today,
+            status: 'active',
+          })
+          .select()
+          .single()
+
+        if (newSession) {
+          setRealtimeSessionId(newSession.id)
+        }
+      }
+    }
+
+    initRealtimeSession()
+  }, [conversationMode, realtimeSessionId, supabase, router])
+
+  // Handle realtime session complete
+  async function handleRealtimeComplete(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
+    if (!realtimeSessionId) {
+      console.error('No session ID for realtime')
+      router.push('/dashboard')
+      return
+    }
+
+    setRealtimeLoading(true)
+
+    try {
+      // Generate diary
+      const response = await fetch('/api/diary/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: realtimeSessionId,
+          messages,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Diary generation failed:', errorData)
+        router.push('/dashboard')
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update session status
+        await supabase
+          .from('daily_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', realtimeSessionId)
+
+        // Redirect to diary
+        const today = new Date().toISOString().split('T')[0]
+        router.push(`/diary/${today}`)
+      } else {
+        console.error('Diary generation failed:', data.error)
+        router.push('/dashboard')
+      }
+    } catch (error) {
+      console.error('Failed to complete realtime session:', error)
+      router.push('/dashboard')
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }
 
   const initializeSession = useCallback(async () => {
     if (initialized) return
@@ -637,6 +738,16 @@ export default function SessionPage() {
 
   // Realtime mode - use dedicated component
   if (conversationMode === 'realtime') {
+    // Show loading while generating diary
+    if (realtimeLoading) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600">일기를 생성하고 있어요...</p>
+        </div>
+      )
+    }
+
     return (
       <div className="flex min-h-screen flex-col bg-pastel-cream">
         {/* Header */}
@@ -663,11 +774,7 @@ export default function SessionPage() {
         {/* Realtime Session */}
         <div className="flex-1">
           <RealtimeSession
-            onComplete={(messages) => {
-              // TODO: Save conversation and generate diary
-              console.log('Conversation completed:', messages)
-              router.push('/dashboard')
-            }}
+            onComplete={handleRealtimeComplete}
           />
         </div>
       </div>
