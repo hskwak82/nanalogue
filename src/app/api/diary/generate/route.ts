@@ -48,9 +48,19 @@ export async function POST(request: Request) {
 
           const { data: existingEntry } = await client
             .from('diary_entries')
-            .select('id, created_at')
+            .select('id, created_at, diary_id')
             .eq('user_id', user.id)
             .eq('entry_date', today)
+            .single()
+
+          // Get user's active diary for diary_id
+          const { data: activeDiary } = await client
+            .from('diaries')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .order('volume_number', { ascending: false })
+            .limit(1)
             .single()
 
           // Format date/time for diary header
@@ -147,11 +157,14 @@ export async function POST(request: Request) {
           }
 
           if (existingEntry) {
-            await client.from('diary_entries').update(diaryData).eq('id', existingEntry.id)
+            // Update existing entry, also set diary_id if missing
+            const updateData = existingEntry.diary_id ? diaryData : { ...diaryData, diary_id: activeDiary?.id }
+            await client.from('diary_entries').update(updateData).eq('id', existingEntry.id)
           } else {
             await client.from('diary_entries').insert({
               user_id: user.id,
               entry_date: today,
+              diary_id: activeDiary?.id,
               ...diaryData,
             })
           }
