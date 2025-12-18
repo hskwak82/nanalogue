@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
@@ -10,8 +10,22 @@ import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 import type { ConversationMode } from '@/lib/realtime/types'
+import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
 
+// Wrapper component to handle Suspense boundary for useSearchParams
 export default function SessionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pastel-purple"></div>
+      </div>
+    }>
+      <SessionPageContent />
+    </Suspense>
+  )
+}
+
+function SessionPageContent() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -152,6 +166,12 @@ export default function SessionPage() {
     }
     wasSpeakingRef.current = tts.isSpeaking
   }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
+
+  // Clean up any lingering audio/media on mount (from previous sessions)
+  useEffect(() => {
+    console.log('[Session Page] Cleaning up WebRTC on mount')
+    cleanupWebRTC()
+  }, [])
 
   // Check conversation mode on mount
   useEffect(() => {

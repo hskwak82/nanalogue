@@ -2,6 +2,12 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { RealtimeVoice } from '@/lib/realtime/types'
+import {
+  registerPeerConnection,
+  registerAudioElement,
+  registerMediaStream,
+  cleanupWebRTC,
+} from '@/lib/webrtc-cleanup'
 
 interface RealtimeSession {
   token: string
@@ -110,9 +116,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       return
     }
 
-    // Clean up any existing connection first
+    // Clean up any existing connection first (both local refs and global)
+    console.log('Cleaning up existing connections before connecting')
+    cleanupWebRTC()
+
     if (peerConnectionRef.current || audioElementRef.current || mediaStreamRef.current) {
-      console.log('Cleaning up existing connection before reconnecting')
       // Stop media stream
       if (mediaStreamRef.current) {
         mediaStreamRef.current.getTracks().forEach((track) => track.stop())
@@ -151,11 +159,13 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       // Create peer connection
       const pc = new RTCPeerConnection()
       peerConnectionRef.current = pc
+      registerPeerConnection(pc)
 
       // Set up audio element for AI responses
       const audioEl = document.createElement('audio')
       audioEl.autoplay = true
       audioElementRef.current = audioEl
+      registerAudioElement(audioEl)
 
       // Handle incoming audio track
       pc.ontrack = (event) => {
@@ -172,6 +182,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         },
       })
       mediaStreamRef.current = stream
+      registerMediaStream(stream)
 
       // Add audio track to peer connection
       stream.getTracks().forEach((track) => {
@@ -344,6 +355,12 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Disconnect and cleanup
   const disconnect = useCallback(() => {
+    console.log('[useRealtimeVoice] Disconnecting')
+
+    // Use global cleanup first
+    cleanupWebRTC()
+
+    // Also clean up local refs
     // Stop media stream
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop())
@@ -364,6 +381,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     // Remove audio element
     if (audioElementRef.current) {
+      audioElementRef.current.pause()
       audioElementRef.current.srcObject = null
       audioElementRef.current = null
     }
@@ -437,6 +455,12 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Cleanup function for both unmount and page unload
   const cleanup = useCallback(() => {
+    console.log('[useRealtimeVoice] Cleanup triggered')
+
+    // Use global cleanup
+    cleanupWebRTC()
+
+    // Also clean up local refs
     // Stop media stream
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => track.stop())
