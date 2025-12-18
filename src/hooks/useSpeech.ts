@@ -283,7 +283,12 @@ export function useSTT(options: UseSTTOptions = {}) {
     }
 
     recognitionRef.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error)
+      // "no-speech" and "aborted" are expected scenarios, not errors
+      if (event.error === 'no-speech' || event.error === 'aborted') {
+        console.log('Speech recognition ended:', event.error)
+      } else {
+        console.error('Speech recognition error:', event.error)
+      }
       setIsListening(false)
       clearSilenceTimer()
     }
