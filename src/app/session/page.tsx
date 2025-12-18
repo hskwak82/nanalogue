@@ -10,7 +10,7 @@ import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 import type { ConversationMode } from '@/lib/realtime/types'
-import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
+import { cleanupWebRTC, allowConnections, blockConnections } from '@/lib/webrtc-cleanup'
 
 // Wrapper component to handle Suspense boundary for useSearchParams
 export default function SessionPage() {
@@ -173,10 +173,11 @@ function SessionPageContent() {
     wasSpeakingRef.current = tts.isSpeaking
   }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
 
-  // Clean up any lingering audio/media on mount (from previous sessions)
+  // Clean up any lingering audio/media on mount and allow new connections
   useEffect(() => {
-    console.log('[Session Page] Cleaning up WebRTC on mount')
+    console.log('[Session Page] Cleaning up WebRTC on mount and allowing connections')
     cleanupWebRTC()
+    allowConnections() // Allow new connections when entering session page
   }, [])
 
   // Check conversation mode on mount
@@ -342,6 +343,11 @@ function SessionPageContent() {
 
   // Handle realtime session complete
   async function handleRealtimeComplete(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
+    // IMMEDIATELY block connections and clean up WebRTC before anything else
+    console.log('[handleRealtimeComplete] Blocking connections and cleaning up WebRTC')
+    blockConnections()
+    cleanupWebRTC()
+
     if (!realtimeSessionId) {
       console.error('No session ID for realtime')
       router.push('/dashboard')

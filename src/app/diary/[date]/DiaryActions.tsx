@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast, useConfirm } from '@/components/ui'
+import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
 
 interface DiaryActionsProps {
   date: string
@@ -16,6 +17,12 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
   const supabase = createClient()
   const { toast } = useToast()
   const { confirm } = useConfirm()
+
+  // Clean up any lingering WebRTC resources when this page loads
+  useEffect(() => {
+    console.log('[DiaryActions] Cleaning up WebRTC on mount')
+    cleanupWebRTC()
+  }, [])
 
   // 대화 이어하기 - 기존 세션을 active로 변경하고 대화 계속
   async function handleContinue() {

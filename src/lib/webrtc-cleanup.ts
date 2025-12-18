@@ -13,6 +13,29 @@ let activeDataChannel: RTCDataChannel | null = null
 // Track all created peer connections (in case we lose the reference)
 const allPeerConnections = new Set<RTCPeerConnection>()
 
+// Track all media streams for cleanup
+const allMediaStreams = new Set<MediaStream>()
+
+// Global flag to prevent reconnection after disconnect
+let connectionBlocked = false
+
+// Block all future connections (call this when user ends conversation)
+export function blockConnections() {
+  console.log('[WebRTC] Blocking all future connections')
+  connectionBlocked = true
+}
+
+// Allow connections again (call this when starting a new session)
+export function allowConnections() {
+  console.log('[WebRTC] Allowing connections')
+  connectionBlocked = false
+}
+
+// Check if connections are blocked
+export function isConnectionBlocked(): boolean {
+  return connectionBlocked
+}
+
 // Register a peer connection for tracking
 export function registerPeerConnection(pc: RTCPeerConnection | null) {
   // Clean up any existing connection first
@@ -40,6 +63,9 @@ export function registerMediaStream(stream: MediaStream | null) {
     activeMediaStream.getTracks().forEach((track) => track.stop())
   }
   activeMediaStream = stream
+  if (stream) {
+    allMediaStreams.add(stream)
+  }
 }
 
 // Register a data channel for tracking
@@ -79,14 +105,23 @@ export function cleanupWebRTC() {
     activeDataChannel = null
   }
 
-  // Stop media stream
+  // Stop active media stream
   if (activeMediaStream) {
     activeMediaStream.getTracks().forEach((track) => {
-      console.log(`[WebRTC Cleanup] Stopping track: ${track.kind}`)
+      console.log(`[WebRTC Cleanup] Stopping active track: ${track.kind}`)
       track.stop()
     })
     activeMediaStream = null
   }
+
+  // Stop ALL tracked media streams (including microphone)
+  allMediaStreams.forEach((stream) => {
+    stream.getTracks().forEach((track) => {
+      console.log(`[WebRTC Cleanup] Stopping tracked track: ${track.kind}, enabled: ${track.enabled}, readyState: ${track.readyState}`)
+      track.stop()
+    })
+  })
+  allMediaStreams.clear()
 
   // Close active peer connection
   if (activePeerConnection) {
