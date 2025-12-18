@@ -10,7 +10,7 @@ import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 import type { ConversationMode } from '@/lib/realtime/types'
-import { cleanupWebRTC, allowConnections, blockConnections } from '@/lib/webrtc-cleanup'
+import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
 
 // Wrapper component to handle Suspense boundary for useSearchParams
 export default function SessionPage() {
@@ -173,11 +173,10 @@ function SessionPageContent() {
     wasSpeakingRef.current = tts.isSpeaking
   }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
 
-  // Clean up any lingering audio/media on mount and allow new connections
+  // Clean up any lingering audio/media on mount
   useEffect(() => {
-    console.log('[Session Page] Cleaning up WebRTC on mount and allowing connections')
+    console.log('[Session Page] Cleaning up WebRTC on mount')
     cleanupWebRTC()
-    allowConnections() // Allow new connections when entering session page
   }, [])
 
   // Check conversation mode on mount
@@ -187,14 +186,7 @@ function SessionPageContent() {
         const response = await fetch('/api/realtime/session')
         if (response.ok) {
           const data = await response.json()
-          const mode = data.mode || 'classic'
-          setConversationMode(mode)
-
-          // If realtime mode, ensure connections are allowed before rendering RealtimeSession
-          if (mode === 'realtime') {
-            console.log('[Session Page] Realtime mode detected, ensuring connections are allowed')
-            allowConnections()
-          }
+          setConversationMode(data.mode || 'classic')
         }
       } catch (error) {
         console.error('Failed to check conversation mode:', error)
@@ -257,9 +249,6 @@ function SessionPageContent() {
   async function handleRealtimeRestart() {
     if (!realtimeSessionId) return
 
-    // Allow connections for new session
-    allowConnections()
-
     setShowRealtimeConfirm(false)
     setRealtimeLoading(true)
 
@@ -295,9 +284,6 @@ function SessionPageContent() {
 
   // Handle continue conversation (for active session)
   function handleContinueConversation() {
-    // Allow connections for continuing session
-    allowConnections()
-
     setShowRealtimeConfirm(false)
     setExistingSessionStatus(null)
     // Session ID is already set, just proceed to realtime session
@@ -356,9 +342,8 @@ function SessionPageContent() {
 
   // Handle realtime session complete
   async function handleRealtimeComplete(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
-    // IMMEDIATELY block connections and clean up WebRTC before anything else
-    console.log('[handleRealtimeComplete] Blocking connections and cleaning up WebRTC')
-    blockConnections()
+    // IMMEDIATELY clean up WebRTC before anything else
+    console.log('[handleRealtimeComplete] Cleaning up WebRTC')
     cleanupWebRTC()
 
     if (!realtimeSessionId) {

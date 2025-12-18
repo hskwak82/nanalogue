@@ -8,8 +8,6 @@ import {
   registerMediaStream,
   registerDataChannel,
   cleanupWebRTC,
-  isConnectionBlocked,
-  blockConnections,
 } from '@/lib/webrtc-cleanup'
 
 interface RealtimeSession {
@@ -121,12 +119,6 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Initialize WebRTC connection
   const connect = useCallback(async () => {
-    // Check if connections are blocked globally
-    if (isConnectionBlocked()) {
-      console.log('[useRealtimeVoice] Connection blocked globally, not connecting')
-      return
-    }
-
     // Prevent duplicate connections while connecting
     if (state === 'connecting') {
       console.log('Already connecting')
@@ -382,9 +374,6 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   // Disconnect and cleanup
   const disconnect = useCallback(() => {
     console.log('[useRealtimeVoice] Disconnecting')
-
-    // Block all future connections
-    blockConnections()
 
     // First, cancel any ongoing AI response via data channel
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
