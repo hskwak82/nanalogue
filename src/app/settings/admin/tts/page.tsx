@@ -23,6 +23,7 @@ interface TTSVoice {
 interface TTSSettings {
   currentProvider: string
   speakingRate: number
+  defaultVoice: string | null
   providers: TTSProviderInfo[]
   updatedAt: string | null
   updatedBy: string | null
@@ -58,6 +59,7 @@ export default function AdminTTSPage() {
       setSettings(data)
       setSelectedProvider(data.currentProvider)
       setSpeakingRate(data.speakingRate ?? 1.0)
+      // defaultVoice will be set after voices are loaded
     } catch (error) {
       console.error('Error fetching TTS settings:', error)
       setMessage({ type: 'error', text: '설정을 불러오는데 실패했습니다.' })
@@ -72,7 +74,12 @@ export default function AdminTTSPage() {
       if (!response.ok) throw new Error('Failed to fetch voices')
       const data = await response.json()
       setVoices(data.voices)
-      setSelectedVoice(data.defaultVoice)
+      // Use saved default voice if it matches the provider, otherwise use provider's default
+      if (settings?.defaultVoice && data.voices.some((v: TTSVoice) => v.id === settings.defaultVoice)) {
+        setSelectedVoice(settings.defaultVoice)
+      } else {
+        setSelectedVoice(data.defaultVoice)
+      }
     } catch (error) {
       console.error('Error fetching voices:', error)
       setVoices([])
@@ -81,7 +88,11 @@ export default function AdminTTSPage() {
 
   const hasChanges = () => {
     if (!settings) return false
-    return selectedProvider !== settings.currentProvider || speakingRate !== settings.speakingRate
+    return (
+      selectedProvider !== settings.currentProvider ||
+      speakingRate !== settings.speakingRate ||
+      selectedVoice !== (settings.defaultVoice || '')
+    )
   }
 
   async function handleSave() {
@@ -97,6 +108,7 @@ export default function AdminTTSPage() {
         body: JSON.stringify({
           provider: selectedProvider,
           speakingRate: speakingRate,
+          defaultVoice: selectedVoice,
         }),
       })
 
@@ -167,7 +179,7 @@ export default function AdminTTSPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">TTS 설정</h1>
         <p className="mt-1 text-sm text-gray-500">
-          시스템에서 사용할 TTS(Text-to-Speech) 제공자와 속도를 설정하세요.
+          시스템 기본 TTS 설정입니다. 개인 사용자는 별도로 음성과 속도를 변경할 수 있습니다.
         </p>
       </div>
 
@@ -231,9 +243,66 @@ export default function AdminTTSPage() {
         </div>
       </div>
 
+      {/* Default Voice Selection */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          기본 음성 ({settings?.providers.find(p => p.id === selectedProvider)?.name})
+        </h2>
+
+        {voices.length === 0 ? (
+          <p className="text-sm text-gray-500">음성 목록을 불러오는 중...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {voices.map((voice) => (
+              <div
+                key={voice.id}
+                onClick={() => setSelectedVoice(voice.id)}
+                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                  selectedVoice === voice.id
+                    ? 'bg-indigo-100 border-2 border-indigo-500'
+                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  {selectedVoice === voice.id && (
+                    <CheckIcon className="h-4 w-4 text-indigo-600" />
+                  )}
+                  <div>
+                    <span className="font-medium text-gray-900">{voice.name}</span>
+                    <span className="ml-2 text-xs text-gray-500">
+                      {voice.gender === 'male' ? '남성' : '여성'}
+                      {voice.quality && ` / ${voice.quality}`}
+                      {voice.premium && ' (프리미엄)'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handlePlaySample(selectedProvider, voice.id)
+                  }}
+                  disabled={playing !== null}
+                  className={`p-1.5 rounded-full transition-all ${
+                    playing === voice.id
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                >
+                  {playing === voice.id ? (
+                    <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
+                  ) : (
+                    <PlayIcon className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Speaking Rate */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">음성 속도</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">기본 음성 속도</h2>
 
         <div className="space-y-4">
           <div className="flex items-center gap-4">
@@ -299,50 +368,6 @@ export default function AdminTTSPage() {
           >
             {message.text}
           </span>
-        )}
-      </div>
-
-      {/* Voice Preview */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          음성 미리듣기 ({settings?.providers.find(p => p.id === selectedProvider)?.name})
-        </h2>
-
-        {voices.length === 0 ? (
-          <p className="text-sm text-gray-500">음성 목록을 불러오는 중...</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {voices.map((voice) => (
-              <div
-                key={voice.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-              >
-                <div>
-                  <span className="font-medium text-gray-900">{voice.name}</span>
-                  <span className="ml-2 text-xs text-gray-500">
-                    {voice.gender === 'male' ? '남성' : '여성'}
-                    {voice.quality && ` / ${voice.quality}`}
-                    {voice.premium && ' (프리미엄)'}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handlePlaySample(selectedProvider, voice.id)}
-                  disabled={playing !== null}
-                  className={`p-1.5 rounded-full transition-all ${
-                    playing === voice.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                  }`}
-                >
-                  {playing === voice.id ? (
-                    <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
-                  ) : (
-                    <PlayIcon className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
         )}
       </div>
 

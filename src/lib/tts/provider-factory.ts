@@ -1,6 +1,6 @@
 // TTS Provider Factory
 
-import type { TTSProvider, TTSProviderInfo, SystemTTSSettings } from './types'
+import type { TTSProvider, TTSProviderInfo, SystemTTSSettings, UserTTSSettings } from './types'
 import { googleTTSProvider } from './google-tts'
 import { naverClovaTTSProvider } from './naver-clova'
 import { createClient } from '@supabase/supabase-js'
@@ -79,26 +79,56 @@ export async function getSystemTTSSettings(): Promise<SystemTTSSettings> {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, updatedAt: null, updatedBy: null }
+    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, defaultVoice: null, updatedAt: null, updatedBy: null }
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { data, error } = await supabase
     .from('system_settings')
-    .select('tts_provider, tts_speaking_rate, updated_at, updated_by')
+    .select('tts_provider, tts_speaking_rate, tts_default_voice, updated_at, updated_by')
     .eq('id', 'default')
     .single()
 
   if (error || !data) {
-    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, updatedAt: null, updatedBy: null }
+    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, defaultVoice: null, updatedAt: null, updatedBy: null }
   }
 
   return {
     provider: data.tts_provider || DEFAULT_PROVIDER_ID,
     speakingRate: data.tts_speaking_rate ?? 1.0,
+    defaultVoice: data.tts_default_voice || null,
     updatedAt: data.updated_at,
     updatedBy: data.updated_by,
+  }
+}
+
+/**
+ * Get user TTS settings from database
+ */
+export async function getUserTTSSettings(userId: string): Promise<UserTTSSettings> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return { voice: null, speakingRate: null }
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('tts_voice, tts_speaking_rate')
+    .eq('user_id', userId)
+    .single()
+
+  if (error || !data) {
+    return { voice: null, speakingRate: null }
+  }
+
+  return {
+    voice: data.tts_voice || null,
+    speakingRate: data.tts_speaking_rate ?? null,
   }
 }
 

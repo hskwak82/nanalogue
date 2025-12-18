@@ -15,7 +15,7 @@ export async function GET() {
     // Get current system settings
     const { data: settings } = await supabase
       .from('system_settings')
-      .select('tts_provider, tts_speaking_rate, updated_at, updated_by')
+      .select('tts_provider, tts_speaking_rate, tts_default_voice, updated_at, updated_by')
       .eq('id', 'default')
       .single()
 
@@ -25,6 +25,7 @@ export async function GET() {
     // Mark the current provider as default
     const currentProvider = settings?.tts_provider || 'google'
     const speakingRate = settings?.tts_speaking_rate ?? 1.0
+    const defaultVoice = settings?.tts_default_voice || null
     const providersWithDefault = providers.map(p => ({
       ...p,
       isDefault: p.id === currentProvider,
@@ -33,6 +34,7 @@ export async function GET() {
     return NextResponse.json({
       currentProvider,
       speakingRate,
+      defaultVoice,
       providers: providersWithDefault,
       updatedAt: settings?.updated_at || null,
       updatedBy: settings?.updated_by || null,
@@ -52,7 +54,7 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { provider, speakingRate } = body
+    const { provider, speakingRate, defaultVoice } = body
 
     // Build update object
     const updateData: Record<string, unknown> = {
@@ -79,6 +81,11 @@ export async function PATCH(request: Request) {
       updateData.tts_speaking_rate = rate
     }
 
+    // Add default voice if provided
+    if (defaultVoice !== undefined) {
+      updateData.tts_default_voice = defaultVoice || null
+    }
+
     const supabase = getAdminServiceClient()
 
     // Update system settings
@@ -94,6 +101,7 @@ export async function PATCH(request: Request) {
       success: true,
       currentProvider: provider,
       speakingRate: speakingRate,
+      defaultVoice: defaultVoice,
     })
   } catch (error) {
     console.error('Error updating TTS provider:', error)

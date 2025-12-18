@@ -35,8 +35,14 @@ export interface TTSProviderInfo {
 export interface SystemTTSSettings {
   provider: string
   speakingRate: number
+  defaultVoice: string | null
   updatedAt: string | null
   updatedBy: string | null
+}
+
+export interface UserTTSSettings {
+  voice: string | null
+  speakingRate: number | null
 }
 
 // Remove emojis for cleaner speech
