@@ -98,6 +98,19 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
     handleDisconnectRef.current = handleDisconnect
   }, [handleDisconnect])
 
+  // Store disconnect ref for cleanup
+  const disconnectRef = useRef(realtime.disconnect)
+  useEffect(() => {
+    disconnectRef.current = realtime.disconnect
+  }, [realtime.disconnect])
+
+  // Cleanup on unmount - disconnect when navigating away
+  useEffect(() => {
+    return () => {
+      disconnectRef.current()
+    }
+  }, [])
+
   const handleMuteToggle = useCallback(() => {
     setIsMuted(!isMuted)
     // TODO: Actually mute the microphone stream
