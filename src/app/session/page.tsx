@@ -308,6 +308,7 @@ function SessionPageContent() {
         body: JSON.stringify({
           sessionId: realtimeSessionId,
           messages: [], // Empty - API should handle this gracefully
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       })
 
@@ -403,6 +404,7 @@ function SessionPageContent() {
         body: JSON.stringify({
           sessionId: realtimeSessionId,
           messages,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       })
 
@@ -906,6 +908,7 @@ function SessionPageContent() {
         body: JSON.stringify({
           sessionId,
           messages: finalMessages,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         }),
       })
 

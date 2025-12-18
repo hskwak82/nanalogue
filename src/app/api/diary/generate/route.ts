@@ -15,7 +15,8 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder()
 
   try {
-    const { sessionId, messages } = await request.json()
+    const { sessionId, messages, timezone } = await request.json()
+    const userTimezone = timezone || 'Asia/Seoul'  // Default to Korea if not provided
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -52,15 +53,18 @@ export async function POST(request: Request) {
             .eq('entry_date', today)
             .single()
 
-          // Format date/time for diary header
+          // Format date/time for diary header (user's local timezone)
           const now = new Date()
           const formatDateTime = (date: Date) => {
-            const y = date.getFullYear()
-            const m = String(date.getMonth() + 1).padStart(2, '0')
-            const d = String(date.getDate()).padStart(2, '0')
-            const h = String(date.getHours()).padStart(2, '0')
-            const min = String(date.getMinutes()).padStart(2, '0')
-            return `${y}년 ${m}월 ${d}일 ${h}:${min}`
+            return date.toLocaleString('ko-KR', {
+              timeZone: userTimezone,
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            }).replace(/\. /g, '년 ').replace('.', '일 ').replace('. ', '월 ')
           }
 
           let dateInfo: string
