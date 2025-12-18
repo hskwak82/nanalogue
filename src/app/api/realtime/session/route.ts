@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getRealtimeSettings, getEphemeralToken } from '@/lib/realtime'
+import type { RealtimeVoice } from '@/lib/realtime/types'
 
 // POST /api/realtime/session - Create ephemeral token for realtime connection
 export async function POST() {
@@ -23,6 +24,17 @@ export async function POST() {
       )
     }
 
+    // Get user's preferred realtime voice
+    const { data: userPrefs } = await supabase
+      .from('user_preferences')
+      .select('realtime_voice')
+      .eq('user_id', user.id)
+      .single()
+
+    // Use user's voice preference or fall back to system default
+    const effectiveVoice: RealtimeVoice =
+      (userPrefs?.realtime_voice as RealtimeVoice) || settings.realtimeVoice
+
     // Create ephemeral token
     const tokenResponse = await getEphemeralToken()
 
@@ -30,7 +42,7 @@ export async function POST() {
     return NextResponse.json({
       token: tokenResponse.client_secret.value,
       expiresAt: tokenResponse.client_secret.expires_at,
-      voice: settings.realtimeVoice,
+      voice: effectiveVoice,
       instructions: settings.realtimeInstructions,
     })
   } catch (error) {

@@ -7,7 +7,9 @@ import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
 import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
+import { RealtimeSession } from '@/components/RealtimeSession'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
+import type { ConversationMode } from '@/lib/realtime/types'
 
 export default function SessionPage() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -24,6 +26,8 @@ export default function SessionPage() {
   const [isCalendarConnected, setIsCalendarConnected] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
   const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
+  const [conversationMode, setConversationMode] = useState<ConversationMode>('classic')
+  const [checkingMode, setCheckingMode] = useState(true)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -140,6 +144,24 @@ export default function SessionPage() {
     }
     wasSpeakingRef.current = tts.isSpeaking
   }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
+
+  // Check conversation mode on mount
+  useEffect(() => {
+    async function checkMode() {
+      try {
+        const response = await fetch('/api/realtime/session')
+        if (response.ok) {
+          const data = await response.json()
+          setConversationMode(data.mode || 'classic')
+        }
+      } catch (error) {
+        console.error('Failed to check conversation mode:', error)
+      } finally {
+        setCheckingMode(false)
+      }
+    }
+    checkMode()
+  }, [])
 
   const initializeSession = useCallback(async () => {
     if (initialized) return
@@ -602,6 +624,54 @@ export default function SessionPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading while checking mode
+  if (checkingMode) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pastel-purple"></div>
+      </div>
+    )
+  }
+
+  // Realtime mode - use dedicated component
+  if (conversationMode === 'realtime') {
+    return (
+      <div className="flex min-h-screen flex-col bg-pastel-cream">
+        {/* Header */}
+        <header className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm px-4 py-4">
+          <div className="mx-auto flex max-w-2xl items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="rounded-full p-2 text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark transition-all"
+                title="홈으로"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+              </button>
+              <h1 className="text-lg font-semibold text-gray-700">실시간 대화</h1>
+            </div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+              Realtime
+            </span>
+          </div>
+        </header>
+
+        {/* Realtime Session */}
+        <div className="flex-1">
+          <RealtimeSession
+            onComplete={(messages) => {
+              // TODO: Save conversation and generate diary
+              console.log('Conversation completed:', messages)
+              router.push('/dashboard')
+            }}
+          />
+        </div>
+      </div>
+    )
   }
 
   // Show restart confirmation dialog
