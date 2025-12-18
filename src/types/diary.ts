@@ -23,6 +23,7 @@ export interface Diary {
   spine_width: number | null      // Spine width as ratio of cover (default 0.0667 = 6.67%, print: 12mm/180mm)
   spine_color: string | null
   spine_gradient: string | null
+  spine_preset_id: string | null  // Preset-based spine style ID
   created_at: string
   updated_at: string
 }

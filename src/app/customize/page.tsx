@@ -14,7 +14,7 @@ import {
   CoverTemplateSelector,
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
-import { SpineRegionSelector } from '@/components/editor/SpineRegionSelector'
+import { SpineCustomizer } from '@/components/editor/SpineCustomizer'
 import { CustomizeBookshelf } from '@/components/editor/CustomizeBookshelf'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
@@ -48,10 +48,8 @@ function CustomizePageContent() {
   const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
   const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
 
-  // Spine region selector state
-  const [spinePosition, setSpinePosition] = useState(0) // X position as percentage
-  const [savedCoverImageUrl, setSavedCoverImageUrl] = useState<string | null>(null)
-  const [isSpineEditMode, setIsSpineEditMode] = useState(false)
+  // Spine customization state
+  const [spinePresetId, setSpinePresetId] = useState<string | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -155,7 +153,7 @@ function CustomizePageContent() {
         throw new Error('Failed to load customization data')
       }
 
-      const data: CustomizationLoadResponse & { diaryId?: string; coverImageUrl?: string | null; spinePosition?: number } = await response.json()
+      const data: CustomizationLoadResponse & { diaryId?: string; spinePresetId?: string | null } = await response.json()
 
       const coverTmpl = templates?.cover || coverTemplates
       const paperTmpl = templates?.paper || paperTemplates
@@ -182,21 +180,13 @@ function CustomizePageContent() {
           data.customization.paper_font_family,
           data.customization.paper_font_color
         )
-
-        // Load saved cover image URL for spine selector (spine is cropped from cover)
-        if (data.coverImageUrl) {
-          setSavedCoverImageUrl(data.coverImageUrl)
-        } else {
-          setSavedCoverImageUrl(null)
-        }
       } else if (coverTmpl.length > 0) {
         // Set default cover
         setCover(coverTmpl[0])
-        setSavedCoverImageUrl(null)
       }
 
-      // Load spine position for this diary (default to 0 if not set)
-      setSpinePosition(data.spinePosition ?? 0)
+      // Load spine preset for this diary
+      setSpinePresetId(data.spinePresetId ?? null)
     } catch (err) {
       console.error('Error loading diary customization:', err)
       setError('데이터를 불러오는 데 실패했습니다.')
@@ -231,7 +221,7 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; spinePosition?: number; user: { id: string; email: string; name: string | null } } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; spinePresetId?: string | null; user: { id: string; email: string; name: string | null } } = await response.json()
 
         setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
@@ -261,13 +251,8 @@ function CustomizePageContent() {
             data.customization.paper_font_color
           )
 
-          // Load saved cover image URL for spine selector
-          if (data.coverImageUrl) {
-            setSavedCoverImageUrl(data.coverImageUrl)
-          }
-
-          // Load spine position for this diary
-          setSpinePosition(data.spinePosition ?? 0)
+          // Load spine preset for this diary
+          setSpinePresetId(data.spinePresetId ?? null)
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -337,11 +322,8 @@ function CustomizePageContent() {
               const uploadResult = await uploadResponse.json()
               if (uploadResult.success && uploadResult.url) {
                 coverImageUrl = uploadResult.url
-                // Update saved cover image URL for spine selector
-                setSavedCoverImageUrl(uploadResult.url)
               }
             }
-            // Spine is displayed by cropping cover_image_url - no separate spine image needed
           } catch (captureErr) {
             console.warn('Failed to capture cover image:', captureErr)
             // Continue without cover image - don't block save
@@ -362,7 +344,7 @@ function CustomizePageContent() {
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
           cover_image_url: coverImageUrl,
-          spine_position: spinePosition,
+          spine_preset_id: spinePresetId,
         }),
       })
 
@@ -379,7 +361,6 @@ function CustomizePageContent() {
 
       markSaved()
       // Exit all editing modes and deselect items after save
-      setIsSpineEditMode(false)
       setIsTextMode(false)
       selectItem(null)
       toast.success('저장되었습니다!')
@@ -493,10 +474,7 @@ function CustomizePageContent() {
                     {/* Text Button + Delete Button */}
                     <div className="mt-2 flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          setIsTextMode(!isTextMode)
-                          if (!isTextMode) setIsSpineEditMode(false)
-                        }}
+                        onClick={() => setIsTextMode(!isTextMode)}
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                           isTextMode
                             ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
@@ -519,21 +497,15 @@ function CustomizePageContent() {
                         </button>
                       )}
                     </div>
-                    {/* SpineRegionSelector overlay renders here when editing */}
-                    <SpineRegionSelector
-                      coverImageUrl={savedCoverImageUrl}
-                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
-                      initialPosition={spinePosition}
-                      onPositionChange={setSpinePosition}
-                      isEditing={isSpineEditMode}
-                      onEditingChange={setIsSpineEditMode}
-                      onEditButtonClick={() => {
-                        setIsSpineEditMode(!isSpineEditMode)
-                        if (!isSpineEditMode) setIsTextMode(false)
-                      }}
-                      disabled={state.isDirty}
-                    />
+                  </div>
 
+                  {/* Spine Customizer */}
+                  <div className="ml-4">
+                    <SpineCustomizer
+                      selectedPresetId={spinePresetId}
+                      diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                      onChange={setSpinePresetId}
+                    />
                   </div>
                 </div>
 
@@ -615,13 +587,6 @@ function CustomizePageContent() {
                       )}
                     </div>
 
-                    {/* Spine preview - no edit button */}
-                    <SpineRegionSelector
-                      coverImageUrl={savedCoverImageUrl}
-                      coverRef={{ current: null }}
-                      initialPosition={spinePosition}
-                      hideButton={true}
-                    />
                   </div>
                 </div>
 

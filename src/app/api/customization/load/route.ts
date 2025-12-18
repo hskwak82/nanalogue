@@ -160,6 +160,7 @@ export async function GET(request: NextRequest) {
       coverImageUrl?: string | null
       spinePosition?: number
       spineWidth?: number
+      spinePresetId?: string | null
     } = {
       user: {
         id: user.id,
@@ -175,11 +176,11 @@ export async function GET(request: NextRequest) {
       coverImageUrl: null, // Will be set from diary data
     }
 
-    // If we have a diary, get the cover_image_url, spine_position and spine_width directly from it
+    // If we have a diary, get the cover_image_url, spine settings directly from it
     if (diaryId) {
       const { data: diaryForImage } = await supabase
         .from('diaries')
-        .select('cover_image_url, spine_position, spine_width')
+        .select('cover_image_url, spine_position, spine_width, spine_preset_id')
         .eq('id', diaryId)
         .single()
 
@@ -187,11 +188,12 @@ export async function GET(request: NextRequest) {
         response.coverImageUrl = diaryForImage.cover_image_url
         response.spinePosition = diaryForImage.spine_position ?? 0
         response.spineWidth = diaryForImage.spine_width ?? SPINE_WIDTH_RATIO
+        response.spinePresetId = diaryForImage.spine_preset_id ?? null
       }
     } else if (currentDiaryId) {
       const { data: diaryForImage } = await supabase
         .from('diaries')
-        .select('cover_image_url, spine_position, spine_width')
+        .select('cover_image_url, spine_position, spine_width, spine_preset_id')
         .eq('id', currentDiaryId)
         .single()
 
@@ -199,6 +201,7 @@ export async function GET(request: NextRequest) {
         response.coverImageUrl = diaryForImage.cover_image_url
         response.spinePosition = diaryForImage.spine_position ?? 0
         response.spineWidth = diaryForImage.spine_width ?? SPINE_WIDTH_RATIO
+        response.spinePresetId = diaryForImage.spine_preset_id ?? null
       }
     }
 

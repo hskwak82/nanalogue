@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { DiaryCover } from '@/components/diary/DiaryCover'
-import { useSpineCalculations } from '@/components/bookshelf/hooks/useSpineCalculations'
+import { getSpinePreset, getSpineBackgroundStyle, getSpineBandStyles } from '@/lib/spine-renderer'
 import { BOOKSHELF_SPINE_WIDTH_RATIO, PRINT_SPECS } from '@/lib/publishing/print-constants'
 
 // Calculate bookshelf spine dimensions for display
@@ -20,21 +20,7 @@ interface CustomizeBookshelfProps {
   onCustomize?: (diary: DiaryWithTemplates) => void
 }
 
-// Parse cover image_url which can be gradient, solid, or actual URL
-function parseImageUrl(imageUrl: string): {
-  type: 'gradient' | 'solid' | 'image'
-  value: string
-} {
-  if (imageUrl.startsWith('gradient:')) {
-    return { type: 'gradient', value: imageUrl.replace('gradient:', '') }
-  }
-  if (imageUrl.startsWith('solid:')) {
-    return { type: 'solid', value: imageUrl.replace('solid:', '') }
-  }
-  return { type: 'image', value: imageUrl }
-}
-
-// Mini spine component for the shelf - crops cover_image_url at spine_position
+// Mini spine component for the shelf - uses preset-based styling
 function MiniSpine({
   diary,
   isActive,
@@ -46,49 +32,9 @@ function MiniSpine({
   isSelected: boolean
   onClick: () => void
 }) {
-  const { textColor } = useSpineCalculations(diary)
-  const spinePosition = diary.spine_position ?? 0
-
-  // Check if we have a saved cover image to crop
-  const hasCoverImage = !!diary.cover_image_url
-
-  // Get spine style - stretch cover image to fill spine container
-  const getSpineStyle = () => {
-    // 1. First priority: stretch cover image to fill spine
-    if (hasCoverImage) {
-      return {
-        backgroundImage: `url(${diary.cover_image_url})`,
-        backgroundSize: 'cover',
-        backgroundPosition: `${spinePosition}% center`,
-      }
-    }
-
-    // 2. Second priority: use cover template
-    if (diary.cover_template?.image_url) {
-      const parsed = parseImageUrl(diary.cover_template.image_url)
-      switch (parsed.type) {
-        case 'gradient':
-          return { background: parsed.value }
-        case 'solid':
-          return { backgroundColor: parsed.value }
-        case 'image':
-          return {
-            backgroundImage: `url(${parsed.value})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'left center',
-          }
-      }
-    }
-
-    // 3. Fallback: use spine_gradient or spine_color
-    if (diary.spine_gradient) {
-      return { background: diary.spine_gradient }
-    }
-    if (diary.spine_color) {
-      return { backgroundColor: diary.spine_color }
-    }
-    return { background: 'linear-gradient(135deg, #E8E0F0 0%, #D4C5E2 50%, #C9B8DA 100%)' }
-  }
+  const title = diary.title || `${diary.volume_number}권`
+  const preset = getSpinePreset(diary.spine_preset_id)
+  const bandStyles = getSpineBandStyles(preset)
 
   return (
     <motion.div
@@ -106,9 +52,14 @@ function MiniSpine({
         width: BOOKSHELF_SPINE_WIDTH,
         height: BOOKSHELF_SPINE_HEIGHT,
         transformStyle: 'preserve-3d',
-        ...getSpineStyle(),
+        ...getSpineBackgroundStyle(preset),
       }}
     >
+      {/* Top band */}
+      {bandStyles.topBand && <div style={bandStyles.topBand} />}
+
+      {/* Bottom band */}
+      {bandStyles.bottomBand && <div style={bandStyles.bottomBand} />}
 
       {/* Active indicator */}
       {isActive && (
@@ -119,23 +70,21 @@ function MiniSpine({
       <div className="absolute left-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(0,0,0,0.15)' }} />
       <div className="absolute right-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(255,255,255,0.2)' }} />
 
-      {/* Only show title text if NO cover image (fallback mode) */}
-      {!hasCoverImage && (
-        <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
-          <span
-            className="text-[11px] font-medium text-center drop-shadow-sm"
-            style={{
-              color: textColor,
-              writingMode: 'vertical-rl',
-              textOrientation: 'upright',
-              letterSpacing: '0.05em',
-              textShadow: '0 1px 2px rgba(255,255,255,0.5), 0 -1px 2px rgba(255,255,255,0.5)',
-            }}
-          >
-            {(diary.title || `${diary.volume_number}권`).slice(0, 6)}
-          </span>
-        </div>
-      )}
+      {/* Title - always displayed */}
+      <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
+        <span
+          className="text-[11px] font-medium text-center drop-shadow-sm"
+          style={{
+            color: preset.textColor,
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            letterSpacing: '0.05em',
+            textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3)',
+          }}
+        >
+          {title.length > 6 ? title.slice(0, 6) : title}
+        </span>
+      </div>
     </motion.div>
   )
 }
