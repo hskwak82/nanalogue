@@ -244,9 +244,9 @@ export default function SessionPage() {
       let currentSessionId: string
 
       if (error) {
-        console.error('Failed to create session:', JSON.stringify(error, null, 2))
-        // If duplicate key error, try to fetch existing session again
+        // If duplicate key error, try to fetch existing session again (race condition)
         if (error.code === '23505') {
+          console.log('Session already exists, fetching existing session...')
           const { data: retrySession } = await supabase
             .from('daily_sessions')
             .select('*')
@@ -271,6 +271,7 @@ export default function SessionPage() {
             return
           }
         } else {
+          console.error('Failed to create session:', error)
           setError('세션 생성에 실패했습니다. 페이지를 새로고침해주세요.')
           return
         }
