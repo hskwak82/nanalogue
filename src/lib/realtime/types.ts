@@ -1,134 +1,78 @@
-// OpenAI Realtime API Types
+// Realtime Voice Provider Types
 
-export type ConversationMode = 'classic' | 'realtime'
+export type RealtimeProviderId = 'openai' | 'gemini'
 
-export type RealtimeVoice =
-  | 'alloy'
-  | 'ash'
-  | 'ballad'
-  | 'coral'
-  | 'echo'
-  | 'sage'
-  | 'shimmer'
-  | 'verse'
-
-export interface RealtimeVoiceInfo {
-  id: RealtimeVoice
+export interface RealtimeProviderConfig {
+  id: RealtimeProviderId
   name: string
   description: string
+  isAvailable: boolean
 }
-
-export const REALTIME_VOICES: RealtimeVoiceInfo[] = [
-  { id: 'alloy', name: 'Alloy', description: '중성적이고 친근한' },
-  { id: 'ash', name: 'Ash', description: '따뜻하고 부드러운' },
-  { id: 'ballad', name: 'Ballad', description: '차분하고 감성적' },
-  { id: 'coral', name: 'Coral', description: '밝고 활기찬' },
-  { id: 'echo', name: 'Echo', description: '차분하고 전문적' },
-  { id: 'sage', name: 'Sage', description: '지적이고 침착한' },
-  { id: 'shimmer', name: 'Shimmer', description: '맑고 상쾌한' },
-  { id: 'verse', name: 'Verse', description: '자연스럽고 대화체' },
-]
 
 export interface RealtimeSessionConfig {
-  voice: RealtimeVoice
+  voice?: string
   instructions?: string
-  turnDetection?: {
-    type: 'server_vad'
-    threshold?: number // 0.0 to 1.0, default 0.5
-    prefix_padding_ms?: number // default 300
-    silence_duration_ms?: number // default 500
-  }
-  inputAudioTranscription?: {
-    model: 'whisper-1'
-  }
+  language?: string
 }
 
-export interface RealtimeSettings {
-  conversationMode: ConversationMode
-  realtimeVoice: RealtimeVoice
-  realtimeInstructions: string | null
+export interface RealtimeSessionToken {
+  token: string
+  expiresAt?: number
+  voice?: string
+  instructions?: string
+  providerId?: RealtimeProviderId
 }
 
-// Ephemeral token for browser WebRTC connection
-export interface EphemeralToken {
-  client_secret: {
-    value: string
-    expires_at: number
-  }
+export type RealtimeConnectionState =
+  | 'idle'
+  | 'connecting'
+  | 'connected'
+  | 'listening'
+  | 'processing'
+  | 'speaking'
+  | 'error'
+
+export interface RealtimeCallbacks {
+  onStateChange?: (state: RealtimeConnectionState) => void
+  onTranscript?: (text: string, isFinal: boolean) => void
+  onAIResponse?: (text: string, isFinal: boolean) => void
+  onError?: (error: Error) => void
+  onAudioLevel?: (level: number[]) => void
 }
 
-// Audio format for Realtime API
-// Input: PCM 16-bit, 24kHz, mono
-// Output: PCM 16-bit, 24kHz, mono
-export const REALTIME_AUDIO_FORMAT = {
-  sampleRate: 24000,
-  channels: 1,
-  bitDepth: 16,
+// Provider interface that both OpenAI and Gemini implementations must follow
+export interface RealtimeProvider {
+  readonly providerId: RealtimeProviderId
+  readonly state: RealtimeConnectionState
+
+  // Connection lifecycle
+  connect(session: RealtimeSessionToken): Promise<void>
+  disconnect(): Promise<void>
+
+  // Conversation control
+  startConversation(): void
+  endConversation(): Promise<void>
+
+  // State
+  isConnected(): boolean
+  isListening(): boolean
+
+  // Callbacks
+  setCallbacks(callbacks: RealtimeCallbacks): void
 }
 
-// Realtime event types (subset of full API)
-export interface RealtimeEvent {
-  type: string
-  event_id?: string
+// Available providers configuration
+export const REALTIME_PROVIDERS: Record<RealtimeProviderId, RealtimeProviderConfig> = {
+  openai: {
+    id: 'openai',
+    name: 'OpenAI Realtime',
+    description: 'GPT-4o 기반 실시간 음성 대화 (WebRTC)',
+    isAvailable: true,
+  },
+  gemini: {
+    id: 'gemini',
+    name: 'Google Gemini Live',
+    description: 'Gemini 2.5 기반 실시간 음성 대화 (WebSocket)',
+    isAvailable: true,
+  },
 }
-
-export interface SessionCreatedEvent extends RealtimeEvent {
-  type: 'session.created'
-  session: {
-    id: string
-    model: string
-    voice: RealtimeVoice
-  }
-}
-
-export interface ResponseAudioDeltaEvent extends RealtimeEvent {
-  type: 'response.audio.delta'
-  response_id: string
-  item_id: string
-  delta: string // base64 encoded audio
-}
-
-export interface ResponseAudioTranscriptDeltaEvent extends RealtimeEvent {
-  type: 'response.audio_transcript.delta'
-  response_id: string
-  item_id: string
-  delta: string // text
-}
-
-export interface InputAudioBufferSpeechStartedEvent extends RealtimeEvent {
-  type: 'input_audio_buffer.speech_started'
-  audio_start_ms: number
-  item_id: string
-}
-
-export interface InputAudioBufferSpeechStoppedEvent extends RealtimeEvent {
-  type: 'input_audio_buffer.speech_stopped'
-  audio_end_ms: number
-  item_id: string
-}
-
-export interface ResponseDoneEvent extends RealtimeEvent {
-  type: 'response.done'
-  response: {
-    id: string
-    status: 'completed' | 'cancelled' | 'failed' | 'incomplete'
-  }
-}
-
-export interface ErrorEvent extends RealtimeEvent {
-  type: 'error'
-  error: {
-    type: string
-    code: string
-    message: string
-  }
-}
-
-export type RealtimeServerEvent =
-  | SessionCreatedEvent
-  | ResponseAudioDeltaEvent
-  | ResponseAudioTranscriptDeltaEvent
-  | InputAudioBufferSpeechStartedEvent
-  | InputAudioBufferSpeechStoppedEvent
-  | ResponseDoneEvent
-  | ErrorEvent

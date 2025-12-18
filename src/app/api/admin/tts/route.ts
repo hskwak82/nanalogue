@@ -2,8 +2,14 @@ import { NextResponse } from 'next/server'
 import { checkAdminAuth, getAdminServiceClient } from '@/lib/admin'
 import { getAllProviderInfos, getTTSProvider } from '@/lib/tts'
 
+// Realtime provider options
+const REALTIME_PROVIDERS = [
+  { id: 'openai', name: 'OpenAI Realtime', description: 'GPT-4o 기반 WebRTC 실시간 대화' },
+  { id: 'gemini', name: 'Google Gemini Live', description: 'Gemini 2.5 기반 WebSocket 실시간 대화' },
+]
+
 // OpenAI Realtime voice options
-const REALTIME_VOICES = [
+const OPENAI_REALTIME_VOICES = [
   { id: 'alloy', name: 'Alloy', description: '중성적이고 친근한' },
   { id: 'ash', name: 'Ash', description: '따뜻하고 부드러운' },
   { id: 'ballad', name: 'Ballad', description: '차분하고 감성적' },
@@ -12,6 +18,15 @@ const REALTIME_VOICES = [
   { id: 'sage', name: 'Sage', description: '지적이고 침착한' },
   { id: 'shimmer', name: 'Shimmer', description: '맑고 상쾌한' },
   { id: 'verse', name: 'Verse', description: '자연스럽고 대화체' },
+]
+
+// Gemini Live voice options
+const GEMINI_REALTIME_VOICES = [
+  { id: 'Puck', name: 'Puck', description: '활발하고 명랑한' },
+  { id: 'Charon', name: 'Charon', description: '차분하고 신뢰감 있는' },
+  { id: 'Kore', name: 'Kore', description: '따뜻하고 부드러운' },
+  { id: 'Fenrir', name: 'Fenrir', description: '힘있고 안정적인' },
+  { id: 'Aoede', name: 'Aoede', description: '밝고 친근한' },
 ]
 
 // GET /api/admin/tts - Get TTS settings and available providers
@@ -27,7 +42,7 @@ export async function GET() {
     // Get current system settings
     const { data: settings } = await supabase
       .from('system_settings')
-      .select('tts_provider, tts_speaking_rate, tts_default_voice, conversation_mode, realtime_voice, realtime_instructions, updated_at, updated_by')
+      .select('tts_provider, tts_speaking_rate, tts_default_voice, conversation_mode, realtime_provider, realtime_voice, realtime_instructions, updated_at, updated_by')
       .eq('id', 'default')
       .single()
 
@@ -39,6 +54,7 @@ export async function GET() {
     const currentProvider = settings?.tts_provider || 'google'
     const speakingRate = settings?.tts_speaking_rate ?? 1.0
     const defaultVoice = settings?.tts_default_voice || null
+    const realtimeProvider = settings?.realtime_provider || 'openai'
     const realtimeVoice = settings?.realtime_voice || 'alloy'
     const realtimeInstructions = settings?.realtime_instructions || ''
 
@@ -46,6 +62,11 @@ export async function GET() {
       ...p,
       isDefault: p.id === currentProvider,
     }))
+
+    // Get voices based on selected realtime provider
+    const realtimeVoices = realtimeProvider === 'gemini'
+      ? GEMINI_REALTIME_VOICES
+      : OPENAI_REALTIME_VOICES
 
     return NextResponse.json({
       conversationMode,
@@ -55,8 +76,12 @@ export async function GET() {
       defaultVoice,
       providers: providersWithDefault,
       // Realtime mode settings
+      realtimeProvider,
+      realtimeProviders: REALTIME_PROVIDERS,
       realtimeVoice,
-      realtimeVoices: REALTIME_VOICES,
+      realtimeVoices,
+      openaiVoices: OPENAI_REALTIME_VOICES,
+      geminiVoices: GEMINI_REALTIME_VOICES,
       realtimeInstructions,
       // Metadata
       updatedAt: settings?.updated_at || null,
@@ -82,6 +107,7 @@ export async function PATCH(request: Request) {
       provider,
       speakingRate,
       defaultVoice,
+      realtimeProvider,
       realtimeVoice,
       realtimeInstructions,
     } = body
@@ -123,8 +149,20 @@ export async function PATCH(request: Request) {
     }
 
     // Realtime mode settings
+    if (realtimeProvider !== undefined) {
+      const validProviders = REALTIME_PROVIDERS.map(p => p.id)
+      if (!validProviders.includes(realtimeProvider)) {
+        return NextResponse.json({ error: 'Invalid realtime provider' }, { status: 400 })
+      }
+      updateData.realtime_provider = realtimeProvider
+    }
+
     if (realtimeVoice !== undefined) {
-      const validVoices = REALTIME_VOICES.map(v => v.id)
+      // Validate voice based on provider
+      const currentProvider = realtimeProvider || body.currentRealtimeProvider || 'openai'
+      const validVoices = currentProvider === 'gemini'
+        ? GEMINI_REALTIME_VOICES.map(v => v.id)
+        : OPENAI_REALTIME_VOICES.map(v => v.id)
       if (!validVoices.includes(realtimeVoice)) {
         return NextResponse.json({ error: 'Invalid realtime voice' }, { status: 400 })
       }
@@ -152,6 +190,7 @@ export async function PATCH(request: Request) {
       currentProvider: updateData.tts_provider,
       speakingRate: updateData.tts_speaking_rate,
       defaultVoice: updateData.tts_default_voice,
+      realtimeProvider: updateData.realtime_provider,
       realtimeVoice: updateData.realtime_voice,
       realtimeInstructions: updateData.realtime_instructions,
     })

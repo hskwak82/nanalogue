@@ -26,6 +26,12 @@ interface RealtimeVoice {
   description: string
 }
 
+interface RealtimeProviderInfo {
+  id: string
+  name: string
+  description: string
+}
+
 interface TTSSettings {
   conversationMode: 'classic' | 'realtime'
   // Classic mode
@@ -34,8 +40,12 @@ interface TTSSettings {
   defaultVoice: string | null
   providers: TTSProviderInfo[]
   // Realtime mode
+  realtimeProvider: string
+  realtimeProviders: RealtimeProviderInfo[]
   realtimeVoice: string
   realtimeVoices: RealtimeVoice[]
+  openaiVoices: RealtimeVoice[]
+  geminiVoices: RealtimeVoice[]
   realtimeInstructions: string
   // Metadata
   updatedAt: string | null
@@ -52,6 +62,7 @@ export default function AdminTTSPage() {
   const [selectedVoice, setSelectedVoice] = useState<string>('')
   const [speakingRate, setSpeakingRate] = useState<number>(1.0)
   // Realtime mode state
+  const [selectedRealtimeProvider, setSelectedRealtimeProvider] = useState<string>('openai')
   const [selectedRealtimeVoice, setSelectedRealtimeVoice] = useState<string>('alloy')
   const [realtimeInstructions, setRealtimeInstructions] = useState<string>('')
   // UI state
@@ -80,6 +91,7 @@ export default function AdminTTSPage() {
       setSelectedMode(data.conversationMode || 'classic')
       setSelectedProvider(data.currentProvider)
       setSpeakingRate(data.speakingRate ?? 1.0)
+      setSelectedRealtimeProvider(data.realtimeProvider || 'openai')
       setSelectedRealtimeVoice(data.realtimeVoice || 'alloy')
       setRealtimeInstructions(data.realtimeInstructions || '')
     } catch (error) {
@@ -122,6 +134,7 @@ export default function AdminTTSPage() {
     } else {
       return (
         modeChanged ||
+        selectedRealtimeProvider !== settings.realtimeProvider ||
         selectedRealtimeVoice !== settings.realtimeVoice ||
         realtimeInstructions !== (settings.realtimeInstructions || '')
       )
@@ -144,6 +157,7 @@ export default function AdminTTSPage() {
         body.speakingRate = speakingRate
         body.defaultVoice = selectedVoice
       } else {
+        body.realtimeProvider = selectedRealtimeProvider
         body.realtimeVoice = selectedRealtimeVoice
         body.realtimeInstructions = realtimeInstructions
       }
@@ -492,12 +506,51 @@ export default function AdminTTSPage() {
       {/* Realtime Mode Settings */}
       {selectedMode === 'realtime' && (
         <>
+          {/* Provider Selection */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">실시간 대화 제공자</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {settings?.realtimeProviders.map((provider) => (
+                <div
+                  key={provider.id}
+                  onClick={() => {
+                    setSelectedRealtimeProvider(provider.id)
+                    // Reset voice to default for the new provider
+                    const defaultVoice = provider.id === 'gemini' ? 'Puck' : 'alloy'
+                    setSelectedRealtimeVoice(defaultVoice)
+                  }}
+                  className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedRealtimeProvider === provider.id
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {selectedRealtimeProvider === provider.id && (
+                      <CheckIcon className="h-4 w-4 text-indigo-600" />
+                    )}
+                    <span className="font-medium text-gray-900">{provider.name}</span>
+                    {provider.id === settings?.realtimeProvider && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        현재
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-500">{provider.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Voice Selection */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">OpenAI 음성 선택</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {selectedRealtimeProvider === 'gemini' ? 'Gemini' : 'OpenAI'} 음성 선택
+            </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {settings?.realtimeVoices.map((voice) => (
+              {(selectedRealtimeProvider === 'gemini' ? settings?.geminiVoices : settings?.openaiVoices)?.map((voice) => (
                 <div
                   key={voice.id}
                   onClick={() => setSelectedRealtimeVoice(voice.id)}
@@ -537,26 +590,42 @@ export default function AdminTTSPage() {
 
           {/* Pricing Info */}
           <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
-            <h3 className="font-medium text-blue-800">OpenAI Realtime API 요금</h3>
+            <h3 className="font-medium text-blue-800">
+              {selectedRealtimeProvider === 'gemini' ? 'Google Gemini Live API' : 'OpenAI Realtime API'} 요금
+            </h3>
             <p className="mt-1 text-sm text-blue-700">
-              실시간 모드는 OpenAI Realtime API를 사용하며, 분당 요금이 부과됩니다.
+              실시간 모드는 {selectedRealtimeProvider === 'gemini' ? 'Gemini Live' : 'OpenAI Realtime'} API를 사용합니다.
             </p>
-            <div className="mt-3 text-xs font-mono text-blue-600 space-y-1">
-              <p>• 음성 입력: $0.06 / 분</p>
-              <p>• 음성 출력: $0.24 / 분</p>
-              <p>• 텍스트 입력: $5 / 1M 토큰</p>
-              <p>• 텍스트 출력: $20 / 1M 토큰</p>
-            </div>
+            {selectedRealtimeProvider === 'openai' ? (
+              <div className="mt-3 text-xs font-mono text-blue-600 space-y-1">
+                <p>• 음성 입력: $0.06 / 분</p>
+                <p>• 음성 출력: $0.24 / 분</p>
+                <p>• 텍스트 입력: $5 / 1M 토큰</p>
+                <p>• 텍스트 출력: $20 / 1M 토큰</p>
+              </div>
+            ) : (
+              <div className="mt-3 text-xs font-mono text-blue-600 space-y-1">
+                <p>• Gemini 2.5 Flash: 무료 티어 제공</p>
+                <p>• 유료: $0.075 / 1M 입력 토큰</p>
+                <p>• 유료: $0.30 / 1M 출력 토큰</p>
+              </div>
+            )}
           </div>
 
           {/* Environment Variables Info */}
           <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
             <h3 className="font-medium text-amber-800">환경 변수 설정</h3>
             <p className="mt-1 text-sm text-amber-700">
-              실시간 모드를 사용하려면 OpenAI API 키가 필요합니다.
+              {selectedRealtimeProvider === 'gemini'
+                ? 'Gemini Live API를 사용하려면 Google AI API 키가 필요합니다.'
+                : '실시간 모드를 사용하려면 OpenAI API 키가 필요합니다.'}
             </p>
             <div className="mt-3 text-xs font-mono text-amber-600">
-              <p>• OPENAI_API_KEY=sk-...</p>
+              {selectedRealtimeProvider === 'gemini' ? (
+                <p>• GOOGLE_AI_API_KEY=AIza...</p>
+              ) : (
+                <p>• OPENAI_API_KEY=sk-...</p>
+              )}
             </div>
           </div>
         </>
