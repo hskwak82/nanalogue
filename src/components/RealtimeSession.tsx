@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRealtimeVoice, type RealtimeState } from '@/hooks/useRealtimeVoice'
 import { MicrophoneIcon, StopIcon, PhoneXMarkIcon } from '@heroicons/react/24/solid'
 import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
-import { cleanupWebRTC, stopAllMicrophones } from '@/lib/webrtc-cleanup'
+import { cleanupWebRTC, stopAllMicrophones, blockConnections } from '@/lib/webrtc-cleanup'
 
 interface RealtimeSessionProps {
   onComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void
@@ -35,6 +35,10 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
 
   const realtime = useRealtimeVoice({
     onTranscript: (text, isFinal) => {
+      console.log('[RealtimeSession] onTranscript:', { text, isFinal, isDisconnecting: isDisconnecting.current })
+      // Ignore if disconnecting
+      if (isDisconnecting.current) return
+
       if (isFinal && text.trim()) {
         setTranscripts((prev) => [
           ...prev,
@@ -46,6 +50,9 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
       }
     },
     onAIResponse: (text) => {
+      // Ignore if disconnecting
+      if (isDisconnecting.current) return
+
       if (text.trim()) {
         setTranscripts((prev) => [
           ...prev,
@@ -59,14 +66,20 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
       setConnectionError(error.message || '연결 오류가 발생했습니다')
     },
     onStateChange: (state) => {
-      console.log('Realtime state:', state)
+      console.log('[RealtimeSession] State change:', state, 'isDisconnecting:', isDisconnecting.current)
     },
     onEndCommand: () => {
-      // Prevent double-firing
-      if (endCommandTriggered.current) return
-      endCommandTriggered.current = true
+      console.log('[RealtimeSession] onEndCommand received, endCommandTriggered:', endCommandTriggered.current, 'isDisconnecting:', isDisconnecting.current)
 
-      console.log('End command: AI finished closing message, disconnecting')
+      // Prevent double-firing
+      if (endCommandTriggered.current || isDisconnecting.current) {
+        console.log('[RealtimeSession] Ignoring onEndCommand - already triggered or disconnecting')
+        return
+      }
+      endCommandTriggered.current = true
+      isDisconnecting.current = true // Set IMMEDIATELY to prevent any reconnection
+
+      console.log('[RealtimeSession] Calling handleDisconnect')
       handleDisconnectRef.current?.()
     },
   })
@@ -87,34 +100,53 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   }, [realtime])
 
   const handleDisconnect = useCallback(() => {
-    console.log('[RealtimeSession] handleDisconnect called')
+    console.log('[RealtimeSession] handleDisconnect called, isDisconnecting:', isDisconnecting.current)
 
-    // Prevent reconnection
+    // Prevent duplicate calls
+    if (isDisconnecting.current) {
+      console.log('[RealtimeSession] Already disconnecting, ignoring')
+      return
+    }
+
+    // Prevent reconnection - set FIRST before any async operations
     isDisconnecting.current = true
+    endCommandTriggered.current = true
 
+    // Block all future WebRTC connections globally
+    blockConnections()
+
+    console.log('[RealtimeSession] Step 1: Stopping microphones')
     // FIRST: Stop microphones immediately (user feedback is important)
     stopAllMicrophones()
 
+    console.log('[RealtimeSession] Step 2: Interrupting AI')
     // Interrupt any ongoing AI response
     realtime.interrupt()
 
+    console.log('[RealtimeSession] Step 3: Disconnecting WebRTC')
     // Disconnect WebRTC connection
     realtime.disconnect()
 
+    console.log('[RealtimeSession] Step 4: Full cleanup')
     // Full cleanup
     cleanupWebRTC()
 
+    // Capture transcripts now before any state changes
+    const currentTranscripts = [...transcripts]
+    console.log('[RealtimeSession] Captured', currentTranscripts.length, 'transcripts for export')
+
     // Small delay to ensure all resources are released before proceeding
     setTimeout(() => {
+      console.log('[RealtimeSession] Step 5: Final cleanup and onComplete')
       // Double-check cleanup
       stopAllMicrophones()
       cleanupWebRTC()
 
       // Export conversation
-      if (transcripts.length > 0 && onComplete) {
-        console.log('[RealtimeSession] Calling onComplete with', transcripts.length, 'messages')
+      if (currentTranscripts.length > 0 && onComplete) {
+        console.log('[RealtimeSession] Calling onComplete with', currentTranscripts.length, 'messages')
         onComplete(
-          transcripts.map((t) => ({
+          currentTranscripts.map((t) => ({
             role: t.role,
             content: t.content,
           }))
@@ -152,9 +184,18 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
 
   // Auto-connect when autoStart prop is true (connection only, no greeting)
   useEffect(() => {
-    // Don't reconnect if disconnecting was triggered
-    if (isDisconnecting.current) {
-      console.log('[RealtimeSession] Skipping auto-connect: disconnecting')
+    console.log('[RealtimeSession] Auto-connect check:', {
+      autoStart,
+      autoConnectAttempted,
+      isSupported: realtime.isSupported,
+      state: realtime.state,
+      isDisconnecting: isDisconnecting.current,
+      endCommandTriggered: endCommandTriggered.current
+    })
+
+    // Don't reconnect if disconnecting was triggered OR end command was triggered
+    if (isDisconnecting.current || endCommandTriggered.current) {
+      console.log('[RealtimeSession] Skipping auto-connect: disconnecting or end command triggered')
       return
     }
 

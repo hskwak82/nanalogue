@@ -8,6 +8,7 @@ import {
   registerMediaStream,
   registerDataChannel,
   cleanupWebRTC,
+  isConnectionBlocked,
 } from '@/lib/webrtc-cleanup'
 
 interface RealtimeSession {
@@ -136,6 +137,12 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const handleServerEvent = useCallback((event: Record<string, unknown>) => {
     const eventType = event.type as string
 
+    // Ignore all events if we're ending the conversation
+    if (isEndingRef.current && eventType !== 'error') {
+      console.log('[useRealtimeVoice] Ignoring event (ending):', eventType)
+      return
+    }
+
     switch (eventType) {
       case 'session.created':
       case 'session.updated':
@@ -152,26 +159,29 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
       case 'conversation.item.input_audio_transcription.completed':
         const userText = (event as { transcript?: string }).transcript || ''
+        console.log('[useRealtimeVoice] Transcription completed:', userText)
+        console.log('[useRealtimeVoice] containsEndCommand:', containsEndCommand(userText), 'isEnding:', isEndingRef.current)
+
         setUserTranscript(userText)
         onTranscriptRef.current?.(userText, true)
 
         // Check for end command keywords (only if not already ending)
         if (userText && containsEndCommand(userText) && !isEndingRef.current) {
-          console.log('[useRealtimeVoice] End command detected:', userText)
+          console.log('[useRealtimeVoice] *** END COMMAND DETECTED ***:', userText)
           isEndingRef.current = true
 
-          // Cancel any ongoing response
+          // Cancel any ongoing response IMMEDIATELY
           if (dataChannelRef.current?.readyState === 'open') {
+            console.log('[useRealtimeVoice] Sending response.cancel')
             dataChannelRef.current.send(
               JSON.stringify({ type: 'response.cancel' })
             )
           }
 
           // Trigger end callback immediately (uses ref!)
-          console.log('[useRealtimeVoice] Triggering onEndCommand')
-          setTimeout(() => {
-            onEndCommandRef.current?.()
-          }, 50)
+          console.log('[useRealtimeVoice] Triggering onEndCommand callback')
+          // No delay - trigger immediately
+          onEndCommandRef.current?.()
         }
         break
 
@@ -211,9 +221,21 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Initialize WebRTC connection
   const connect = useCallback(async () => {
+    // Check if connections are blocked (user ended conversation)
+    if (isConnectionBlocked()) {
+      console.log('[useRealtimeVoice] Connection blocked - user ended conversation')
+      return
+    }
+
+    // Check if we're in ending state
+    if (isEndingRef.current) {
+      console.log('[useRealtimeVoice] Connection blocked - ending state')
+      return
+    }
+
     // Prevent duplicate connections while connecting
     if (state === 'connecting') {
-      console.log('Already connecting')
+      console.log('[useRealtimeVoice] Already connecting')
       return
     }
 
@@ -375,7 +397,10 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Disconnect and cleanup
   const disconnect = useCallback(() => {
-    console.log('[useRealtimeVoice] Disconnecting')
+    console.log('[useRealtimeVoice] Disconnecting, isEnding:', isEndingRef.current)
+
+    // Mark as ending to prevent any further processing
+    isEndingRef.current = true
 
     // First, cancel any ongoing AI response via data channel
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
@@ -393,7 +418,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     // Stop audio immediately
     if (audioElementRef.current) {
-      console.log('[useRealtimeVoice] Stopping audio')
+      console.log('[useRealtimeVoice] Stopping audio element')
       audioElementRef.current.pause()
       audioElementRef.current.currentTime = 0
       audioElementRef.current.srcObject = null
@@ -404,27 +429,35 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     }
 
     // Use global cleanup
+    console.log('[useRealtimeVoice] Running global cleanup')
     cleanupWebRTC()
 
     // Also clean up local refs
     // Stop media stream
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      console.log('[useRealtimeVoice] Stopping media stream tracks')
+      mediaStreamRef.current.getTracks().forEach((track) => {
+        console.log(`[useRealtimeVoice] Stopping track: ${track.kind}, readyState: ${track.readyState}`)
+        track.stop()
+      })
       mediaStreamRef.current = null
     }
 
     // Close data channel
     if (dataChannelRef.current) {
+      console.log('[useRealtimeVoice] Closing data channel')
       dataChannelRef.current.close()
       dataChannelRef.current = null
     }
 
     // Close peer connection
     if (peerConnectionRef.current) {
+      console.log('[useRealtimeVoice] Closing peer connection')
       peerConnectionRef.current.close()
       peerConnectionRef.current = null
     }
 
+    console.log('[useRealtimeVoice] Setting state to idle')
     updateState('idle')
     setUserTranscript('')
     setAiTranscript('')
