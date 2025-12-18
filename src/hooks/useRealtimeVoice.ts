@@ -68,7 +68,9 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSupported, setIsSupported] = useState(true)
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
-  const [isEnding, setIsEnding] = useState(false)
+
+  // Use ref for isEnding to avoid closure issues in event handlers
+  const isEndingRef = useRef(false)
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
@@ -160,7 +162,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     try {
       updateState('connecting')
-      setIsEnding(false) // Reset ending state for new connection
+      isEndingRef.current = false // Reset ending state for new connection
 
       // Get ephemeral token
       const session = await getSession()
@@ -304,8 +306,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           setUserTranscript(userText)
           onTranscript?.(userText, true)
           // Check for end command keywords (only if not already ending)
-          if (userText && containsEndCommand(userText) && !isEnding) {
-            setIsEnding(true)
+          if (userText && containsEndCommand(userText) && !isEndingRef.current) {
+            isEndingRef.current = true
             if (dataChannelRef.current?.readyState === 'open') {
               // First, cancel any ongoing response
               dataChannelRef.current.send(
@@ -350,7 +352,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           updateState('connected')
           setAiTranscript('')
           // If ending, trigger the end command callback after AI finishes speaking
-          if (isEnding) {
+          if (isEndingRef.current) {
+            console.log('[useRealtimeVoice] End command detected, triggering callback')
             onEndCommand?.()
           }
           break
@@ -368,7 +371,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           }
       }
     },
-    [onTranscript, onAIResponse, onError, updateState, onEndCommand, isEnding]
+    [onTranscript, onAIResponse, onError, updateState, onEndCommand]
   )
 
   // Disconnect and cleanup

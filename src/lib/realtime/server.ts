@@ -54,17 +54,10 @@ export async function getRealtimeSettings(): Promise<RealtimeSettings> {
  * This token is short-lived and safe to expose to the client
  */
 export async function getEphemeralToken(): Promise<EphemeralToken> {
-  // Try multiple possible env var names
-  // Note: Vercel may filter env vars containing "OPENAI", so we use REALTIME_API_KEY as alternative
-  const apiKey = process.env.OPENAI_API_KEY || process.env.MY_OPENAI_KEY || process.env.REALTIME_API_KEY
-
-  // Debug: Check environment variable
-  console.log('[getEphemeralToken] OPENAI_API_KEY:', !!process.env.OPENAI_API_KEY)
-  console.log('[getEphemeralToken] MY_OPENAI_KEY:', !!process.env.MY_OPENAI_KEY)
-  console.log('[getEphemeralToken] REALTIME_API_KEY:', !!process.env.REALTIME_API_KEY)
+  const apiKey = process.env.OPENAI_API_KEY
 
   if (!apiKey) {
-    throw new Error(`No API key found. Add REALTIME_API_KEY to Vercel environment variables.`)
+    throw new Error('OPENAI_API_KEY is not configured')
   }
 
   const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
