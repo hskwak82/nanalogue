@@ -811,12 +811,12 @@ export default function SessionPage() {
 
   // Realtime mode - use dedicated component
   if (conversationMode === 'realtime') {
-    // Show loading while generating diary
-    if (realtimeLoading) {
+    // Show loading while checking session or generating diary
+    if (realtimeLoading || !realtimeSessionId) {
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-gray-600">일기를 생성하고 있어요...</p>
+          <p className="text-gray-600">{realtimeLoading ? '일기를 생성하고 있어요...' : '준비 중...'}</p>
         </div>
       )
     }
