@@ -1,6 +1,15 @@
 import { PDFDocument, rgb, StandardFonts, degrees } from 'pdf-lib'
 import { PRINT_SPECS, mmToPx } from './print-constants'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { SPINE_PRESETS, SpinePreset, DEFAULT_SPINE_PRESET_ID } from '@/types/spine'
+
+// Get spine preset by ID (server-side version without React dependencies)
+function getSpinePresetServer(presetId: string | null | undefined): SpinePreset {
+  if (!presetId) {
+    return SPINE_PRESETS.find(p => p.id === DEFAULT_SPINE_PRESET_ID) || SPINE_PRESETS[0]
+  }
+  return SPINE_PRESETS.find(p => p.id === presetId) || SPINE_PRESETS[0]
+}
 
 interface DiaryWithTemplates {
   id: string
@@ -15,10 +24,7 @@ interface DiaryWithTemplates {
   cover_decorations: unknown[]
   paper_decorations: unknown[]
   cover_image_url: string | null
-  spine_position: number | null
-  spine_width: number | null
-  spine_color: string | null
-  spine_gradient: string | null
+  spine_preset_id: string | null
   cover_template: {
     id: string
     name: string
@@ -221,7 +227,7 @@ async function generateBackCoverPDF(diary: DiaryWithTemplates): Promise<Uint8Arr
   return pdfDoc.save()
 }
 
-// Generate spine PDF
+// Generate spine PDF using spine presets
 async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create()
 
@@ -231,16 +237,15 @@ async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> 
 
   const page = pdfDoc.addPage([pageWidth, pageHeight])
 
-  // Get spine color
-  let spineColor = hexToRgb(diary.spine_color || '#C9B8DA')
+  // Get spine preset
+  const preset = getSpinePresetServer(diary.spine_preset_id)
 
-  if (!diary.spine_color && diary.cover_template?.image_url) {
-    const imageUrl = diary.cover_template.image_url
-    if (imageUrl.startsWith('solid:')) {
-      spineColor = hexToRgb(imageUrl.replace('solid:', ''))
-    } else if (imageUrl.startsWith('gradient:')) {
-      spineColor = hexToRgb(extractColorFromGradient(imageUrl))
-    }
+  // Parse preset background color (handle gradients by taking first color)
+  let spineColor = hexToRgb('#E8E0F0') // Default lavender
+  if (preset.background.startsWith('linear-gradient')) {
+    spineColor = hexToRgb(extractColorFromGradient(preset.background))
+  } else if (preset.background.startsWith('#')) {
+    spineColor = hexToRgb(preset.background)
   }
 
   // Draw spine background
@@ -252,14 +257,39 @@ async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> 
     color: rgb(spineColor.r, spineColor.g, spineColor.b),
   })
 
+  // Draw top band if present
+  if (preset.topBand) {
+    const bandHeight = parseFloat(preset.topBand.height) / 100 * pageHeight
+    const bandColor = hexToRgb(preset.topBand.color)
+    page.drawRectangle({
+      x: 0,
+      y: pageHeight - bandHeight,
+      width: pageWidth,
+      height: bandHeight,
+      color: rgb(bandColor.r, bandColor.g, bandColor.b),
+    })
+  }
+
+  // Draw bottom band if present
+  if (preset.bottomBand) {
+    const bandHeight = parseFloat(preset.bottomBand.height) / 100 * pageHeight
+    const bandColor = hexToRgb(preset.bottomBand.color)
+    page.drawRectangle({
+      x: 0,
+      y: 0,
+      width: pageWidth,
+      height: bandHeight,
+      color: rgb(bandColor.r, bandColor.g, bandColor.b),
+    })
+  }
+
   // Add spine text (vertical)
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const spineText = diary.title || `${diary.volume_number}권`
   const fontSize = 10
 
-  // Calculate text color (contrast)
-  const luminance = 0.299 * spineColor.r + 0.587 * spineColor.g + 0.114 * spineColor.b
-  const textColor = luminance > 0.5 ? rgb(0.2, 0.2, 0.2) : rgb(1, 1, 1)
+  // Use preset text color
+  const textColor = hexToRgb(preset.textColor)
 
   // Draw vertical text
   page.drawText(spineText, {
@@ -267,7 +297,7 @@ async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> 
     y: pageHeight / 2,
     size: fontSize,
     font,
-    color: textColor,
+    color: rgb(textColor.r, textColor.g, textColor.b),
     rotate: degrees(90),
   })
 
@@ -278,7 +308,7 @@ async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> 
     y: PRINT_SPECS.BLEED_MM * mmToPoints + 10,
     size: 8,
     font,
-    color: textColor,
+    color: rgb(textColor.r, textColor.g, textColor.b),
   })
 
   return pdfDoc.save()

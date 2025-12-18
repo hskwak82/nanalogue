@@ -6,6 +6,7 @@ import { toPng } from 'html-to-image'
 import { PDFDocument } from 'pdf-lib'
 import JSZip from 'jszip'
 import { PRINT_SPECS, CAPTURE_PIXEL_RATIO } from './print-constants'
+import { getSpinePreset } from '@/lib/spine-renderer'
 
 // Text metadata for text decorations
 interface TextMeta {
@@ -50,8 +51,7 @@ interface DiaryData {
   start_date: string
   end_date: string | null
   cover_image_url: string | null
-  spine_color: string | null
-  spine_position: number | null
+  spine_preset_id: string | null
   cover_template?: {
     image_url: string
   } | null
@@ -281,14 +281,13 @@ export async function generateBackCoverPDF(
   return pngToPdf(pngDataUrl, widthWithBleed, heightWithBleed)
 }
 
-// Generate spine PDF
+// Generate spine PDF using spine presets
 export async function generateSpinePDF(
   diary: DiaryData,
   onProgress?: (message: string) => void
 ): Promise<Uint8Array> {
-  console.log('[PDF Generator v2] generateSpinePDF', {
-    cover_image_url: diary.cover_image_url,
-    spine_position: diary.spine_position,
+  console.log('[PDF Generator v3] generateSpinePDF with presets', {
+    spine_preset_id: diary.spine_preset_id,
   })
   onProgress?.('책등 렌더링 중...')
 
@@ -299,111 +298,79 @@ export async function generateSpinePDF(
   const previewHeight = 400
   const previewWidth = Math.round(previewHeight * (PRINT_SPECS.SPINE_WIDTH_MM / heightWithBleed))
 
-  // Check if we have a cover image to crop
-  const hasCoverImage = !!diary.cover_image_url
-  const spinePosition = diary.spine_position ?? 0
+  // Get spine preset
+  const preset = getSpinePreset(diary.spine_preset_id)
+  const spineText = diary.title || `${diary.volume_number}권`
+  const year = new Date(diary.start_date).getFullYear()
 
-  // Add cache buster to image URL
-  const cacheBuster = Date.now()
-  const spineImageUrl = diary.cover_image_url
-    ? `${diary.cover_image_url}${diary.cover_image_url.includes('?') ? '&' : '?'}cb=${cacheBuster}`
-    : null
+  // Build top band HTML
+  const topBandHtml = preset.topBand ? `
+    <div style="
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: ${preset.topBand.height};
+      background: ${preset.topBand.color};
+    "></div>
+  ` : ''
 
-  // Fallback spine color if no cover image
-  let spineColor = diary.spine_color || '#C9B8DA'
-  if (!diary.spine_color && diary.cover_template?.image_url) {
-    if (diary.cover_template.image_url.startsWith('solid:')) {
-      spineColor = diary.cover_template.image_url.replace('solid:', '')
-    } else if (diary.cover_template.image_url.startsWith('gradient:')) {
-      const match = diary.cover_template.image_url.match(/#[0-9A-Fa-f]{6}/)
-      spineColor = match?.[0] || '#C9B8DA'
-    }
-  }
+  // Build bottom band HTML
+  const bottomBandHtml = preset.bottomBand ? `
+    <div style="
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: ${preset.bottomBand.height};
+      background: ${preset.bottomBand.color};
+    "></div>
+  ` : ''
 
-  // Spine content - either cropped cover image or solid color with text
-  let spineContent: string
-
-  if (hasCoverImage && spineImageUrl) {
-    // Use cropped cover image
-    spineContent = `
+  // Spine content with preset styling
+  const spineContent = `
+    <div style="
+      width: ${previewWidth}px;
+      height: ${previewHeight}px;
+      background: ${preset.background};
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    ">
+      ${topBandHtml}
       <div style="
-        width: ${previewWidth}px;
-        height: ${previewHeight}px;
-        overflow: hidden;
-        position: relative;
-        background: ${spineColor};
+        writing-mode: vertical-rl;
+        text-orientation: upright;
+        font-size: 12px;
+        font-weight: 500;
+        color: ${preset.textColor};
+        font-family: 'Pretendard', sans-serif;
+        letter-spacing: 0.1em;
+        text-shadow: 0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3);
+        z-index: 1;
       ">
-        <img
-          src="${spineImageUrl}"
-          crossorigin="anonymous"
-          style="
-            height: 100%;
-            width: auto;
-            max-width: none;
-            display: block;
-            transform: translateX(-${spinePosition}%);
-          "
-        />
+        ${spineText.length > 10 ? spineText.slice(0, 10) : spineText}
       </div>
-    `
-  } else {
-    // Fallback: solid color with text
-    const hex = spineColor.replace('#', '')
-    const r = parseInt(hex.substr(0, 2), 16) / 255
-    const g = parseInt(hex.substr(2, 2), 16) / 255
-    const b = parseInt(hex.substr(4, 2), 16) / 255
-    const luminance = 0.299 * r + 0.587 * g + 0.114 * b
-    const textColor = luminance > 0.5 ? '#333' : '#fff'
-
-    const spineText = diary.title || `${diary.volume_number}권`
-    const year = new Date(diary.start_date).getFullYear()
-
-    spineContent = `
       <div style="
-        width: ${previewWidth}px;
-        height: ${previewHeight}px;
-        background: ${spineColor};
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        position: relative;
+        position: absolute;
+        bottom: 20px;
+        font-size: 8px;
+        color: ${preset.textColor};
+        opacity: 0.8;
+        font-family: 'Pretendard', sans-serif;
+        z-index: 1;
       ">
-        <div style="
-          writing-mode: vertical-rl;
-          text-orientation: mixed;
-          font-size: 12px;
-          font-weight: 500;
-          color: ${textColor};
-          font-family: 'Pretendard', sans-serif;
-          letter-spacing: 2px;
-        ">
-          ${spineText}
-        </div>
-        <div style="
-          position: absolute;
-          bottom: 20px;
-          font-size: 8px;
-          color: ${textColor};
-          opacity: 0.8;
-          font-family: 'Pretendard', sans-serif;
-        ">
-          ${year}
-        </div>
+        ${year}
       </div>
-    `
-  }
+      ${bottomBandHtml}
+      <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.15); z-index: 2;"></div>
+      <div style="position: absolute; right: 0; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.3); z-index: 2;"></div>
+    </div>
+  `
 
   container.innerHTML = spineContent
-
-  // Wait for images to load
-  const images = container.querySelectorAll('img')
-  await Promise.all(Array.from(images).map(img =>
-    img.complete ? Promise.resolve() : new Promise(resolve => {
-      img.onload = resolve
-      img.onerror = resolve
-    })
-  ))
 
   const element = container.firstElementChild as HTMLElement
   const pngDataUrl = await captureElement(element, previewWidth, previewHeight)
