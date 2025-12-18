@@ -256,7 +256,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
           </div>
         )}
 
-        {/* State 2: Not connected, idle - show initial message */}
+        {/* State 2: Not connected, idle - show connect button */}
         {!realtime.isConnected && realtime.state === 'idle' && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
             <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center">
@@ -266,9 +266,14 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
               실시간 음성 대화
             </h2>
             <p className="text-gray-500 max-w-sm">
-              마이크 버튼을 눌러 자연스러운 대화를 시작하세요.
-              AI가 실시간으로 응답합니다.
+              버튼을 눌러 연결을 시작하세요.
             </p>
+            <button
+              onClick={handleConnect}
+              className="px-6 py-3 rounded-full bg-pastel-purple text-white font-medium hover:bg-pastel-purple-dark transition-colors"
+            >
+              연결 시작
+            </button>
           </div>
         )}
 
