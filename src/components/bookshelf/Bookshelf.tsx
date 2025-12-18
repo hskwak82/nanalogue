@@ -14,6 +14,7 @@ interface BookshelfProps {
   onCreateNew?: () => void
   onComplete?: (diary: DiaryWithTemplates) => void
   onEdit?: (diary: DiaryWithTemplates) => void
+  isAdmin?: boolean
 }
 
 export function Bookshelf({
@@ -23,6 +24,7 @@ export function Bookshelf({
   onCreateNew,
   onComplete,
   onEdit,
+  isAdmin = false,
 }: BookshelfProps) {
   const [viewMode, setViewMode] = useState<BookshelfViewMode>('covers')
   const [selectedDiaryId, setSelectedDiaryId] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export function Bookshelf({
         <div className="flex items-center gap-3">
           <ViewToggle mode={viewMode} onChange={setViewMode} />
 
-          {onCreateNew && (
+          {isAdmin && onCreateNew && (
             <button
               onClick={onCreateNew}
               className="flex items-center gap-1.5 px-3 py-2 bg-pastel-purple text-white text-sm font-medium rounded-full hover:bg-pastel-purple-dark transition-colors"
@@ -131,8 +133,10 @@ export function Bookshelf({
       {diaries.length === 0 && (
         <div className="text-center py-12">
           <div className="text-4xl mb-4">📔</div>
-          <p className="text-gray-500 mb-4">아직 일기장이 없습니다</p>
-          {onCreateNew && (
+          <p className="text-gray-500 mb-4">
+            {isAdmin ? '아직 일기장이 없습니다' : '일기를 작성하면 자동으로 일기장이 생성됩니다'}
+          </p>
+          {isAdmin && onCreateNew && (
             <button
               onClick={onCreateNew}
               className="px-6 py-2 bg-pastel-purple text-white rounded-full hover:bg-pastel-purple-dark transition-colors"

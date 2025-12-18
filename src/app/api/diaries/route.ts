@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isAdmin } from '@/lib/admin'
 import type { DiaryWithTemplates, DiaryListResponse, CreateDiaryRequest } from '@/types/diary'
 import { SPINE_WIDTH_RATIO } from '@/types/diary'
 import type { PlacedDecoration } from '@/types/customization'
@@ -93,7 +94,7 @@ export async function GET() {
   }
 }
 
-// POST /api/diaries - Create new diary
+// POST /api/diaries - Create new diary (Admin only)
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -104,6 +105,15 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check admin permission - manual diary creation is admin-only
+    const userIsAdmin = await isAdmin(user.id)
+    if (!userIsAdmin) {
+      return NextResponse.json(
+        { error: 'Manual diary creation is admin-only. Diaries are created automatically each quarter.' },
+        { status: 403 }
+      )
     }
 
     const body: CreateDiaryRequest = await request.json()
