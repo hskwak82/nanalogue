@@ -250,17 +250,27 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           // Check for end command keywords (only if not already ending)
           if (userText && containsEndCommand(userText) && !isEnding) {
             setIsEnding(true)
-            // Request AI to say closing message
             if (dataChannelRef.current?.readyState === 'open') {
+              // First, cancel any ongoing response
               dataChannelRef.current.send(
                 JSON.stringify({
-                  type: 'response.create',
-                  response: {
-                    modalities: ['text', 'audio'],
-                    instructions: '사용자가 대화 종료를 요청했습니다. "네, 오늘 대화를 마무리하고 일기를 작성할게요. 잠시만 기다려주세요." 라고 짧게 말하고 끝내주세요. 다른 말은 하지 마세요.',
-                  },
+                  type: 'response.cancel',
                 })
               )
+              // Then request AI to say closing message
+              setTimeout(() => {
+                if (dataChannelRef.current?.readyState === 'open') {
+                  dataChannelRef.current.send(
+                    JSON.stringify({
+                      type: 'response.create',
+                      response: {
+                        modalities: ['text', 'audio'],
+                        instructions: '지금 바로 대화를 종료합니다. "네, 오늘 대화를 마무리하고 일기를 작성할게요." 라고만 말하세요. 절대 다른 말이나 질문을 하지 마세요.',
+                      },
+                    })
+                  )
+                }
+              }, 100)
             }
           }
           break
@@ -290,9 +300,9 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           break
 
         case 'error':
-          const errorEvent = event as { error?: { message?: string } }
-          console.error('Server error:', errorEvent.error)
-          onError?.(new Error(errorEvent.error?.message || 'Server error'))
+          const errorEvent = event as { error?: { message?: string; type?: string; code?: string } }
+          console.error('Server error:', JSON.stringify(errorEvent.error, null, 2))
+          onError?.(new Error(errorEvent.error?.message || errorEvent.error?.type || 'Server error'))
           break
 
         default:
