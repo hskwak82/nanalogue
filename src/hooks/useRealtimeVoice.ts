@@ -41,6 +41,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSupported, setIsSupported] = useState(true)
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
+  const [audioLevel, setAudioLevel] = useState<number[]>(new Array(32).fill(0))
 
   // ========================================
   // REFS FOR CALLBACKS - 항상 최신 버전 유지
@@ -63,6 +64,9 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
   const audioElementRef = useRef<HTMLAudioElement | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const animationFrameRef = useRef<number | null>(null)
 
   // Check browser support (requires HTTPS or localhost for mediaDevices)
   useEffect(() => {
@@ -279,6 +283,40 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       mediaStreamRef.current = stream
       registerMediaStream(stream)
 
+      // Set up audio analyzer for waveform visualization
+      try {
+        const audioContext = new AudioContext()
+        const analyser = audioContext.createAnalyser()
+        analyser.fftSize = 64
+        analyser.smoothingTimeConstant = 0.8
+
+        const source = audioContext.createMediaStreamSource(stream)
+        source.connect(analyser)
+
+        audioContextRef.current = audioContext
+        analyserRef.current = analyser
+
+        // Start animation loop for audio levels
+        const updateAudioLevel = () => {
+          if (!analyserRef.current || isEndingRef.current) {
+            return
+          }
+
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
+          analyserRef.current.getByteFrequencyData(dataArray)
+
+          // Normalize to 0-1 range and update state
+          const levels = Array.from(dataArray).map(v => v / 255)
+          setAudioLevel(levels)
+
+          animationFrameRef.current = requestAnimationFrame(updateAudioLevel)
+        }
+
+        updateAudioLevel()
+      } catch (e) {
+        console.warn('[useRealtimeVoice] Failed to set up audio analyzer:', e)
+      }
+
       // Add audio track to peer connection
       stream.getTracks().forEach((track) => {
         pc.addTrack(track, stream)
@@ -383,6 +421,18 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     // Mark as ending to prevent any further processing
     isEndingRef.current = true
+
+    // Stop audio analyzer
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current)
+      animationFrameRef.current = null
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {})
+      audioContextRef.current = null
+    }
+    analyserRef.current = null
+    setAudioLevel(new Array(32).fill(0))
 
     // First, cancel any ongoing AI response via data channel
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
@@ -585,6 +635,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     isSpeaking: state === 'speaking',
     userTranscript,
     aiTranscript,
+    audioLevel,
     connect,
     disconnect,
     startConversation,

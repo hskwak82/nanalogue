@@ -381,14 +381,20 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
                 <p className="whitespace-pre-wrap">{currentUserText}</p>
               ) : (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-end gap-0.5 h-4">
-                    <div className="w-1 bg-white/80 rounded-full animate-pulse" style={{ height: '40%', animationDelay: '0ms' }} />
-                    <div className="w-1 bg-white/80 rounded-full animate-pulse" style={{ height: '70%', animationDelay: '100ms' }} />
-                    <div className="w-1 bg-white/80 rounded-full animate-pulse" style={{ height: '100%', animationDelay: '200ms' }} />
-                    <div className="w-1 bg-white/80 rounded-full animate-pulse" style={{ height: '60%', animationDelay: '300ms' }} />
-                    <div className="w-1 bg-white/80 rounded-full animate-pulse" style={{ height: '30%', animationDelay: '400ms' }} />
+                  {/* Real-time audio waveform */}
+                  <div className="flex items-center gap-0.5 h-6">
+                    {realtime.audioLevel.slice(0, 16).map((level, i) => (
+                      <div
+                        key={i}
+                        className="w-1 bg-white/90 rounded-full transition-all duration-75"
+                        style={{
+                          height: `${Math.max(15, level * 100)}%`,
+                          opacity: 0.5 + level * 0.5,
+                        }}
+                      />
+                    ))}
                   </div>
-                  <span className="text-sm">듣는 중...</span>
+                  <span className="text-sm ml-1">듣는 중...</span>
                 </div>
               )}
               <p className="text-xs mt-1 text-pastel-purple-light">
