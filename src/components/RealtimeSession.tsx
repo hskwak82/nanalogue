@@ -395,56 +395,59 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
           </div>
         ))}
 
-        {/* Current User Speech - show when listening or has interim text */}
-        {(realtime.isListening || currentUserText) && (
+        {/* Current User Speech - Waveform only when listening */}
+        {realtime.isListening && !currentUserText && (
           <div className="flex justify-end">
             <div className="min-w-[280px] max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 bg-pastel-purple/70 text-white">
-              {currentUserText ? (
-                <p className="whitespace-pre-wrap">{currentUserText}</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {/* Real-time oscilloscope waveform */}
-                  <svg
-                    viewBox="0 0 256 64"
-                    className="w-full h-12"
-                    preserveAspectRatio="none"
-                  >
-                    {/* Waveform path */}
-                    <path
-                      d={`M 0 32 ${realtime.audioLevel.map((v, i) =>
-                        `L ${(i / realtime.audioLevel.length) * 256} ${32 - v * 28}`
-                      ).join(' ')}`}
-                      fill="none"
-                      stroke="rgba(255,255,255,0.9)"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Glow effect */}
-                    <path
-                      d={`M 0 32 ${realtime.audioLevel.map((v, i) =>
-                        `L ${(i / realtime.audioLevel.length) * 256} ${32 - v * 28}`
-                      ).join(' ')}`}
-                      fill="none"
-                      stroke="rgba(255,255,255,0.4)"
-                      strokeWidth="6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Center line */}
-                    <line
-                      x1="0" y1="32" x2="256" y2="32"
-                      stroke="rgba(255,255,255,0.2)"
-                      strokeWidth="1"
-                      strokeDasharray="4 4"
-                    />
-                  </svg>
-                  <span className="text-sm text-center">듣는 중...</span>
-                </div>
-              )}
-              <p className="text-xs mt-1 text-pastel-purple-light text-right">
-                {currentUserText ? '말하는 중...' : '음성 인식 중'}
-              </p>
+              <div className="flex flex-col gap-2">
+                {/* Real-time oscilloscope waveform */}
+                <svg
+                  viewBox="0 0 512 80"
+                  className="w-full h-16"
+                  preserveAspectRatio="none"
+                >
+                  {/* Waveform path */}
+                  <path
+                    d={`M 0 40 ${realtime.audioLevel.map((v, i) =>
+                      `L ${(i / realtime.audioLevel.length) * 512} ${40 - v * 35}`
+                    ).join(' ')}`}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.9)"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* Glow effect */}
+                  <path
+                    d={`M 0 40 ${realtime.audioLevel.map((v, i) =>
+                      `L ${(i / realtime.audioLevel.length) * 512} ${40 - v * 35}`
+                    ).join(' ')}`}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {/* Center line */}
+                  <line
+                    x1="0" y1="40" x2="512" y2="40"
+                    stroke="rgba(255,255,255,0.15)"
+                    strokeWidth="1"
+                    strokeDasharray="4 4"
+                  />
+                </svg>
+                <span className="text-sm text-center">듣는 중...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Current User Text - show when we have interim text */}
+        {currentUserText && (
+          <div className="flex justify-end">
+            <div className="min-w-[280px] max-w-[85%] rounded-2xl rounded-br-md px-4 py-3 bg-pastel-purple/70 text-white">
+              <p className="whitespace-pre-wrap">{currentUserText}</p>
+              <p className="text-xs mt-1 text-pastel-purple-light text-right">말하는 중...</p>
             </div>
           </div>
         )}

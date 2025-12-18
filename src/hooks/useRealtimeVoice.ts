@@ -41,7 +41,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const [isSupported, setIsSupported] = useState(true)
   const [userTranscript, setUserTranscript] = useState('')
   const [aiTranscript, setAiTranscript] = useState('')
-  const [audioLevel, setAudioLevel] = useState<number[]>(new Array(64).fill(0))
+  const [audioLevel, setAudioLevel] = useState<number[]>(new Array(256).fill(0))
 
   // ========================================
   // REFS FOR CALLBACKS - 항상 최신 버전 유지
@@ -162,6 +162,11 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
       case 'error':
         const errorEvent = event as { error?: { message?: string; type?: string; code?: string } }
+        // Ignore "already has active response" error - it's transient and resolves itself
+        if (errorEvent.error?.code === 'conversation_already_has_active_response') {
+          console.log('[useRealtimeVoice] Active response in progress, waiting...')
+          break
+        }
         console.error('Server error:', JSON.stringify(errorEvent.error, null, 2))
         onErrorRef.current?.(new Error(errorEvent.error?.message || errorEvent.error?.type || 'Server error'))
         break
@@ -289,8 +294,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       try {
         const audioContext = new AudioContext()
         const analyser = audioContext.createAnalyser()
-        analyser.fftSize = 256  // More samples for smoother waveform
-        analyser.smoothingTimeConstant = 0.3  // Less smoothing for responsive waveform
+        analyser.fftSize = 8192  // ~186ms at 44100Hz
+        analyser.smoothingTimeConstant = 0.5
 
         const source = audioContext.createMediaStreamSource(stream)
         source.connect(analyser)
@@ -308,15 +313,25 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           const dataArray = new Uint8Array(analyserRef.current.fftSize)
           analyserRef.current.getByteTimeDomainData(dataArray)
 
-          // Sample 64 points for visualization, normalize to -1 to 1 range
-          const samples = 64
+          // Sample 256 points for detailed waveform
+          const samples = 256
           const step = Math.floor(dataArray.length / samples)
-          const waveform: number[] = []
+          const rawWaveform: number[] = []
+          let maxAmplitude = 0
+
           for (let i = 0; i < samples; i++) {
             const value = dataArray[i * step]
             // Convert from 0-255 to -1 to 1 range (128 is center/silence)
-            waveform.push((value - 128) / 128)
+            const normalized = (value - 128) / 128
+            rawWaveform.push(normalized)
+            maxAmplitude = Math.max(maxAmplitude, Math.abs(normalized))
           }
+
+          // Auto-scale: normalize to fill the display (min threshold to avoid noise amplification)
+          const minThreshold = 0.02  // Minimum amplitude to consider as signal
+          const scaleFactor = maxAmplitude > minThreshold ? 0.9 / maxAmplitude : 1
+          const waveform = rawWaveform.map(v => v * scaleFactor)
+
           setAudioLevel(waveform)
 
           animationFrameRef.current = requestAnimationFrame(updateAudioLevel)
@@ -442,7 +457,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       audioContextRef.current = null
     }
     analyserRef.current = null
-    setAudioLevel(new Array(64).fill(0))
+    setAudioLevel(new Array(256).fill(0))
 
     // First, cancel any ongoing AI response via data channel
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {

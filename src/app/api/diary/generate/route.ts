@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import type { ConversationMessage } from '@/types/database'
 
-const DIARY_PROMPT = `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
+const createDiaryPrompt = (dateInfo: string) => `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
+- 첫 줄에 "${dateInfo}" 표시
 - 편안한 구어체, 2-3문단
 - 감정과 생각을 자연스럽게 표현
 일기 본문만 작성하세요.`
@@ -39,6 +40,37 @@ export async function POST(request: Request) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Check if entry exists for today
+          const today = new Date().toISOString().split('T')[0]
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const client = supabase as any
+
+          const { data: existingEntry } = await client
+            .from('diary_entries')
+            .select('id, created_at')
+            .eq('user_id', user.id)
+            .eq('entry_date', today)
+            .single()
+
+          // Format date/time for diary header
+          const now = new Date()
+          const formatDateTime = (date: Date) => {
+            const y = date.getFullYear()
+            const m = String(date.getMonth() + 1).padStart(2, '0')
+            const d = String(date.getDate()).padStart(2, '0')
+            const h = String(date.getHours()).padStart(2, '0')
+            const min = String(date.getMinutes()).padStart(2, '0')
+            return `${y}년 ${m}월 ${d}일 ${h}:${min}`
+          }
+
+          let dateInfo: string
+          if (existingEntry) {
+            const createdAt = new Date(existingEntry.created_at)
+            dateInfo = `작성: ${formatDateTime(createdAt)} / 수정: ${formatDateTime(now)}`
+          } else {
+            dateInfo = `작성: ${formatDateTime(now)}`
+          }
+
           // Step 1: Stream diary content
           const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -49,7 +81,7 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               model: 'gpt-4o-mini',
               messages: [
-                { role: 'system', content: DIARY_PROMPT },
+                { role: 'system', content: createDiaryPrompt(dateInfo) },
                 { role: 'user', content: conversationText },
               ],
               stream: true,
@@ -126,17 +158,6 @@ export async function POST(request: Request) {
 
           // Step 3: Save to database
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'status', text: '저장 중...' })}\n\n`))
-
-          const today = new Date().toISOString().split('T')[0]
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const client = supabase as any
-
-          const { data: existingEntry } = await client
-            .from('diary_entries')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('entry_date', today)
-            .single()
 
           const diaryData = {
             session_id: sessionId,
