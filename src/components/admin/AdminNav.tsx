@@ -12,6 +12,7 @@ import {
   SparklesIcon,
   MegaphoneIcon,
   BookOpenIcon,
+  SpeakerWaveIcon,
 } from '@heroicons/react/24/outline'
 
 const navItems = [
@@ -23,6 +24,7 @@ const navItems = [
   { href: '/settings/admin/decorations', label: '데코레이션', icon: SparklesIcon },
   { href: '/settings/admin/announcements', label: '공지사항', icon: MegaphoneIcon },
   { href: '/settings/admin/publishing', label: '출판', icon: BookOpenIcon },
+  { href: '/settings/admin/tts', label: 'TTS', icon: SpeakerWaveIcon },
 ]
 
 export function AdminNav() {
