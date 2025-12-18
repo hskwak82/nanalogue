@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useToast, useConfirm } from '@/components/ui'
+import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
 
 interface DiaryActionsProps {
   date: string
@@ -17,6 +18,12 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
   const { toast } = useToast()
   const { confirm } = useConfirm()
 
+  // Clean up any lingering WebRTC resources when this page loads
+  useEffect(() => {
+    console.log('[DiaryActions] Cleaning up WebRTC on mount')
+    cleanupWebRTC()
+  }, [])
+
   // 대화 이어하기 - 기존 세션을 active로 변경하고 대화 계속
   async function handleContinue() {
     if (!sessionId) return
@@ -28,7 +35,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
         .update({ status: 'active', completed_at: null })
         .eq('id', sessionId)
 
-      router.push('/session')
+      router.push('/session?entry=true')
     } catch (error) {
       console.error('Failed to continue session:', error)
       toast.error('대화를 이어가는데 실패했습니다.')
@@ -66,7 +73,7 @@ export function DiaryActions({ date, sessionId }: DiaryActionsProps) {
         .eq('user_id', user.id)
         .eq('session_date', date)
 
-      router.push('/session')
+      router.push('/session?entry=true')
     } catch (error) {
       console.error('Failed to rewrite:', error)
       toast.error('새로 작성하기에 실패했습니다.')

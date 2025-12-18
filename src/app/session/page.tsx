@@ -1,15 +1,31 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
 import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
+import { RealtimeSession } from '@/components/RealtimeSession'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
+import type { ConversationMode } from '@/lib/realtime/types'
+import { cleanupWebRTC, allowConnections, blockConnections } from '@/lib/webrtc-cleanup'
 
+// Wrapper component to handle Suspense boundary for useSearchParams
 export default function SessionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pastel-purple"></div>
+      </div>
+    }>
+      <SessionPageContent />
+    </Suspense>
+  )
+}
+
+function SessionPageContent() {
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -24,11 +40,21 @@ export default function SessionPage() {
   const [isCalendarConnected, setIsCalendarConnected] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
   const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
+  const [conversationMode, setConversationMode] = useState<ConversationMode>('classic')
+  const [checkingMode, setCheckingMode] = useState(true)
+  const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null)
+  const [realtimeLoading, setRealtimeLoading] = useState(false)
+  const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
+  const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Check if accessed via valid entry point
+  const isValidEntry = searchParams.get('entry') === 'true'
 
   // Ref to store sendMessage function for voice callback
   const sendMessageRef = useRef<(text: string) => void>(() => {})
@@ -71,10 +97,16 @@ export default function SessionPage() {
     }
   }, [loading])
 
-  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생
+  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생 (classic 모드에서만)
   useEffect(() => {
+    // Don't auto-play in realtime mode (uses its own audio)
+    if (conversationMode === 'realtime') return
+
     // Don't auto-play if completing session (about to redirect)
     if (isCompleting) return
+
+    // Don't auto-play while still checking mode
+    if (checkingMode) return
 
     if (messages.length > 0 && tts.isEnabled) {
       const lastMessage = messages[messages.length - 1]
@@ -83,7 +115,7 @@ export default function SessionPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, loading, isCompleting])
+  }, [messages.length, loading, isCompleting, conversationMode, checkingMode])
 
   // STT 결과를 입력창에 반영
   useEffect(() => {
@@ -141,8 +173,247 @@ export default function SessionPage() {
     wasSpeakingRef.current = tts.isSpeaking
   }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
 
+  // Clean up any lingering audio/media on mount and allow new connections
+  useEffect(() => {
+    console.log('[Session Page] Cleaning up WebRTC on mount and allowing connections')
+    cleanupWebRTC()
+    allowConnections() // Allow new connections when entering session page
+  }, [])
+
+  // Check conversation mode on mount
+  useEffect(() => {
+    async function checkMode() {
+      try {
+        const response = await fetch('/api/realtime/session')
+        if (response.ok) {
+          const data = await response.json()
+          setConversationMode(data.mode || 'classic')
+        }
+      } catch (error) {
+        console.error('Failed to check conversation mode:', error)
+      } finally {
+        setCheckingMode(false)
+      }
+    }
+    checkMode()
+  }, [])
+
+  // Initialize session for realtime mode
+  useEffect(() => {
+    if (conversationMode !== 'realtime' || realtimeSessionId || showRealtimeConfirm) return
+
+    async function initRealtimeSession() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      const today = new Date().toISOString().split('T')[0]
+
+      // Check for existing session
+      const { data: existingSession } = await supabase
+        .from('daily_sessions')
+        .select('id, status')
+        .eq('user_id', user.id)
+        .eq('session_date', today)
+        .single()
+
+      if (existingSession) {
+        // Show confirmation dialog for both completed and active sessions
+        setRealtimeSessionId(existingSession.id)
+        setExistingSessionStatus(existingSession.status as 'completed' | 'active')
+        setShowRealtimeConfirm(true)
+        return
+      } else {
+        // Create new session
+        const { data: newSession } = await supabase
+          .from('daily_sessions')
+          .insert({
+            user_id: user.id,
+            session_date: today,
+            status: 'active',
+          })
+          .select()
+          .single()
+
+        if (newSession) {
+          setRealtimeSessionId(newSession.id)
+        }
+      }
+    }
+
+    initRealtimeSession()
+  }, [conversationMode, realtimeSessionId, showRealtimeConfirm, supabase, router])
+
+  // Handle realtime restart after confirmation
+  async function handleRealtimeRestart() {
+    if (!realtimeSessionId) return
+
+    setShowRealtimeConfirm(false)
+    setRealtimeLoading(true)
+
+    try {
+      // Reset session to active state
+      await supabase
+        .from('daily_sessions')
+        .update({ status: 'active', completed_at: null })
+        .eq('id', realtimeSessionId)
+
+      // Delete existing diary entry for today
+      const today = new Date().toISOString().split('T')[0]
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('diary_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('entry_date', today)
+      }
+    } catch (error) {
+      console.error('Failed to restart session:', error)
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }
+
+  // Handle view existing diary
+  function handleViewExistingDiary() {
+    const today = new Date().toISOString().split('T')[0]
+    router.push(`/diary/${today}`)
+  }
+
+  // Handle continue conversation (for active session)
+  function handleContinueConversation() {
+    setShowRealtimeConfirm(false)
+    setExistingSessionStatus(null)
+    // Session ID is already set, just proceed to realtime session
+  }
+
+  // Handle finish conversation and write diary (for active session)
+  async function handleFinishAndWriteDiary() {
+    if (!realtimeSessionId) return
+
+    setShowRealtimeConfirm(false)
+    setRealtimeLoading(true)
+
+    try {
+      // Generate diary from empty messages (will use session's existing conversation if any)
+      const response = await fetch('/api/diary/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: realtimeSessionId,
+          messages: [], // Empty - API should handle this gracefully
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          // Update session status
+          await supabase
+            .from('daily_sessions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', realtimeSessionId)
+
+          // Clean up WebRTC before navigation
+          cleanupWebRTC()
+
+          // Redirect to diary
+          const today = new Date().toISOString().split('T')[0]
+          router.push(`/diary/${today}`)
+          return
+        }
+      }
+      // If failed, just go to dashboard
+      cleanupWebRTC()
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Failed to finish and write diary:', error)
+      cleanupWebRTC()
+      router.push('/dashboard')
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }
+
+  // Handle realtime session complete
+  async function handleRealtimeComplete(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
+    // IMMEDIATELY block connections and clean up WebRTC before anything else
+    console.log('[handleRealtimeComplete] Blocking connections and cleaning up WebRTC')
+    blockConnections()
+    cleanupWebRTC()
+
+    if (!realtimeSessionId) {
+      console.error('No session ID for realtime')
+      router.push('/dashboard')
+      return
+    }
+
+    setRealtimeLoading(true)
+
+    try {
+      // Generate diary
+      const response = await fetch('/api/diary/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: realtimeSessionId,
+          messages,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Diary generation failed:', errorData)
+        router.push('/dashboard')
+        return
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Update session status
+        await supabase
+          .from('daily_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', realtimeSessionId)
+
+        // Clean up WebRTC before navigation
+        cleanupWebRTC()
+
+        // Redirect to diary
+        const today = new Date().toISOString().split('T')[0]
+        router.push(`/diary/${today}`)
+      } else {
+        console.error('Diary generation failed:', data.error)
+        cleanupWebRTC()
+        router.push('/dashboard')
+      }
+    } catch (error) {
+      console.error('Failed to complete realtime session:', error)
+      cleanupWebRTC()
+      router.push('/dashboard')
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }
+
   const initializeSession = useCallback(async () => {
+    // Don't initialize classic session until mode check is complete
+    if (checkingMode) return
+
+    // Skip if already initialized or if we're in realtime mode
     if (initialized) return
+    if (conversationMode === 'realtime') return
+
     setInitialized(true)
 
     const {
@@ -315,7 +586,7 @@ export default function SessionPage() {
         setLoading(false)
       }
     }
-  }, [initialized, router, supabase])
+  }, [initialized, router, supabase, checkingMode, conversationMode])
 
   useEffect(() => {
     initializeSession()
@@ -602,6 +873,164 @@ export default function SessionPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading while checking mode
+  if (checkingMode) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pastel-purple"></div>
+      </div>
+    )
+  }
+
+  // Invalid entry - accessed via direct URL or back button
+  if (!isValidEntry) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
+        <div className="w-full max-w-md text-center">
+          <div className="mb-6 text-6xl">📝</div>
+          <h1 className="mb-3 text-xl font-bold text-gray-700">
+            잘못된 접근입니다
+          </h1>
+          <p className="mb-6 text-gray-500">
+            일기 기록은 대시보드의 &quot;기록&quot; 버튼을 통해<br />
+            시작해 주세요.
+          </p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
+          >
+            대시보드로 이동
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Realtime mode - use dedicated component
+  if (conversationMode === 'realtime') {
+    // Show loading while checking session or generating diary
+    if (realtimeLoading || !realtimeSessionId) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+          <p className="text-gray-600">{realtimeLoading ? '일기를 생성하고 있어요...' : '준비 중...'}</p>
+        </div>
+      )
+    }
+
+    // Show confirmation dialog for existing session
+    if (showRealtimeConfirm) {
+      const today = new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+
+      const isCompleted = existingSessionStatus === 'completed'
+      const isActive = existingSessionStatus === 'active'
+
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-indigo-200">
+            <h2 className="mb-2 text-xl font-bold text-gray-700">
+              {isCompleted ? '오늘의 일기가 이미 있어요' : '진행 중인 대화가 있어요'}
+            </h2>
+            <p className="mb-6 text-gray-500">
+              {isCompleted ? (
+                <>{today}에 작성된 일기가 있습니다.<br />새로 대화하면 기존 일기가 대체됩니다.</>
+              ) : (
+                <>{today}에 시작한 대화가 아직 완료되지 않았습니다.</>
+              )}
+            </p>
+            <div className="space-y-3">
+              {/* Options for completed session */}
+              {isCompleted && (
+                <>
+                  <button
+                    onClick={handleViewExistingDiary}
+                    className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    기존 일기 보기
+                  </button>
+                  <button
+                    onClick={handleRealtimeRestart}
+                    className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  >
+                    새로 대화하기
+                  </button>
+                </>
+              )}
+
+              {/* Options for active (in-progress) session */}
+              {isActive && (
+                <>
+                  <button
+                    onClick={handleContinueConversation}
+                    className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    이어서 대화하기
+                  </button>
+                  <button
+                    onClick={handleFinishAndWriteDiary}
+                    className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  >
+                    대화 마무리하고 일기 작성
+                  </button>
+                  <button
+                    onClick={handleRealtimeRestart}
+                    className="w-full rounded-full border border-gray-300 bg-white py-3 font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    새로 대화하기
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full rounded-full py-3 font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex min-h-screen flex-col bg-pastel-cream">
+        {/* Header */}
+        <header className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm px-4 py-4">
+          <div className="mx-auto flex max-w-2xl items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="rounded-full p-2 text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark transition-all"
+                title="홈으로"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                </svg>
+              </button>
+              <h1 className="text-lg font-semibold text-gray-700">실시간 대화</h1>
+            </div>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+              Realtime
+            </span>
+          </div>
+        </header>
+
+        {/* Realtime Session */}
+        <div className="flex-1">
+          <RealtimeSession
+            onComplete={handleRealtimeComplete}
+            autoStart
+          />
+        </div>
+      </div>
+    )
   }
 
   // Show restart confirmation dialog

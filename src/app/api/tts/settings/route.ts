@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSystemTTSSettings, getActiveProvider } from '@/lib/tts'
+import { getRealtimeSettings } from '@/lib/realtime'
+import { REALTIME_VOICES, type RealtimeVoice } from '@/lib/realtime/types'
 
 // GET /api/tts/settings - Get TTS settings for current user
 export async function GET() {
@@ -9,9 +11,10 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
 
     // Get system defaults
-    const [systemSettings, provider] = await Promise.all([
+    const [systemSettings, provider, realtimeSettings] = await Promise.all([
       getSystemTTSSettings(),
       getActiveProvider(),
+      getRealtimeSettings(),
     ])
 
     // Get available voices from active provider
@@ -21,41 +24,49 @@ export async function GET() {
     // If user is logged in, get their personal settings
     let userVoice: string | null = null
     let userSpeakingRate: number | null = null
+    let userRealtimeVoice: string | null = null
 
     if (user) {
       const { data: userPrefs } = await supabase
         .from('user_preferences')
-        .select('tts_voice, tts_speaking_rate')
+        .select('tts_voice, tts_speaking_rate, realtime_voice')
         .eq('user_id', user.id)
         .single()
 
       if (userPrefs) {
         userVoice = userPrefs.tts_voice || null
         userSpeakingRate = userPrefs.tts_speaking_rate ?? null
+        userRealtimeVoice = userPrefs.realtime_voice || null
       }
     }
 
     // Effective settings (user override or system default)
     const effectiveVoice = userVoice || defaultVoice
     const effectiveSpeakingRate = userSpeakingRate ?? systemSettings.speakingRate
+    const effectiveRealtimeVoice = userRealtimeVoice || realtimeSettings.realtimeVoice
 
     return NextResponse.json({
+      conversationMode: realtimeSettings.conversationMode,
       provider: {
         id: provider.id,
         name: provider.name,
       },
       voices,
+      realtimeVoices: REALTIME_VOICES,
       systemDefaults: {
         voice: defaultVoice,
         speakingRate: systemSettings.speakingRate,
+        realtimeVoice: realtimeSettings.realtimeVoice,
       },
       userSettings: user ? {
         voice: userVoice,
         speakingRate: userSpeakingRate,
+        realtimeVoice: userRealtimeVoice,
       } : null,
       effective: {
         voice: effectiveVoice,
         speakingRate: effectiveSpeakingRate,
+        realtimeVoice: effectiveRealtimeVoice,
       },
     })
   } catch (error) {
@@ -63,6 +74,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to fetch TTS settings' }, { status: 500 })
   }
 }
+
+// Valid realtime voices
+const VALID_REALTIME_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse']
 
 // PATCH /api/tts/settings - Update user's personal TTS settings
 export async function PATCH(request: Request) {
@@ -75,7 +89,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { voice, speakingRate } = body
+    const { voice, speakingRate, realtimeVoice } = body
 
     // Build update object
     const updateData: Record<string, unknown> = {
@@ -111,6 +125,19 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // Validate realtime voice if provided
+    if (realtimeVoice !== undefined) {
+      if (realtimeVoice === null) {
+        // Reset to system default
+        updateData.realtime_voice = null
+      } else {
+        if (!VALID_REALTIME_VOICES.includes(realtimeVoice)) {
+          return NextResponse.json({ error: 'Invalid realtime voice' }, { status: 400 })
+        }
+        updateData.realtime_voice = realtimeVoice
+      }
+    }
+
     // Upsert user preferences
     const { error } = await supabase
       .from('user_preferences')
@@ -124,6 +151,7 @@ export async function PATCH(request: Request) {
       success: true,
       voice: updateData.tts_voice,
       speakingRate: updateData.tts_speaking_rate,
+      realtimeVoice: updateData.realtime_voice,
     })
   } catch (error) {
     console.error('Error updating TTS settings:', error)

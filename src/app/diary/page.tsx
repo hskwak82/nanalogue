@@ -143,7 +143,7 @@ export default async function DiaryListPage({ searchParams }: DiaryListPageProps
           <div className="text-center py-12">
             <p className="text-gray-500 mb-4">아직 작성된 일기가 없습니다.</p>
             <Link
-              href="/session"
+              href="/session?entry=true"
               className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
             >
               첫 일기 작성하기
