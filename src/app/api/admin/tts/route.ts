@@ -15,7 +15,7 @@ export async function GET() {
     // Get current system settings
     const { data: settings } = await supabase
       .from('system_settings')
-      .select('tts_provider, updated_at, updated_by')
+      .select('tts_provider, tts_speaking_rate, updated_at, updated_by')
       .eq('id', 'default')
       .single()
 
@@ -24,6 +24,7 @@ export async function GET() {
 
     // Mark the current provider as default
     const currentProvider = settings?.tts_provider || 'google'
+    const speakingRate = settings?.tts_speaking_rate ?? 1.0
     const providersWithDefault = providers.map(p => ({
       ...p,
       isDefault: p.id === currentProvider,
@@ -31,6 +32,7 @@ export async function GET() {
 
     return NextResponse.json({
       currentProvider,
+      speakingRate,
       providers: providersWithDefault,
       updatedAt: settings?.updated_at || null,
       updatedBy: settings?.updated_by || null,
@@ -50,16 +52,31 @@ export async function PATCH(request: Request) {
 
   try {
     const body = await request.json()
-    const { provider } = body
+    const { provider, speakingRate } = body
 
-    if (!provider) {
-      return NextResponse.json({ error: 'provider is required' }, { status: 400 })
+    // Build update object
+    const updateData: Record<string, unknown> = {
+      id: 'default',
+      updated_at: new Date().toISOString(),
+      updated_by: auth.userId,
     }
 
-    // Validate provider exists
-    const ttsProvider = getTTSProvider(provider)
-    if (!ttsProvider) {
-      return NextResponse.json({ error: 'Invalid TTS provider' }, { status: 400 })
+    // Validate and add provider if provided
+    if (provider) {
+      const ttsProvider = getTTSProvider(provider)
+      if (!ttsProvider) {
+        return NextResponse.json({ error: 'Invalid TTS provider' }, { status: 400 })
+      }
+      updateData.tts_provider = provider
+    }
+
+    // Validate and add speaking rate if provided
+    if (speakingRate !== undefined) {
+      const rate = Number(speakingRate)
+      if (isNaN(rate) || rate < 0.5 || rate > 2.0) {
+        return NextResponse.json({ error: 'Speaking rate must be between 0.5 and 2.0' }, { status: 400 })
+      }
+      updateData.tts_speaking_rate = rate
     }
 
     const supabase = getAdminServiceClient()
@@ -67,12 +84,7 @@ export async function PATCH(request: Request) {
     // Update system settings
     const { error } = await supabase
       .from('system_settings')
-      .upsert({
-        id: 'default',
-        tts_provider: provider,
-        updated_at: new Date().toISOString(),
-        updated_by: auth.userId,
-      })
+      .upsert(updateData)
 
     if (error) {
       throw error
@@ -81,6 +93,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       success: true,
       currentProvider: provider,
+      speakingRate: speakingRate,
     })
   } catch (error) {
     console.error('Error updating TTS provider:', error)

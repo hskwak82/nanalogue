@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin'
 import { getTTSProvider, removeEmojis } from '@/lib/tts'
 
-// GET /api/admin/tts/sample?provider=google&voice=ko-KR-Neural2-A
+// GET /api/admin/tts/sample?provider=google&voice=ko-KR-Neural2-A&rate=1.2
 // Generate sample audio for a TTS provider/voice combination
 export async function GET(request: Request) {
   const auth = await checkAdminAuth()
@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const providerId = searchParams.get('provider')
     const voiceId = searchParams.get('voice')
+    const rateParam = searchParams.get('rate')
 
     if (!providerId) {
       return NextResponse.json({ error: 'provider is required' }, { status: 400 })
@@ -27,9 +28,10 @@ export async function GET(request: Request) {
     // Use specified voice or provider's default voice
     const voice = voiceId || provider.getDefaultVoice()
     const sampleText = removeEmojis(provider.getSampleText())
+    const speakingRate = rateParam ? Number(rateParam) : 1.0
 
-    // Generate sample audio
-    const audioBuffer = await provider.synthesize(sampleText, voice)
+    // Generate sample audio with speaking rate
+    const audioBuffer = await provider.synthesize(sampleText, voice, { speakingRate })
     const audioBase64 = audioBuffer.toString('base64')
 
     return NextResponse.json({

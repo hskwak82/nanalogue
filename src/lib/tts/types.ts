@@ -34,6 +34,7 @@ export interface TTSProviderInfo {
 
 export interface SystemTTSSettings {
   provider: string
+  speakingRate: number
   updatedAt: string | null
   updatedBy: string | null
 }

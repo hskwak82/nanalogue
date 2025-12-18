@@ -22,6 +22,7 @@ interface TTSVoice {
 
 interface TTSSettings {
   currentProvider: string
+  speakingRate: number
   providers: TTSProviderInfo[]
   updatedAt: string | null
   updatedBy: string | null
@@ -32,6 +33,7 @@ export default function AdminTTSPage() {
   const [voices, setVoices] = useState<TTSVoice[]>([])
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [selectedVoice, setSelectedVoice] = useState<string>('')
+  const [speakingRate, setSpeakingRate] = useState<number>(1.0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -55,6 +57,7 @@ export default function AdminTTSPage() {
       const data = await response.json()
       setSettings(data)
       setSelectedProvider(data.currentProvider)
+      setSpeakingRate(data.speakingRate ?? 1.0)
     } catch (error) {
       console.error('Error fetching TTS settings:', error)
       setMessage({ type: 'error', text: '설정을 불러오는데 실패했습니다.' })
@@ -76,8 +79,13 @@ export default function AdminTTSPage() {
     }
   }
 
+  const hasChanges = () => {
+    if (!settings) return false
+    return selectedProvider !== settings.currentProvider || speakingRate !== settings.speakingRate
+  }
+
   async function handleSave() {
-    if (!selectedProvider || selectedProvider === settings?.currentProvider) return
+    if (!hasChanges()) return
 
     setSaving(true)
     setMessage(null)
@@ -86,13 +94,16 @@ export default function AdminTTSPage() {
       const response = await fetch('/api/admin/tts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: selectedProvider }),
+        body: JSON.stringify({
+          provider: selectedProvider,
+          speakingRate: speakingRate,
+        }),
       })
 
       if (!response.ok) throw new Error('Failed to save settings')
 
       await fetchSettings()
-      setMessage({ type: 'success', text: 'TTS 제공자가 변경되었습니다.' })
+      setMessage({ type: 'success', text: 'TTS 설정이 저장되었습니다.' })
     } catch (error) {
       console.error('Error saving TTS settings:', error)
       setMessage({ type: 'error', text: '저장에 실패했습니다.' })
@@ -114,6 +125,7 @@ export default function AdminTTSPage() {
     try {
       const params = new URLSearchParams({ provider: providerId })
       if (voiceId) params.append('voice', voiceId)
+      params.append('rate', speakingRate.toString())
 
       const response = await fetch(`/api/admin/tts/sample?${params}`)
       if (!response.ok) throw new Error('Failed to generate sample')
@@ -133,6 +145,15 @@ export default function AdminTTSPage() {
     }
   }
 
+  const getSpeedLabel = (rate: number) => {
+    if (rate <= 0.7) return '매우 느림'
+    if (rate <= 0.9) return '느림'
+    if (rate <= 1.1) return '보통'
+    if (rate <= 1.3) return '빠름'
+    if (rate <= 1.5) return '더 빠름'
+    return '매우 빠름'
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -146,7 +167,7 @@ export default function AdminTTSPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">TTS 설정</h1>
         <p className="mt-1 text-sm text-gray-500">
-          시스템에서 사용할 TTS(Text-to-Speech) 제공자를 선택하세요.
+          시스템에서 사용할 TTS(Text-to-Speech) 제공자와 속도를 설정하세요.
         </p>
       </div>
 
@@ -208,27 +229,77 @@ export default function AdminTTSPage() {
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Save Button */}
-        <div className="mt-6 flex items-center gap-4">
-          <button
-            onClick={handleSave}
-            disabled={saving || selectedProvider === settings?.currentProvider}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {saving ? '저장 중...' : '변경사항 저장'}
-          </button>
+      {/* Speaking Rate */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">음성 속도</h2>
 
-          {message && (
-            <span
-              className={`text-sm ${
-                message.type === 'success' ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {message.text}
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500 w-16">느림</span>
+            <input
+              type="range"
+              min="0.5"
+              max="2.0"
+              step="0.1"
+              value={speakingRate}
+              onChange={(e) => setSpeakingRate(Number(e.target.value))}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+            />
+            <span className="text-sm text-gray-500 w-16 text-right">빠름</span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">
+              현재 속도: <span className="font-semibold text-indigo-600">{speakingRate.toFixed(1)}x</span>
+              <span className="ml-2 text-gray-400">({getSpeedLabel(speakingRate)})</span>
             </span>
-          )}
+            <button
+              onClick={() => setSpeakingRate(1.0)}
+              className="text-xs text-indigo-600 hover:text-indigo-700"
+            >
+              기본값으로 초기화
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            {[0.75, 1.0, 1.25, 1.5].map((rate) => (
+              <button
+                key={rate}
+                onClick={() => setSpeakingRate(rate)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                  speakingRate === rate
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {rate}x
+              </button>
+            ))}
+          </div>
         </div>
+      </div>
+
+      {/* Save Button */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={handleSave}
+          disabled={saving || !hasChanges()}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {saving ? '저장 중...' : '변경사항 저장'}
+        </button>
+
+        {message && (
+          <span
+            className={`text-sm ${
+              message.type === 'success' ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {message.text}
+          </span>
+        )}
       </div>
 
       {/* Voice Preview */}

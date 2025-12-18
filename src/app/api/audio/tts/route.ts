@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getActiveProvider, removeEmojis } from '@/lib/tts'
+import { getActiveProvider, getSystemTTSSettings, removeEmojis } from '@/lib/tts'
 
 export async function POST(request: Request) {
   try {
@@ -15,11 +15,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No text to speak' }, { status: 400 })
     }
 
-    // Get active TTS provider from system settings
-    const provider = await getActiveProvider()
+    // Get active TTS provider and settings
+    const [provider, settings] = await Promise.all([
+      getActiveProvider(),
+      getSystemTTSSettings(),
+    ])
 
-    // Synthesize speech
-    const audioBuffer = await provider.synthesize(cleanText, voice || provider.getDefaultVoice())
+    // Synthesize speech with speaking rate from settings
+    const audioBuffer = await provider.synthesize(
+      cleanText,
+      voice || provider.getDefaultVoice(),
+      { speakingRate: settings.speakingRate }
+    )
 
     // Return audio as base64
     const audioBase64 = audioBuffer.toString('base64')

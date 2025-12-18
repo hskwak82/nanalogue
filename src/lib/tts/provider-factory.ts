@@ -79,23 +79,24 @@ export async function getSystemTTSSettings(): Promise<SystemTTSSettings> {
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseServiceKey) {
-    return { provider: DEFAULT_PROVIDER_ID, updatedAt: null, updatedBy: null }
+    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, updatedAt: null, updatedBy: null }
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { data, error } = await supabase
     .from('system_settings')
-    .select('tts_provider, updated_at, updated_by')
+    .select('tts_provider, tts_speaking_rate, updated_at, updated_by')
     .eq('id', 'default')
     .single()
 
   if (error || !data) {
-    return { provider: DEFAULT_PROVIDER_ID, updatedAt: null, updatedBy: null }
+    return { provider: DEFAULT_PROVIDER_ID, speakingRate: 1.0, updatedAt: null, updatedBy: null }
   }
 
   return {
     provider: data.tts_provider || DEFAULT_PROVIDER_ID,
+    speakingRate: data.tts_speaking_rate ?? 1.0,
     updatedAt: data.updated_at,
     updatedBy: data.updated_by,
   }
