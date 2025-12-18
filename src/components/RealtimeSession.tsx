@@ -138,13 +138,17 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   // Auto-connect when autoStart prop is true (connection only, no greeting)
   useEffect(() => {
     // Don't reconnect if disconnecting was triggered
-    if (isDisconnecting.current) return
+    if (isDisconnecting.current) {
+      console.log('[RealtimeSession] Skipping auto-connect: disconnecting')
+      return
+    }
 
     if (autoStart && !autoConnectAttempted && realtime.isSupported && realtime.state === 'idle') {
+      console.log('[RealtimeSession] Auto-connecting')
       setAutoConnectAttempted(true)
       realtime.connect()
     }
-  }, [autoStart, autoConnectAttempted, realtime])
+  }, [autoStart, autoConnectAttempted, realtime.isSupported, realtime.state, realtime.connect])
 
   // Handle start conversation button click
   const handleStartConversation = useCallback(() => {
