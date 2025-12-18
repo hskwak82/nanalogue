@@ -10,8 +10,9 @@ export async function GET() {
     GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
     SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     NEXT_PUBLIC_SUPABASE_URL: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    // Check if any env var with OPENAI exists
-    anyOpenAI: Object.keys(process.env).filter(k => k.includes('OPENAI')),
+    TEST_VAR: !!process.env.TEST_VAR,
+    // List all env var names that contain API or KEY
+    allApiKeys: Object.keys(process.env).filter(k => k.includes('API') || k.includes('KEY')),
   }
 
   return NextResponse.json(envCheck)
