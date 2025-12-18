@@ -170,6 +170,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
               },
               input_audio_transcription: {
                 model: 'whisper-1',
+                language: 'ko',
               },
             },
           })
