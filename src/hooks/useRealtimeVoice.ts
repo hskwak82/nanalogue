@@ -221,9 +221,9 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
               instructions: session.instructions,
               turn_detection: {
                 type: 'server_vad',
-                threshold: 0.7,  // Higher = less sensitive (reduces echo pickup)
-                prefix_padding_ms: 300,
-                silence_duration_ms: 700,  // Longer silence required before AI responds
+                threshold: 0.6,  // Balance between echo rejection and sensitivity
+                prefix_padding_ms: 400,  // More audio context before speech
+                silence_duration_ms: 1000,  // 1 second of silence before considering speech ended
               },
               input_audio_transcription: {
                 model: 'whisper-1',
