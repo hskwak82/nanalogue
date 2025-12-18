@@ -319,6 +319,9 @@ function SessionPageContent() {
             })
             .eq('id', realtimeSessionId)
 
+          // Clean up WebRTC before navigation
+          cleanupWebRTC()
+
           // Redirect to diary
           const today = new Date().toISOString().split('T')[0]
           router.push(`/diary/${today}`)
@@ -326,9 +329,11 @@ function SessionPageContent() {
         }
       }
       // If failed, just go to dashboard
+      cleanupWebRTC()
       router.push('/dashboard')
     } catch (error) {
       console.error('Failed to finish and write diary:', error)
+      cleanupWebRTC()
       router.push('/dashboard')
     } finally {
       setRealtimeLoading(false)
@@ -375,15 +380,20 @@ function SessionPageContent() {
           })
           .eq('id', realtimeSessionId)
 
+        // Clean up WebRTC before navigation
+        cleanupWebRTC()
+
         // Redirect to diary
         const today = new Date().toISOString().split('T')[0]
         router.push(`/diary/${today}`)
       } else {
         console.error('Diary generation failed:', data.error)
+        cleanupWebRTC()
         router.push('/dashboard')
       }
     } catch (error) {
       console.error('Failed to complete realtime session:', error)
+      cleanupWebRTC()
       router.push('/dashboard')
     } finally {
       setRealtimeLoading(false)
