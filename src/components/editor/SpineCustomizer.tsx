@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { SPINE_PRESETS, SpinePreset, DEFAULT_SPINE_PRESET_ID } from '@/types/spine'
+import { SPINE_PRESETS, SpinePreset, DEFAULT_SPINE_PRESET_ID, FREE_SPINE_PRESETS, PREMIUM_SPINE_PRESETS } from '@/types/spine'
 import { getSpinePreset, getSpineBackgroundStyle, getSpineBandStyles } from '@/lib/spine-renderer'
 
 interface SpineCustomizerProps {
@@ -10,6 +10,7 @@ interface SpineCustomizerProps {
   onChange: (presetId: string) => void
   previewMode?: 'large'  // Large preview only (left side)
   selectorMode?: boolean // Selector panel only (right side)
+  isPremium?: boolean    // User has premium subscription
 }
 
 // Large spine preview dimensions (matches cover height of 400px)
@@ -63,19 +64,24 @@ function PresetCard({
   preset,
   selected,
   onClick,
+  disabled,
 }: {
   preset: SpinePreset
   selected: boolean
   onClick: () => void
+  disabled?: boolean
 }) {
   const bandStyles = getSpineBandStyles(preset)
 
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={`relative rounded-lg overflow-hidden transition-all p-2 ${
         selected
           ? 'ring-2 ring-pastel-purple bg-pastel-purple/10'
+          : disabled
+          ? 'opacity-50 cursor-not-allowed border border-gray-200'
           : 'hover:bg-gray-50 border border-gray-200'
       }`}
     >
@@ -101,6 +107,14 @@ function PresetCard({
         {/* Name */}
         <span className="text-sm font-medium text-gray-700">{preset.name}</span>
       </div>
+      {/* Lock icon for premium */}
+      {disabled && (
+        <div className="absolute top-1 right-1">
+          <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )}
     </button>
   )
 }
@@ -111,9 +125,10 @@ export function SpineCustomizer({
   onChange,
   previewMode,
   selectorMode,
+  isPremium = false,
 }: SpineCustomizerProps) {
   const selectedPreset = getSpinePreset(selectedPresetId)
-  const [activeCategory, setActiveCategory] = useState<'all'>('all')
+  const [activeCategory, setActiveCategory] = useState<'free' | 'premium'>('free')
 
   // Large preview mode only (left side of spine tab)
   if (previewMode === 'large') {
@@ -127,40 +142,62 @@ export function SpineCustomizer({
 
   // Selector mode (right side of spine tab, similar to template selectors)
   if (selectorMode) {
+    const presetsToShow = activeCategory === 'free' ? FREE_SPINE_PRESETS : PREMIUM_SPINE_PRESETS
+
     return (
       <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
         <h3 className="text-base font-semibold text-gray-700 mb-4">책등 선택</h3>
 
-        {/* Category tabs (for future expansion) */}
+        {/* Category tabs */}
         <div className="flex gap-2 mb-4">
           <button
-            onClick={() => setActiveCategory('all')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-              activeCategory === 'all'
-                ? 'bg-pastel-lavender text-gray-700'
+            onClick={() => setActiveCategory('free')}
+            className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              activeCategory === 'free'
+                ? 'bg-pastel-mint text-gray-700'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
-            전체 ({SPINE_PRESETS.length})
+            무료 ({FREE_SPINE_PRESETS.length})
+          </button>
+          <button
+            onClick={() => setActiveCategory('premium')}
+            className={`flex-1 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              activeCategory === 'premium'
+                ? 'bg-pastel-peach text-gray-700'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            ✨ 프리미엄 ({PREMIUM_SPINE_PRESETS.length})
           </button>
         </div>
 
         {/* Preset grid */}
         <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
-          {SPINE_PRESETS.map((preset) => (
+          {presetsToShow.map((preset) => (
             <PresetCard
               key={preset.id}
               preset={preset}
               selected={selectedPresetId === preset.id || (!selectedPresetId && preset.id === DEFAULT_SPINE_PRESET_ID)}
               onClick={() => onChange(preset.id)}
+              disabled={preset.isPremium && !isPremium}
             />
           ))}
         </div>
+
+        {/* Premium notice */}
+        {activeCategory === 'premium' && !isPremium && (
+          <p className="mt-4 text-xs text-center text-gray-500">
+            프리미엄 구독으로 모든 책등 스타일을 사용해보세요!
+          </p>
+        )}
       </div>
     )
   }
 
   // Default: compact mode (original behavior - preview + small grid)
+  const allPresets = [...FREE_SPINE_PRESETS, ...PREMIUM_SPINE_PRESETS]
+
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-medium text-gray-700">책등 꾸미기</h3>
@@ -201,17 +238,21 @@ export function SpineCustomizer({
 
       {/* Preset grid */}
       <div className="grid grid-cols-4 gap-2">
-        {SPINE_PRESETS.map((preset) => {
+        {allPresets.slice(0, 12).map((preset) => {
           const bandStyles = getSpineBandStyles(preset)
           const isSelected = selectedPresetId === preset.id || (!selectedPresetId && preset.id === DEFAULT_SPINE_PRESET_ID)
+          const isDisabled = preset.isPremium && !isPremium
 
           return (
             <button
               key={preset.id}
-              onClick={() => onChange(preset.id)}
+              onClick={() => !isDisabled && onChange(preset.id)}
+              disabled={isDisabled}
               className={`relative rounded-md overflow-hidden transition-all ${
                 isSelected
                   ? 'ring-2 ring-pastel-purple ring-offset-2 scale-105'
+                  : isDisabled
+                  ? 'opacity-50 cursor-not-allowed'
                   : 'hover:scale-105 hover:shadow-md'
               }`}
               style={{ width: 40, height: 60 }}
@@ -230,6 +271,14 @@ export function SpineCustomizer({
               >
                 {preset.name.slice(0, 2)}
               </span>
+              {/* Lock icon for premium */}
+              {isDisabled && (
+                <div className="absolute top-0.5 right-0.5">
+                  <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
             </button>
           )
         })}

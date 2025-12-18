@@ -519,6 +519,7 @@ function CustomizePageContent() {
                     diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
                     onChange={setSpinePresetId}
                     previewMode="large"
+                    isPremium={isPremium}
                   />
                 </div>
 
@@ -608,6 +609,7 @@ function CustomizePageContent() {
                     diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
                     onChange={setSpinePresetId}
                     previewMode="large"
+                    isPremium={isPremium}
                   />
                 </div>
 
@@ -676,6 +678,7 @@ function CustomizePageContent() {
                     diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
                     onChange={setSpinePresetId}
                     previewMode="large"
+                    isPremium={isPremium}
                   />
                 </div>
 
@@ -699,6 +702,7 @@ function CustomizePageContent() {
                   diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
                   onChange={setSpinePresetId}
                   selectorMode
+                  isPremium={isPremium}
                 />
               </div>
             </>
