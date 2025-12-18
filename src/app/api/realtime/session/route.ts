@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getRealtimeSettings, getEphemeralToken } from '@/lib/realtime'
-import type { RealtimeVoice } from '@/lib/realtime/types'
+import { getRealtimeSettings, getOpenAIEphemeralToken, getGeminiSessionConfig } from '@/lib/realtime'
 
-// POST /api/realtime/session - Create ephemeral token for realtime connection
+// POST /api/realtime/session - Create session config for realtime connection
 export async function POST() {
   try {
     // Check authentication
@@ -32,19 +31,30 @@ export async function POST() {
       .single()
 
     // Use user's voice preference or fall back to system default
-    const effectiveVoice: RealtimeVoice =
-      (userPrefs?.realtime_voice as RealtimeVoice) || settings.realtimeVoice
+    const effectiveVoice = userPrefs?.realtime_voice || settings.realtimeVoice
+    const provider = settings.realtimeProvider
 
-    // Create ephemeral token
-    const tokenResponse = await getEphemeralToken()
-
-    // Return token with settings
-    return NextResponse.json({
-      token: tokenResponse.client_secret.value,
-      expiresAt: tokenResponse.client_secret.expires_at,
-      voice: effectiveVoice,
-      instructions: settings.realtimeInstructions,
-    })
+    // Create session based on provider
+    if (provider === 'gemini') {
+      // Gemini Live API - return API key for WebSocket connection
+      const geminiConfig = await getGeminiSessionConfig()
+      return NextResponse.json({
+        provider: 'gemini',
+        apiKey: geminiConfig.apiKey,
+        voice: effectiveVoice,
+        instructions: settings.realtimeInstructions,
+      })
+    } else {
+      // OpenAI Realtime API - return ephemeral token for WebRTC connection
+      const tokenResponse = await getOpenAIEphemeralToken()
+      return NextResponse.json({
+        provider: 'openai',
+        token: tokenResponse.client_secret.value,
+        expiresAt: tokenResponse.client_secret.expires_at,
+        voice: effectiveVoice,
+        instructions: settings.realtimeInstructions,
+      })
+    }
   } catch (error) {
     console.error('Error creating realtime session:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -63,6 +73,7 @@ export async function GET() {
     return NextResponse.json({
       mode: settings.conversationMode,
       realtimeEnabled: settings.conversationMode === 'realtime',
+      provider: settings.realtimeProvider,
       voice: settings.realtimeVoice,
     })
   } catch (error) {

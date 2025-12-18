@@ -1,4 +1,10 @@
-// OpenAI Realtime API Module
+// Realtime Voice API Module (OpenAI & Gemini)
 
 export * from './types'
-export { getRealtimeSettings, getEphemeralToken } from './server'
+export {
+  getRealtimeSettings,
+  getOpenAIEphemeralToken,
+  getGeminiSessionConfig,
+  getEphemeralToken,
+  getDefaultInstructions,
+} from './server'

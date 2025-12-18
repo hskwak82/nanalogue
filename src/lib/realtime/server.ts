@@ -1,9 +1,10 @@
-// Server-side utilities for OpenAI Realtime API
+// Server-side utilities for Realtime Voice API (OpenAI & Gemini)
 
 import { createClient } from '@supabase/supabase-js'
-import type { RealtimeSettings, RealtimeVoice, EphemeralToken, ConversationMode } from './types'
+import type { RealtimeSettings, EphemeralToken, ConversationMode, RealtimeProviderId } from './types'
 
-const DEFAULT_VOICE: RealtimeVoice = 'alloy'
+const DEFAULT_OPENAI_VOICE = 'alloy'
+const DEFAULT_GEMINI_VOICE = 'Puck'
 const DEFAULT_INSTRUCTIONS = `You are a warm and friendly diary companion.
 Help users reflect on their day through natural conversation.
 Be empathetic, encouraging, and supportive.
@@ -21,7 +22,8 @@ export async function getRealtimeSettings(): Promise<RealtimeSettings> {
   if (!supabaseUrl || !supabaseServiceKey) {
     return {
       conversationMode: 'classic',
-      realtimeVoice: DEFAULT_VOICE,
+      realtimeProvider: 'openai',
+      realtimeVoice: DEFAULT_OPENAI_VOICE,
       realtimeInstructions: DEFAULT_INSTRUCTIONS,
     }
   }
@@ -30,30 +32,34 @@ export async function getRealtimeSettings(): Promise<RealtimeSettings> {
 
   const { data, error } = await supabase
     .from('system_settings')
-    .select('conversation_mode, realtime_voice, realtime_instructions')
+    .select('conversation_mode, realtime_provider, realtime_voice, realtime_instructions')
     .eq('id', 'default')
     .single()
 
   if (error || !data) {
     return {
       conversationMode: 'classic',
-      realtimeVoice: DEFAULT_VOICE,
+      realtimeProvider: 'openai',
+      realtimeVoice: DEFAULT_OPENAI_VOICE,
       realtimeInstructions: DEFAULT_INSTRUCTIONS,
     }
   }
 
+  const provider = (data.realtime_provider as RealtimeProviderId) || 'openai'
+  const defaultVoice = provider === 'gemini' ? DEFAULT_GEMINI_VOICE : DEFAULT_OPENAI_VOICE
+
   return {
     conversationMode: (data.conversation_mode as ConversationMode) || 'classic',
-    realtimeVoice: (data.realtime_voice as RealtimeVoice) || DEFAULT_VOICE,
+    realtimeProvider: provider,
+    realtimeVoice: data.realtime_voice || defaultVoice,
     realtimeInstructions: data.realtime_instructions || DEFAULT_INSTRUCTIONS,
   }
 }
 
 /**
- * Create an ephemeral token for browser WebRTC connection
- * This token is short-lived and safe to expose to the client
+ * Create an ephemeral token for OpenAI Realtime WebRTC connection
  */
-export async function getEphemeralToken(): Promise<EphemeralToken> {
+export async function getOpenAIEphemeralToken(): Promise<EphemeralToken> {
   const apiKey = process.env.OPENAI_API_KEY
 
   if (!apiKey) {
@@ -74,10 +80,35 @@ export async function getEphemeralToken(): Promise<EphemeralToken> {
 
   if (!response.ok) {
     const error = await response.text()
-    throw new Error(`Failed to create ephemeral token: ${error}`)
+    throw new Error(`Failed to create OpenAI ephemeral token: ${error}`)
   }
 
   return response.json()
+}
+
+/**
+ * Get Gemini API key for client-side WebSocket connection
+ * Note: Gemini Live API uses direct WebSocket with API key
+ * For production, consider using ephemeral tokens via Vertex AI
+ */
+export async function getGeminiSessionConfig(): Promise<{ apiKey: string }> {
+  const apiKey = process.env.GOOGLE_AI_API_KEY
+
+  if (!apiKey) {
+    throw new Error('GOOGLE_AI_API_KEY is not configured')
+  }
+
+  // For now, return the API key directly
+  // In production, you should use Vertex AI ephemeral tokens
+  return { apiKey }
+}
+
+/**
+ * Get ephemeral token based on provider
+ * @deprecated Use getOpenAIEphemeralToken or getGeminiSessionConfig instead
+ */
+export async function getEphemeralToken(): Promise<EphemeralToken> {
+  return getOpenAIEphemeralToken()
 }
 
 /**

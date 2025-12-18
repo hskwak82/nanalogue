@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useRealtimeVoice, type RealtimeState } from '@/hooks/useRealtimeVoice'
+import { useRealtimeProvider } from '@/hooks/useRealtimeProvider'
+import type { RealtimeConnectionState } from '@/lib/realtime/types'
 import { MicrophoneIcon, XMarkIcon } from '@heroicons/react/24/solid'
 import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
@@ -36,7 +37,7 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
   const pendingAIResponse = useRef<string | null>(null)
   const waitingForUserTranscript = useRef(false)
 
-  const realtime = useRealtimeVoice({
+  const realtime = useRealtimeProvider({
     onTranscript: (text, isFinal) => {
       console.log('[RealtimeSession] onTranscript:', { text, isFinal, isDisconnecting: isDisconnecting.current })
       // Ignore if disconnecting
@@ -224,7 +225,7 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
     }
   }, [conversationStarted, realtime.isReady, transcripts.length, realtime.startConversation])
 
-  const getStateLabel = (state: RealtimeState): string => {
+  const getStateLabel = (state: RealtimeConnectionState): string => {
     switch (state) {
       case 'idle':
         return '연결 대기'
@@ -245,7 +246,7 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
     }
   }
 
-  const getStateColor = (state: RealtimeState): string => {
+  const getStateColor = (state: RealtimeConnectionState): string => {
     switch (state) {
       case 'idle':
         return 'bg-gray-400'
