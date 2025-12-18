@@ -97,10 +97,16 @@ function SessionPageContent() {
     }
   }, [loading])
 
-  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생
+  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생 (classic 모드에서만)
   useEffect(() => {
+    // Don't auto-play in realtime mode (uses its own audio)
+    if (conversationMode === 'realtime') return
+
     // Don't auto-play if completing session (about to redirect)
     if (isCompleting) return
+
+    // Don't auto-play while still checking mode
+    if (checkingMode) return
 
     if (messages.length > 0 && tts.isEnabled) {
       const lastMessage = messages[messages.length - 1]
@@ -109,7 +115,7 @@ function SessionPageContent() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, loading, isCompleting])
+  }, [messages.length, loading, isCompleting, conversationMode, checkingMode])
 
   // STT 결과를 입력창에 반영
   useEffect(() => {
@@ -385,7 +391,13 @@ function SessionPageContent() {
   }
 
   const initializeSession = useCallback(async () => {
+    // Don't initialize classic session until mode check is complete
+    if (checkingMode) return
+
+    // Skip if already initialized or if we're in realtime mode
     if (initialized) return
+    if (conversationMode === 'realtime') return
+
     setInitialized(true)
 
     const {
@@ -558,7 +570,7 @@ function SessionPageContent() {
         setLoading(false)
       }
     }
-  }, [initialized, router, supabase])
+  }, [initialized, router, supabase, checkingMode, conversationMode])
 
   useEffect(() => {
     initializeSession()
