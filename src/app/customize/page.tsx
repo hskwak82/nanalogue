@@ -470,7 +470,7 @@ function CustomizePageContent() {
               {/* Left: Cover Editor with Spine Preview */}
               <div className="flex flex-col items-start gap-4">
                 {/* Cover + Spine side by side */}
-                <div className="flex items-start">
+                <div className="flex items-start gap-4">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
                   <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
                     <CoverEditor
@@ -556,7 +556,7 @@ function CustomizePageContent() {
               {/* Left: Paper Editor */}
               <div className="flex flex-col items-start gap-4">
                 {/* Paper + Spine side by side */}
-                <div className="flex items-start">
+                <div className="flex items-start gap-4">
                   <div className="relative flex flex-col items-center" style={{ width: 300 }}>
                     <PaperEditor
                       template={state.selectedPaper}
