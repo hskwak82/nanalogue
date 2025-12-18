@@ -24,6 +24,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   const [isMuted, setIsMuted] = useState(false)
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
+  const [connectionError, setConnectionError] = useState<string | null>(null)
   const transcriptsEndRef = useRef<HTMLDivElement>(null)
   const handleDisconnectRef = useRef<(() => void) | null>(null)
 
@@ -55,6 +56,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
     },
     onError: (error) => {
       console.error('Realtime error:', error)
+      setConnectionError(error.message || '연결 오류가 발생했습니다')
     },
     onStateChange: (state) => {
       console.log('Realtime state:', state)
@@ -80,6 +82,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
   }, [transcripts, currentUserText, currentAIText])
 
   const handleConnect = useCallback(async () => {
+    setConnectionError(null)
     await realtime.connect()
   }, [realtime])
 
@@ -265,15 +268,31 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
             <h2 className="text-xl font-semibold text-gray-900">
               실시간 음성 대화
             </h2>
-            <p className="text-gray-500 max-w-sm">
-              버튼을 눌러 연결을 시작하세요.
-            </p>
-            <button
-              onClick={handleConnect}
-              className="px-6 py-3 rounded-full bg-pastel-purple text-white font-medium hover:bg-pastel-purple-dark transition-colors"
-            >
-              연결 시작
-            </button>
+            {connectionError ? (
+              <div className="space-y-2">
+                <p className="text-red-500 max-w-sm text-sm">
+                  오류: {connectionError}
+                </p>
+                <button
+                  onClick={handleConnect}
+                  className="px-6 py-3 rounded-full bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-gray-500 max-w-sm">
+                  버튼을 눌러 연결을 시작하세요.
+                </p>
+                <button
+                  onClick={handleConnect}
+                  className="px-6 py-3 rounded-full bg-pastel-purple text-white font-medium hover:bg-pastel-purple-dark transition-colors"
+                >
+                  연결 시작
+                </button>
+              </>
+            )}
           </div>
         )}
 
