@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import type { ConversationMessage } from '@/types/database'
 
-function getGeminiClient() {
-  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-}
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: Request) {
   try {
@@ -29,10 +29,7 @@ export async function POST(request: Request) {
       )
       .join('\n')
 
-    const genAI = getGeminiClient()
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-
-    const prompt = `당신은 따뜻하고 세심한 일기 작성 도우미입니다.
+    const systemPrompt = `당신은 따뜻하고 세심한 일기 작성 도우미입니다.
 사용자와의 대화 내용을 바탕으로 1인칭 시점의 일기를 작성해주세요.
 
 일기 작성 가이드라인:
@@ -41,10 +38,6 @@ export async function POST(request: Request) {
 - 감정과 생각을 자연스럽게 녹여내기
 - 3-5개 문단, 적당한 길이 유지
 - 사실만 나열하지 말고 그때의 감정과 생각도 포함
-
-다음 대화를 바탕으로 오늘의 일기를 작성해주세요:
-
-${conversationText}
 
 응답은 반드시 다음 JSON 형식으로 출력하세요:
 {
@@ -55,51 +48,31 @@ ${conversationText}
   "tomorrow_plan": "내일 계획이나 다짐"
 }`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    let diaryContent = response.text()
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `다음 대화를 바탕으로 오늘의 일기를 작성해주세요:\n\n${conversationText}` },
+      ],
+      response_format: { type: 'json_object' },
+    })
+
+    let diaryContent = response.choices[0]?.message?.content
 
     if (!diaryContent) {
       throw new Error('Failed to generate diary content')
     }
 
-    // Remove markdown code blocks if present
-    diaryContent = diaryContent.trim()
-    if (diaryContent.startsWith('```json')) {
-      diaryContent = diaryContent.slice(7)
-    } else if (diaryContent.startsWith('```')) {
-      diaryContent = diaryContent.slice(3)
-    }
-    if (diaryContent.endsWith('```')) {
-      diaryContent = diaryContent.slice(0, -3)
-    }
-    diaryContent = diaryContent.trim()
-
-    // Parse JSON with error handling - Gemini sometimes returns newlines in strings
+    // Parse JSON - OpenAI with response_format returns clean JSON
     let diary
     try {
       diary = JSON.parse(diaryContent)
-    } catch {
-      // Try to fix common JSON issues - newlines inside string values
-      try {
-        // Replace newlines inside strings only (between quotes, using [\s\S] to match newlines)
-        const fixedContent = diaryContent.replace(
-          /"([\s\S]*?)"/g,
-          (match, content) => {
-            const fixed = content
-              .replace(/\n/g, '\\n')
-              .replace(/\r/g, '\\r')
-              .replace(/\t/g, '\\t')
-            return `"${fixed}"`
-          }
-        )
-        diary = JSON.parse(fixedContent)
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError)
-        console.error('Raw content:', diaryContent.substring(0, 500))
-        throw new Error('일기 생성 결과를 파싱할 수 없습니다.')
-      }
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError)
+      console.error('Raw content:', diaryContent.substring(0, 500))
+      throw new Error('일기 생성 결과를 파싱할 수 없습니다.')
     }
+
     const today = new Date().toISOString().split('T')[0]
 
     // Save diary entry - check if exists first
