@@ -104,10 +104,36 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
   // Initialize WebRTC connection
   const connect = useCallback(async () => {
-    // Prevent duplicate connections
-    if (peerConnectionRef.current || state === 'connecting') {
-      console.log('Already connecting or connected')
+    // Prevent duplicate connections while connecting
+    if (state === 'connecting') {
+      console.log('Already connecting')
       return
+    }
+
+    // Clean up any existing connection first
+    if (peerConnectionRef.current || audioElementRef.current || mediaStreamRef.current) {
+      console.log('Cleaning up existing connection before reconnecting')
+      // Stop media stream
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+      }
+      // Close data channel
+      if (dataChannelRef.current) {
+        dataChannelRef.current.close()
+        dataChannelRef.current = null
+      }
+      // Close peer connection
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close()
+        peerConnectionRef.current = null
+      }
+      // Stop and remove audio element
+      if (audioElementRef.current) {
+        audioElementRef.current.pause()
+        audioElementRef.current.srcObject = null
+        audioElementRef.current = null
+      }
     }
 
     if (!isSupported) {
@@ -117,6 +143,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
     try {
       updateState('connecting')
+      setIsEnding(false) // Reset ending state for new connection
 
       // Get ephemeral token
       const session = await getSession()
@@ -408,31 +435,46 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
     )
   }, [])
 
-  // Cleanup on unmount - use ref to avoid dependency issues
-  useEffect(() => {
-    return () => {
-      // Stop media stream
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop())
-        mediaStreamRef.current = null
-      }
-      // Close data channel
-      if (dataChannelRef.current) {
-        dataChannelRef.current.close()
-        dataChannelRef.current = null
-      }
-      // Close peer connection
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close()
-        peerConnectionRef.current = null
-      }
-      // Remove audio element
-      if (audioElementRef.current) {
-        audioElementRef.current.srcObject = null
-        audioElementRef.current = null
-      }
+  // Cleanup function for both unmount and page unload
+  const cleanup = useCallback(() => {
+    // Stop media stream
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop())
+      mediaStreamRef.current = null
+    }
+    // Close data channel
+    if (dataChannelRef.current) {
+      dataChannelRef.current.close()
+      dataChannelRef.current = null
+    }
+    // Close peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
+    // Remove audio element
+    if (audioElementRef.current) {
+      audioElementRef.current.pause()
+      audioElementRef.current.srcObject = null
+      audioElementRef.current = null
     }
   }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup
+  }, [cleanup])
+
+  // Cleanup on page refresh/close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      cleanup()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [cleanup])
 
   return {
     state,
