@@ -27,7 +27,7 @@ import type {
 } from '@/types/customization'
 import type { DiaryWithTemplates } from '@/types/diary'
 
-type TabType = 'cover' | 'paper'
+type TabType = 'cover' | 'paper' | 'spine'
 
 function CustomizePageContent() {
   const router = useRouter()
@@ -124,9 +124,13 @@ function CustomizePageContent() {
     setIsTextModalOpen(true)
   }
 
-  // Sync active tab with active editor
+  // Sync active tab with active editor (spine tab uses cover editor)
   useEffect(() => {
-    setActiveEditor(activeTab)
+    if (activeTab === 'spine') {
+      setActiveEditor('cover')
+    } else {
+      setActiveEditor(activeTab)
+    }
   }, [activeTab, setActiveEditor])
 
   // Handle keyboard delete
@@ -437,6 +441,16 @@ function CustomizePageContent() {
             속지 꾸미기
           </button>
           <button
+            onClick={() => setActiveTab('spine')}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              activeTab === 'spine'
+                ? 'bg-pastel-lavender text-gray-700'
+                : 'bg-white/70 text-gray-600 hover:bg-white'
+            }`}
+          >
+            책등 꾸미기
+          </button>
+          <button
             onClick={handleSave}
             disabled={isSaving}
             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
@@ -498,15 +512,6 @@ function CustomizePageContent() {
                       )}
                     </div>
                   </div>
-
-                  {/* Spine Customizer */}
-                  <div className="ml-4">
-                    <SpineCustomizer
-                      selectedPresetId={spinePresetId}
-                      diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
-                      onChange={setSpinePresetId}
-                    />
-                  </div>
                 </div>
 
                 {/* Bookshelf - below buttons */}
@@ -538,9 +543,9 @@ function CustomizePageContent() {
                 />
               </div>
             </>
-          ) : (
+          ) : activeTab === 'paper' ? (
             <>
-              {/* Left: Paper Editor with Spine Preview */}
+              {/* Left: Paper Editor */}
               <div className="flex flex-col items-start gap-4">
                 {/* Paper + Spine side by side */}
                 <div className="flex items-start">
@@ -628,7 +633,43 @@ function CustomizePageContent() {
                 />
               </div>
             </>
-          )}
+          ) : activeTab === 'spine' ? (
+            <>
+              {/* Left: Spine Preview */}
+              <div className="flex flex-col items-start gap-4">
+                <div className="flex items-start">
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                  />
+                </div>
+
+                {/* Bookshelf - below preview */}
+                {allDiaries.length > 0 && (
+                  <div className="mt-6 w-full max-w-2xl">
+                    <CustomizeBookshelf
+                      diaries={allDiaries}
+                      activeDiaryId={activeDiaryId}
+                      selectedDiaryId={diaryId}
+                      onSelectDiary={handleSelectDiary}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Spine Selector */}
+              <div className="space-y-4">
+                <SpineCustomizer
+                  selectedPresetId={spinePresetId}
+                  diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                  onChange={setSpinePresetId}
+                  selectorMode
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       </main>
 
