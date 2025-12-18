@@ -31,7 +31,7 @@ export default function SessionPage() {
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null)
   const [realtimeLoading, setRealtimeLoading] = useState(false)
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
-  const [existingDiaryDate, setExistingDiaryDate] = useState<string | null>(null)
+  const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -193,13 +193,11 @@ export default function SessionPage() {
         .single()
 
       if (existingSession) {
-        // If completed, show confirmation dialog
-        if (existingSession.status === 'completed') {
-          setRealtimeSessionId(existingSession.id)
-          setShowRealtimeConfirm(true)
-          return
-        }
+        // Show confirmation dialog for both completed and active sessions
         setRealtimeSessionId(existingSession.id)
+        setExistingSessionStatus(existingSession.status as 'completed' | 'active')
+        setShowRealtimeConfirm(true)
+        return
       } else {
         // Create new session
         const { data: newSession } = await supabase
@@ -256,6 +254,59 @@ export default function SessionPage() {
   function handleViewExistingDiary() {
     const today = new Date().toISOString().split('T')[0]
     router.push(`/diary/${today}`)
+  }
+
+  // Handle continue conversation (for active session)
+  function handleContinueConversation() {
+    setShowRealtimeConfirm(false)
+    setExistingSessionStatus(null)
+    // Session ID is already set, just proceed to realtime session
+  }
+
+  // Handle finish conversation and write diary (for active session)
+  async function handleFinishAndWriteDiary() {
+    if (!realtimeSessionId) return
+
+    setShowRealtimeConfirm(false)
+    setRealtimeLoading(true)
+
+    try {
+      // Generate diary from empty messages (will use session's existing conversation if any)
+      const response = await fetch('/api/diary/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: realtimeSessionId,
+          messages: [], // Empty - API should handle this gracefully
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          // Update session status
+          await supabase
+            .from('daily_sessions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', realtimeSessionId)
+
+          // Redirect to diary
+          const today = new Date().toISOString().split('T')[0]
+          router.push(`/diary/${today}`)
+          return
+        }
+      }
+      // If failed, just go to dashboard
+      router.push('/dashboard')
+    } catch (error) {
+      console.error('Failed to finish and write diary:', error)
+      router.push('/dashboard')
+    } finally {
+      setRealtimeLoading(false)
+    }
   }
 
   // Handle realtime session complete
@@ -821,7 +872,7 @@ export default function SessionPage() {
       )
     }
 
-    // Show confirmation dialog if diary already exists
+    // Show confirmation dialog for existing session
     if (showRealtimeConfirm) {
       const today = new Date().toLocaleDateString('ko-KR', {
         year: 'numeric',
@@ -829,29 +880,65 @@ export default function SessionPage() {
         day: 'numeric',
       })
 
+      const isCompleted = existingSessionStatus === 'completed'
+      const isActive = existingSessionStatus === 'active'
+
       return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
           <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-indigo-200">
             <h2 className="mb-2 text-xl font-bold text-gray-700">
-              오늘의 일기가 이미 있어요
+              {isCompleted ? '오늘의 일기가 이미 있어요' : '진행 중인 대화가 있어요'}
             </h2>
             <p className="mb-6 text-gray-500">
-              {today}에 작성된 일기가 있습니다.<br />
-              새로 대화하면 기존 일기가 대체됩니다.
+              {isCompleted ? (
+                <>{today}에 작성된 일기가 있습니다.<br />새로 대화하면 기존 일기가 대체됩니다.</>
+              ) : (
+                <>{today}에 시작한 대화가 아직 완료되지 않았습니다.</>
+              )}
             </p>
             <div className="space-y-3">
-              <button
-                onClick={handleViewExistingDiary}
-                className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
-              >
-                기존 일기 보기
-              </button>
-              <button
-                onClick={handleRealtimeRestart}
-                className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
-              >
-                새로 대화하기
-              </button>
+              {/* Options for completed session */}
+              {isCompleted && (
+                <>
+                  <button
+                    onClick={handleViewExistingDiary}
+                    className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    기존 일기 보기
+                  </button>
+                  <button
+                    onClick={handleRealtimeRestart}
+                    className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  >
+                    새로 대화하기
+                  </button>
+                </>
+              )}
+
+              {/* Options for active (in-progress) session */}
+              {isActive && (
+                <>
+                  <button
+                    onClick={handleContinueConversation}
+                    className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    이어서 대화하기
+                  </button>
+                  <button
+                    onClick={handleFinishAndWriteDiary}
+                    className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  >
+                    대화 마무리하고 일기 작성
+                  </button>
+                  <button
+                    onClick={handleRealtimeRestart}
+                    className="w-full rounded-full border border-gray-300 bg-white py-3 font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    새로 대화하기
+                  </button>
+                </>
+              )}
+
               <button
                 onClick={() => router.push('/dashboard')}
                 className="w-full rounded-full py-3 font-medium text-gray-500 hover:text-gray-700 transition-colors"
