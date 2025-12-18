@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { SpeakerWaveIcon, PlayIcon, CheckIcon } from '@heroicons/react/24/outline'
+import { SpeakerWaveIcon, PlayIcon, CheckIcon, BoltIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
 
 interface TTSProviderInfo {
   id: string
@@ -20,11 +20,24 @@ interface TTSVoice {
   premium?: boolean
 }
 
+interface RealtimeVoice {
+  id: string
+  name: string
+  description: string
+}
+
 interface TTSSettings {
+  conversationMode: 'classic' | 'realtime'
+  // Classic mode
   currentProvider: string
   speakingRate: number
   defaultVoice: string | null
   providers: TTSProviderInfo[]
+  // Realtime mode
+  realtimeVoice: string
+  realtimeVoices: RealtimeVoice[]
+  realtimeInstructions: string
+  // Metadata
   updatedAt: string | null
   updatedBy: string | null
 }
@@ -32,9 +45,16 @@ interface TTSSettings {
 export default function AdminTTSPage() {
   const [settings, setSettings] = useState<TTSSettings | null>(null)
   const [voices, setVoices] = useState<TTSVoice[]>([])
+  // Mode selection
+  const [selectedMode, setSelectedMode] = useState<'classic' | 'realtime'>('classic')
+  // Classic mode state
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [selectedVoice, setSelectedVoice] = useState<string>('')
   const [speakingRate, setSpeakingRate] = useState<number>(1.0)
+  // Realtime mode state
+  const [selectedRealtimeVoice, setSelectedRealtimeVoice] = useState<string>('alloy')
+  const [realtimeInstructions, setRealtimeInstructions] = useState<string>('')
+  // UI state
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -46,10 +66,10 @@ export default function AdminTTSPage() {
   }, [])
 
   useEffect(() => {
-    if (selectedProvider) {
+    if (selectedProvider && selectedMode === 'classic') {
       fetchVoices(selectedProvider)
     }
-  }, [selectedProvider])
+  }, [selectedProvider, selectedMode])
 
   async function fetchSettings() {
     try {
@@ -57,9 +77,11 @@ export default function AdminTTSPage() {
       if (!response.ok) throw new Error('Failed to fetch settings')
       const data = await response.json()
       setSettings(data)
+      setSelectedMode(data.conversationMode || 'classic')
       setSelectedProvider(data.currentProvider)
       setSpeakingRate(data.speakingRate ?? 1.0)
-      // defaultVoice will be set after voices are loaded
+      setSelectedRealtimeVoice(data.realtimeVoice || 'alloy')
+      setRealtimeInstructions(data.realtimeInstructions || '')
     } catch (error) {
       console.error('Error fetching TTS settings:', error)
       setMessage({ type: 'error', text: '설정을 불러오는데 실패했습니다.' })
@@ -74,7 +96,6 @@ export default function AdminTTSPage() {
       if (!response.ok) throw new Error('Failed to fetch voices')
       const data = await response.json()
       setVoices(data.voices)
-      // Use saved default voice if it matches the provider, otherwise use provider's default
       if (settings?.defaultVoice && data.voices.some((v: TTSVoice) => v.id === settings.defaultVoice)) {
         setSelectedVoice(settings.defaultVoice)
       } else {
@@ -88,11 +109,23 @@ export default function AdminTTSPage() {
 
   const hasChanges = () => {
     if (!settings) return false
-    return (
-      selectedProvider !== settings.currentProvider ||
-      speakingRate !== settings.speakingRate ||
-      selectedVoice !== (settings.defaultVoice || '')
-    )
+
+    const modeChanged = selectedMode !== settings.conversationMode
+
+    if (selectedMode === 'classic') {
+      return (
+        modeChanged ||
+        selectedProvider !== settings.currentProvider ||
+        speakingRate !== settings.speakingRate ||
+        selectedVoice !== (settings.defaultVoice || '')
+      )
+    } else {
+      return (
+        modeChanged ||
+        selectedRealtimeVoice !== settings.realtimeVoice ||
+        realtimeInstructions !== (settings.realtimeInstructions || '')
+      )
+    }
   }
 
   async function handleSave() {
@@ -102,20 +135,29 @@ export default function AdminTTSPage() {
     setMessage(null)
 
     try {
+      const body: Record<string, unknown> = {
+        conversationMode: selectedMode,
+      }
+
+      if (selectedMode === 'classic') {
+        body.provider = selectedProvider
+        body.speakingRate = speakingRate
+        body.defaultVoice = selectedVoice
+      } else {
+        body.realtimeVoice = selectedRealtimeVoice
+        body.realtimeInstructions = realtimeInstructions
+      }
+
       const response = await fetch('/api/admin/tts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: selectedProvider,
-          speakingRate: speakingRate,
-          defaultVoice: selectedVoice,
-        }),
+        body: JSON.stringify(body),
       })
 
       if (!response.ok) throw new Error('Failed to save settings')
 
       await fetchSettings()
-      setMessage({ type: 'success', text: 'TTS 설정이 저장되었습니다.' })
+      setMessage({ type: 'success', text: '설정이 저장되었습니다.' })
     } catch (error) {
       console.error('Error saving TTS settings:', error)
       setMessage({ type: 'error', text: '저장에 실패했습니다.' })
@@ -177,178 +219,348 @@ export default function AdminTTSPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">TTS 설정</h1>
+        <h1 className="text-2xl font-bold text-gray-900">음성 대화 설정</h1>
         <p className="mt-1 text-sm text-gray-500">
-          시스템 기본 TTS 설정입니다. 개인 사용자는 별도로 음성과 속도를 변경할 수 있습니다.
+          AI와의 음성 대화 방식을 설정합니다.
         </p>
       </div>
 
-      {/* Provider Selection */}
+      {/* Conversation Mode Selection */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">TTS 제공자 선택</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">대화 모드</h2>
 
-        <div className="space-y-4">
-          {settings?.providers.map((provider) => (
-            <div
-              key={provider.id}
-              className={`relative flex items-start p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                selectedProvider === provider.id
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => setSelectedProvider(provider.id)}
-            >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Classic Mode */}
+          <div
+            onClick={() => setSelectedMode('classic')}
+            className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              selectedMode === 'classic'
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg ${selectedMode === 'classic' ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                <ChatBubbleLeftRightIcon className={`h-6 w-6 ${selectedMode === 'classic' ? 'text-indigo-600' : 'text-gray-500'}`} />
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-medium text-gray-900">{provider.name}</h3>
-                  {provider.id === settings.currentProvider && (
+                  <h3 className="font-medium text-gray-900">클래식 모드</h3>
+                  {settings?.conversationMode === 'classic' && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                       <CheckIcon className="h-3 w-3 mr-1" />
-                      현재 사용중
+                      현재
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-gray-500">{provider.description}</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  {provider.voiceCount}개 음성 지원
+                <p className="mt-1 text-sm text-gray-500">
+                  기존 방식: 음성인식 → AI 응답 → 음성합성
                 </p>
+                <ul className="mt-2 text-xs text-gray-400 space-y-1">
+                  <li>• Google Cloud TTS / Naver Clova 지원</li>
+                  <li>• 다양한 음성 선택 가능</li>
+                  <li>• 비용 효율적</li>
+                </ul>
               </div>
-
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handlePlaySample(provider.id)
-                }}
-                disabled={playing !== null}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  playing === provider.id
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {playing === provider.id ? (
-                  <>
-                    <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
-                    재생중...
-                  </>
-                ) : (
-                  <>
-                    <PlayIcon className="h-4 w-4" />
-                    샘플 듣기
-                  </>
-                )}
-              </button>
             </div>
-          ))}
+          </div>
+
+          {/* Realtime Mode */}
+          <div
+            onClick={() => setSelectedMode('realtime')}
+            className={`relative p-4 rounded-lg border-2 cursor-pointer transition-all ${
+              selectedMode === 'realtime'
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg ${selectedMode === 'realtime' ? 'bg-indigo-100' : 'bg-gray-100'}`}>
+                <BoltIcon className={`h-6 w-6 ${selectedMode === 'realtime' ? 'text-indigo-600' : 'text-gray-500'}`} />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-medium text-gray-900">실시간 모드</h3>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    NEW
+                  </span>
+                  {settings?.conversationMode === 'realtime' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      <CheckIcon className="h-3 w-3 mr-1" />
+                      현재
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-sm text-gray-500">
+                  OpenAI Realtime API: 자연스러운 실시간 대화
+                </p>
+                <ul className="mt-2 text-xs text-gray-400 space-y-1">
+                  <li>• 300ms 미만 지연시간</li>
+                  <li>• 자연스러운 끼어들기 지원</li>
+                  <li>• 실제 대화처럼 자연스러움</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Default Voice Selection */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          기본 음성 ({settings?.providers.find(p => p.id === selectedProvider)?.name})
-        </h2>
+      {/* Classic Mode Settings */}
+      {selectedMode === 'classic' && (
+        <>
+          {/* Provider Selection */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">TTS 제공자 선택</h2>
 
-        {voices.length === 0 ? (
-          <p className="text-sm text-gray-500">음성 목록을 불러오는 중...</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {voices.map((voice) => (
-              <div
-                key={voice.id}
-                onClick={() => setSelectedVoice(voice.id)}
-                className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
-                  selectedVoice === voice.id
-                    ? 'bg-indigo-100 border-2 border-indigo-500'
-                    : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {selectedVoice === voice.id && (
-                    <CheckIcon className="h-4 w-4 text-indigo-600" />
-                  )}
-                  <div>
-                    <span className="font-medium text-gray-900">{voice.name}</span>
-                    <span className="ml-2 text-xs text-gray-500">
-                      {voice.gender === 'male' ? '남성' : '여성'}
-                      {voice.quality && ` / ${voice.quality}`}
-                      {voice.premium && ' (프리미엄)'}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handlePlaySample(selectedProvider, voice.id)
-                  }}
-                  disabled={playing !== null}
-                  className={`p-1.5 rounded-full transition-all ${
-                    playing === voice.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            <div className="space-y-4">
+              {settings?.providers.map((provider) => (
+                <div
+                  key={provider.id}
+                  className={`relative flex items-start p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    selectedProvider === provider.id
+                      ? 'border-indigo-500 bg-indigo-50'
+                      : 'border-gray-200 hover:border-gray-300'
                   }`}
+                  onClick={() => setSelectedProvider(provider.id)}
                 >
-                  {playing === voice.id ? (
-                    <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
-                  ) : (
-                    <PlayIcon className="h-4 w-4" />
-                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-gray-900">{provider.name}</h3>
+                      {provider.id === settings.currentProvider && settings.conversationMode === 'classic' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <CheckIcon className="h-3 w-3 mr-1" />
+                          현재 사용중
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">{provider.description}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {provider.voiceCount}개 음성 지원
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePlaySample(provider.id)
+                    }}
+                    disabled={playing !== null}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                      playing === provider.id
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {playing === provider.id ? (
+                      <>
+                        <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
+                        재생중...
+                      </>
+                    ) : (
+                      <>
+                        <PlayIcon className="h-4 w-4" />
+                        샘플 듣기
+                      </>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Default Voice Selection */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              기본 음성 ({settings?.providers.find(p => p.id === selectedProvider)?.name})
+            </h2>
+
+            {voices.length === 0 ? (
+              <p className="text-sm text-gray-500">음성 목록을 불러오는 중...</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {voices.map((voice) => (
+                  <div
+                    key={voice.id}
+                    onClick={() => setSelectedVoice(voice.id)}
+                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                      selectedVoice === voice.id
+                        ? 'bg-indigo-100 border-2 border-indigo-500'
+                        : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {selectedVoice === voice.id && (
+                        <CheckIcon className="h-4 w-4 text-indigo-600" />
+                      )}
+                      <div>
+                        <span className="font-medium text-gray-900">{voice.name}</span>
+                        <span className="ml-2 text-xs text-gray-500">
+                          {voice.gender === 'male' ? '남성' : '여성'}
+                          {voice.quality && ` / ${voice.quality}`}
+                          {voice.premium && ' (프리미엄)'}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handlePlaySample(selectedProvider, voice.id)
+                      }}
+                      disabled={playing !== null}
+                      className={`p-1.5 rounded-full transition-all ${
+                        playing === voice.id
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                      }`}
+                    >
+                      {playing === voice.id ? (
+                        <SpeakerWaveIcon className="h-4 w-4 animate-pulse" />
+                      ) : (
+                        <PlayIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Speaking Rate */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">기본 음성 속도</h2>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-500 w-16">느림</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.0"
+                  step="0.05"
+                  value={speakingRate}
+                  onChange={(e) => setSpeakingRate(Number(e.target.value))}
+                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <span className="text-sm text-gray-500 w-16 text-right">빠름</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">
+                  현재 속도: <span className="font-semibold text-indigo-600">{speakingRate.toFixed(2)}x</span>
+                  <span className="ml-2 text-gray-400">({getSpeedLabel(speakingRate)})</span>
+                </span>
+                <button
+                  onClick={() => setSpeakingRate(1.0)}
+                  className="text-xs text-indigo-600 hover:text-indigo-700"
+                >
+                  기본값으로 초기화
                 </button>
               </div>
-            ))}
+
+              <div className="flex gap-2">
+                {[0.75, 1.0, 1.25, 1.5].map((rate) => (
+                  <button
+                    key={rate}
+                    onClick={() => setSpeakingRate(rate)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
+                      speakingRate === rate
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {rate}x
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* Speaking Rate */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">기본 음성 속도</h2>
+          {/* Environment Variables Info */}
+          <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
+            <h3 className="font-medium text-amber-800">환경 변수 설정</h3>
+            <p className="mt-1 text-sm text-amber-700">
+              각 TTS 제공자를 사용하려면 해당 API 키가 환경 변수에 설정되어야 합니다.
+            </p>
+            <div className="mt-3 text-xs font-mono text-amber-600 space-y-1">
+              <p>• Google Cloud: GOOGLE_CLOUD_CREDENTIALS</p>
+              <p>• Naver Clova: NAVER_CLOUD_CLIENT_ID, NAVER_CLOUD_CLIENT_SECRET</p>
+            </div>
+          </div>
+        </>
+      )}
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 w-16">느림</span>
-            <input
-              type="range"
-              min="0.5"
-              max="2.0"
-              step="0.05"
-              value={speakingRate}
-              onChange={(e) => setSpeakingRate(Number(e.target.value))}
-              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+      {/* Realtime Mode Settings */}
+      {selectedMode === 'realtime' && (
+        <>
+          {/* Voice Selection */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">OpenAI 음성 선택</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {settings?.realtimeVoices.map((voice) => (
+                <div
+                  key={voice.id}
+                  onClick={() => setSelectedRealtimeVoice(voice.id)}
+                  className={`p-4 rounded-lg cursor-pointer transition-all ${
+                    selectedRealtimeVoice === voice.id
+                      ? 'bg-indigo-100 border-2 border-indigo-500'
+                      : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    {selectedRealtimeVoice === voice.id && (
+                      <CheckIcon className="h-4 w-4 text-indigo-600" />
+                    )}
+                    <span className="font-medium text-gray-900">{voice.name}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">{voice.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* System Instructions */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">시스템 프롬프트</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              AI의 성격과 대화 방식을 설정합니다. 비워두면 기본 설정이 사용됩니다.
+            </p>
+
+            <textarea
+              value={realtimeInstructions}
+              onChange={(e) => setRealtimeInstructions(e.target.value)}
+              placeholder="예: 당신은 따뜻하고 친근한 일기 친구입니다. 사용자의 하루에 대해 자연스럽게 대화하며, 공감하고 격려해주세요."
+              rows={4}
+              className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-500 w-16 text-right">빠름</span>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-600">
-              현재 속도: <span className="font-semibold text-indigo-600">{speakingRate.toFixed(2)}x</span>
-              <span className="ml-2 text-gray-400">({getSpeedLabel(speakingRate)})</span>
-            </span>
-            <button
-              onClick={() => setSpeakingRate(1.0)}
-              className="text-xs text-indigo-600 hover:text-indigo-700"
-            >
-              기본값으로 초기화
-            </button>
+          {/* Pricing Info */}
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+            <h3 className="font-medium text-blue-800">OpenAI Realtime API 요금</h3>
+            <p className="mt-1 text-sm text-blue-700">
+              실시간 모드는 OpenAI Realtime API를 사용하며, 분당 요금이 부과됩니다.
+            </p>
+            <div className="mt-3 text-xs font-mono text-blue-600 space-y-1">
+              <p>• 음성 입력: $0.06 / 분</p>
+              <p>• 음성 출력: $0.24 / 분</p>
+              <p>• 텍스트 입력: $5 / 1M 토큰</p>
+              <p>• 텍스트 출력: $20 / 1M 토큰</p>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            {[0.75, 1.0, 1.25, 1.5].map((rate) => (
-              <button
-                key={rate}
-                onClick={() => setSpeakingRate(rate)}
-                className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                  speakingRate === rate
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {rate}x
-              </button>
-            ))}
+          {/* Environment Variables Info */}
+          <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
+            <h3 className="font-medium text-amber-800">환경 변수 설정</h3>
+            <p className="mt-1 text-sm text-amber-700">
+              실시간 모드를 사용하려면 OpenAI API 키가 필요합니다.
+            </p>
+            <div className="mt-3 text-xs font-mono text-amber-600">
+              <p>• OPENAI_API_KEY=sk-...</p>
+            </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Save Button */}
       <div className="flex items-center gap-4">
@@ -369,18 +581,6 @@ export default function AdminTTSPage() {
             {message.text}
           </span>
         )}
-      </div>
-
-      {/* Environment Variables Info */}
-      <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
-        <h3 className="font-medium text-amber-800">환경 변수 설정</h3>
-        <p className="mt-1 text-sm text-amber-700">
-          각 TTS 제공자를 사용하려면 해당 API 키가 환경 변수에 설정되어야 합니다.
-        </p>
-        <div className="mt-3 text-xs font-mono text-amber-600 space-y-1">
-          <p>• Google Cloud: GOOGLE_CLOUD_CREDENTIALS</p>
-          <p>• Naver Clova: NAVER_CLOUD_CLIENT_ID, NAVER_CLOUD_CLIENT_SECRET</p>
-        </div>
       </div>
     </div>
   )
