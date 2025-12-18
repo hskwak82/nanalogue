@@ -1024,7 +1024,6 @@ function SessionPageContent() {
         <div className="flex-1">
           <RealtimeSession
             onComplete={handleRealtimeComplete}
-            autoStart
           />
         </div>
       </div>

@@ -23,27 +23,7 @@ interface UseRealtimeVoiceOptions {
   onAIResponse?: (text: string) => void
   onError?: (error: Error) => void
   onStateChange?: (state: RealtimeState) => void
-  onEndCommand?: () => void
 }
-
-// Keywords that trigger end conversation
-const END_COMMAND_KEYWORDS = [
-  '대화 종료',
-  '대화종료',
-  '대화 끝',
-  '대화를 종료',
-  '대화를 끝',
-  '이만 끝',
-  '이만 종료',
-  '그만할게',
-  '그만할래',
-  '끝낼게',
-  '끝낼래',
-  '종료할게',
-  '종료할래',
-  '여기까지',
-  '마무리',
-]
 
 export type RealtimeState =
   | 'idle'
@@ -54,16 +34,8 @@ export type RealtimeState =
   | 'speaking'
   | 'error'
 
-// Check if text contains end command keywords
-function containsEndCommand(text: string): boolean {
-  const normalizedText = text.toLowerCase().replace(/\s+/g, ' ').trim()
-  return END_COMMAND_KEYWORDS.some((keyword) =>
-    normalizedText.includes(keyword.toLowerCase())
-  )
-}
-
 export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
-  const { onTranscript, onAIResponse, onError, onStateChange, onEndCommand } = options
+  const { onTranscript, onAIResponse, onError, onStateChange } = options
 
   const [state, setState] = useState<RealtimeState>('idle')
   const [isSupported, setIsSupported] = useState(true)
@@ -77,14 +49,12 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
   const onAIResponseRef = useRef(onAIResponse)
   const onErrorRef = useRef(onError)
   const onStateChangeRef = useRef(onStateChange)
-  const onEndCommandRef = useRef(onEndCommand)
 
   // Keep refs updated
   useEffect(() => { onTranscriptRef.current = onTranscript }, [onTranscript])
   useEffect(() => { onAIResponseRef.current = onAIResponse }, [onAIResponse])
   useEffect(() => { onErrorRef.current = onError }, [onError])
   useEffect(() => { onStateChangeRef.current = onStateChange }, [onStateChange])
-  useEffect(() => { onEndCommandRef.current = onEndCommand }, [onEndCommand])
 
   // Use ref for isEnding to avoid closure issues in event handlers
   const isEndingRef = useRef(false)
@@ -160,29 +130,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       case 'conversation.item.input_audio_transcription.completed':
         const userText = (event as { transcript?: string }).transcript || ''
         console.log('[useRealtimeVoice] Transcription completed:', userText)
-        console.log('[useRealtimeVoice] containsEndCommand:', containsEndCommand(userText), 'isEnding:', isEndingRef.current)
-
         setUserTranscript(userText)
         onTranscriptRef.current?.(userText, true)
-
-        // Check for end command keywords (only if not already ending)
-        if (userText && containsEndCommand(userText) && !isEndingRef.current) {
-          console.log('[useRealtimeVoice] *** END COMMAND DETECTED ***:', userText)
-          isEndingRef.current = true
-
-          // Cancel any ongoing response IMMEDIATELY
-          if (dataChannelRef.current?.readyState === 'open') {
-            console.log('[useRealtimeVoice] Sending response.cancel')
-            dataChannelRef.current.send(
-              JSON.stringify({ type: 'response.cancel' })
-            )
-          }
-
-          // Trigger end callback immediately (uses ref!)
-          console.log('[useRealtimeVoice] Triggering onEndCommand callback')
-          // No delay - trigger immediately
-          onEndCommandRef.current?.()
-        }
         break
 
       case 'response.audio_transcript.delta':
@@ -201,8 +150,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         break
 
       case 'response.done':
-        updateState('connected')
         setAiTranscript('')
+        updateState('connected')
         break
 
       case 'error':
@@ -227,20 +176,17 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       return
     }
 
-    // Check if we're in ending state
-    if (isEndingRef.current) {
-      console.log('[useRealtimeVoice] Connection blocked - ending state')
-      return
-    }
-
     // Prevent duplicate connections while connecting
     if (state === 'connecting') {
       console.log('[useRealtimeVoice] Already connecting')
       return
     }
 
+    // Reset ending state for new connection
+    isEndingRef.current = false
+
     // Clean up any existing connection first (both local refs and global)
-    console.log('Cleaning up existing connections before connecting')
+    console.log('[useRealtimeVoice] Cleaning up existing connections before connecting')
     cleanupWebRTC()
 
     if (peerConnectionRef.current || audioElementRef.current || mediaStreamRef.current) {
@@ -297,6 +243,14 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         audioEl.srcObject = event.streams[0]
       }
 
+      // Check if we should abort (user disconnected during async operations)
+      if (isEndingRef.current || isConnectionBlocked()) {
+        console.log('[useRealtimeVoice] Aborting connect - ending or blocked')
+        pc.close()
+        audioEl.remove()
+        return
+      }
+
       // Get microphone access
       // Check if mediaDevices is available (requires HTTPS or localhost)
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -312,6 +266,16 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           autoGainControl: true,
         },
       })
+
+      // Check again after getUserMedia (user might have disconnected while waiting for permission)
+      if (isEndingRef.current || isConnectionBlocked()) {
+        console.log('[useRealtimeVoice] Aborting connect after getUserMedia - ending or blocked')
+        stream.getTracks().forEach(track => track.stop())
+        pc.close()
+        audioEl.remove()
+        return
+      }
+
       mediaStreamRef.current = stream
       registerMediaStream(stream)
 
@@ -361,6 +325,15 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
         updateState('error')
       }
 
+      // Check before SDP exchange
+      if (isEndingRef.current || isConnectionBlocked()) {
+        console.log('[useRealtimeVoice] Aborting connect before SDP - ending or blocked')
+        stream.getTracks().forEach(track => track.stop())
+        pc.close()
+        audioEl.remove()
+        return
+      }
+
       // Create and set local description
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)
@@ -380,6 +353,15 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
 
       if (!sdpResponse.ok) {
         throw new Error('Failed to connect to OpenAI Realtime API')
+      }
+
+      // Final check before completing connection
+      if (isEndingRef.current || isConnectionBlocked()) {
+        console.log('[useRealtimeVoice] Aborting connect after SDP response - ending or blocked')
+        stream.getTracks().forEach(track => track.stop())
+        pc.close()
+        audioEl.remove()
+        return
       }
 
       const answerSdp = await sdpResponse.text()

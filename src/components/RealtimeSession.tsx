@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useRealtimeVoice, type RealtimeState } from '@/hooks/useRealtimeVoice'
-import { MicrophoneIcon, StopIcon, PhoneXMarkIcon } from '@heroicons/react/24/solid'
+import { MicrophoneIcon, XMarkIcon } from '@heroicons/react/24/solid'
+import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
-import { cleanupWebRTC, stopAllMicrophones, blockConnections } from '@/lib/webrtc-cleanup'
+import { cleanupWebRTC, stopAllMicrophones, blockConnections, allowConnections } from '@/lib/webrtc-cleanup'
 
 interface RealtimeSessionProps {
   onComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void
-  autoStart?: boolean
+  onCancel?: () => void
 }
 
 interface TranscriptMessage {
@@ -17,19 +19,16 @@ interface TranscriptMessage {
   timestamp: Date
 }
 
-export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessionProps) {
+export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) {
+  const router = useRouter()
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([])
   const [currentUserText, setCurrentUserText] = useState('')
   const [currentAIText, setCurrentAIText] = useState('')
   const [isMuted, setIsMuted] = useState(false)
-  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const transcriptsEndRef = useRef<HTMLDivElement>(null)
-  const handleDisconnectRef = useRef<(() => void) | null>(null)
 
-  // Track if end command was triggered (to prevent double-firing)
-  const endCommandTriggered = useRef(false)
   // Track if disconnect was triggered (to prevent reconnection)
   const isDisconnecting = useRef(false)
 
@@ -68,20 +67,6 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
     onStateChange: (state) => {
       console.log('[RealtimeSession] State change:', state, 'isDisconnecting:', isDisconnecting.current)
     },
-    onEndCommand: () => {
-      console.log('[RealtimeSession] onEndCommand received, endCommandTriggered:', endCommandTriggered.current, 'isDisconnecting:', isDisconnecting.current)
-
-      // Prevent double-firing
-      if (endCommandTriggered.current || isDisconnecting.current) {
-        console.log('[RealtimeSession] Ignoring onEndCommand - already triggered or disconnecting')
-        return
-      }
-      endCommandTriggered.current = true
-      isDisconnecting.current = true // Set IMMEDIATELY to prevent any reconnection
-
-      console.log('[RealtimeSession] Calling handleDisconnect')
-      handleDisconnectRef.current?.()
-    },
   })
 
   // Update current AI text from hook
@@ -94,42 +79,61 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
     transcriptsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [transcripts, currentUserText, currentAIText])
 
-  const handleConnect = useCallback(async () => {
-    setConnectionError(null)
-    await realtime.connect()
-  }, [realtime])
-
-  const handleDisconnect = useCallback(() => {
-    console.log('[RealtimeSession] handleDisconnect called, isDisconnecting:', isDisconnecting.current)
+  // Common disconnect logic
+  const performDisconnect = useCallback(() => {
+    console.log('[RealtimeSession] performDisconnect called, isDisconnecting:', isDisconnecting.current)
 
     // Prevent duplicate calls
     if (isDisconnecting.current) {
       console.log('[RealtimeSession] Already disconnecting, ignoring')
-      return
+      return false
     }
 
     // Prevent reconnection - set FIRST before any async operations
     isDisconnecting.current = true
-    endCommandTriggered.current = true
 
     // Block all future WebRTC connections globally
     blockConnections()
 
     console.log('[RealtimeSession] Step 1: Stopping microphones')
-    // FIRST: Stop microphones immediately (user feedback is important)
     stopAllMicrophones()
 
     console.log('[RealtimeSession] Step 2: Interrupting AI')
-    // Interrupt any ongoing AI response
     realtime.interrupt()
 
     console.log('[RealtimeSession] Step 3: Disconnecting WebRTC')
-    // Disconnect WebRTC connection
     realtime.disconnect()
 
     console.log('[RealtimeSession] Step 4: Full cleanup')
-    // Full cleanup
     cleanupWebRTC()
+
+    return true
+  }, [realtime])
+
+  // Cancel - disconnect and go to home
+  const handleCancel = useCallback(() => {
+    console.log('[RealtimeSession] handleCancel called')
+
+    // Reset UI state immediately to prevent flash
+    setConversationStarted(false)
+
+    performDisconnect()
+
+    // Navigate to home
+    if (onCancel) {
+      onCancel()
+    } else {
+      router.push('/home')
+    }
+  }, [performDisconnect, onCancel, router])
+
+  // Generate diary - disconnect and call onComplete
+  const handleGenerateDiary = useCallback(() => {
+    console.log('[RealtimeSession] handleGenerateDiary called')
+
+    if (!performDisconnect()) {
+      return // Already disconnecting
+    }
 
     // Capture transcripts now before any state changes
     const currentTranscripts = [...transcripts]
@@ -137,8 +141,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
 
     // Small delay to ensure all resources are released before proceeding
     setTimeout(() => {
-      console.log('[RealtimeSession] Step 5: Final cleanup and onComplete')
-      // Double-check cleanup
+      console.log('[RealtimeSession] Final cleanup and onComplete')
       stopAllMicrophones()
       cleanupWebRTC()
 
@@ -153,12 +156,7 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
         )
       }
     }, 300)
-  }, [realtime, transcripts, onComplete])
-
-  // Update ref for voice command callback
-  useEffect(() => {
-    handleDisconnectRef.current = handleDisconnect
-  }, [handleDisconnect])
+  }, [performDisconnect, transcripts, onComplete])
 
   // Store disconnect ref for cleanup
   const disconnectRef = useRef(realtime.disconnect)
@@ -182,35 +180,27 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
     // TODO: Actually mute the microphone stream
   }, [isMuted])
 
-  // Auto-connect when autoStart prop is true (connection only, no greeting)
+  // Reset connection blocking on mount
   useEffect(() => {
-    console.log('[RealtimeSession] Auto-connect check:', {
-      autoStart,
-      autoConnectAttempted,
-      isSupported: realtime.isSupported,
-      state: realtime.state,
-      isDisconnecting: isDisconnecting.current,
-      endCommandTriggered: endCommandTriggered.current
-    })
+    allowConnections()
+    isDisconnecting.current = false
+  }, [])
 
-    // Don't reconnect if disconnecting was triggered OR end command was triggered
-    if (isDisconnecting.current || endCommandTriggered.current) {
-      console.log('[RealtimeSession] Skipping auto-connect: disconnecting or end command triggered')
-      return
-    }
-
-    if (autoStart && !autoConnectAttempted && realtime.isSupported && realtime.state === 'idle') {
-      console.log('[RealtimeSession] Auto-connecting')
-      setAutoConnectAttempted(true)
-      realtime.connect()
-    }
-  }, [autoStart, autoConnectAttempted, realtime.isSupported, realtime.state, realtime.connect])
-
-  // Handle start conversation button click
-  const handleStartConversation = useCallback(() => {
+  // Handle start conversation button click - connect then start
+  const handleStartConversation = useCallback(async () => {
+    console.log('[RealtimeSession] Starting conversation')
+    setConnectionError(null)
     setConversationStarted(true)
-    realtime.startConversation()
+    await realtime.connect()
   }, [realtime])
+
+  // Trigger AI greeting when connection becomes ready
+  useEffect(() => {
+    if (conversationStarted && realtime.isReady && transcripts.length === 0) {
+      console.log('[RealtimeSession] Connection ready, triggering AI greeting')
+      realtime.startConversation()
+    }
+  }, [conversationStarted, realtime.isReady, transcripts.length, realtime.startConversation])
 
   const getStateLabel = (state: RealtimeState): string => {
     switch (state) {
@@ -304,89 +294,53 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
 
       {/* Conversation Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-pastel-cream-light">
-        {/* State 1: Not connected yet - show connecting message */}
-        {!realtime.isConnected && realtime.state === 'connecting' && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-400 to-orange-400 flex items-center justify-center animate-pulse">
-              <MicrophoneIcon className="h-10 w-10 text-white" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              연결 중...
-            </h2>
-            <p className="text-gray-500">
-              잠시만 기다려주세요.
-            </p>
-          </div>
-        )}
-
-        {/* State 2: Not connected, idle - show connect button */}
-        {!realtime.isConnected && realtime.state === 'idle' && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center">
-              <MicrophoneIcon className="h-10 w-10 text-white" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900">
-              실시간 음성 대화
-            </h2>
-            {connectionError ? (
-              <div className="space-y-2">
-                <p className="text-red-500 max-w-sm text-sm">
-                  오류: {connectionError}
-                </p>
-                <button
-                  onClick={handleConnect}
-                  className="px-6 py-3 rounded-full bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
-                >
-                  다시 시도
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="text-gray-500 max-w-sm">
-                  버튼을 눌러 연결을 시작하세요.
-                </p>
-                <button
-                  onClick={handleConnect}
-                  className="px-6 py-3 rounded-full bg-pastel-purple text-white font-medium hover:bg-pastel-purple-dark transition-colors"
-                >
-                  연결 시작
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* State 3: Connected but conversation not started - show start button */}
-        {realtime.isReady && !conversationStarted && transcripts.length === 0 && (
+        {/* State 1: Initial - show start button */}
+        {!conversationStarted && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-lg">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg">
               <MicrophoneIcon className="h-12 w-12 text-white" />
             </div>
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                준비 완료!
+                실시간 음성 대화
               </h2>
-              <p className="text-gray-500 mb-6">
-                버튼을 누르면 AI가 대화를 시작해요.
-              </p>
-              <button
-                onClick={handleStartConversation}
-                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-              >
-                대화 시작
-              </button>
+              {connectionError ? (
+                <div className="space-y-4">
+                  <p className="text-red-500 max-w-sm text-sm">
+                    오류: {connectionError}
+                  </p>
+                  <button
+                    onClick={handleStartConversation}
+                    className="px-8 py-4 rounded-full bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                  >
+                    다시 시도
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-500 mb-6">
+                    버튼을 누르면 AI가 대화를 시작해요
+                  </p>
+                  <button
+                    onClick={handleStartConversation}
+                    className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                  >
+                    대화 시작
+                  </button>
+                </>
+              )}
             </div>
           </div>
         )}
 
-        {/* State 4: Conversation started but no messages yet */}
-        {conversationStarted && transcripts.length === 0 && realtime.isConnected && (
+        {/* State 2: Connecting & waiting for first message */}
+        {conversationStarted && transcripts.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center animate-pulse">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center animate-pulse">
               <MicrophoneIcon className="h-10 w-10 text-white" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
-              AI가 말하고 있어요...
+              대화 준비 중...
             </h2>
           </div>
         )}
@@ -457,10 +411,10 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
 
       {/* Control Area - only show when conversation has started */}
       {conversationStarted && realtime.isConnected && (
-        <div className="flex items-center justify-center gap-4 px-4 py-6 bg-white border-t">
+        <div className="flex items-center justify-center gap-3 px-4 py-6 bg-white border-t">
           {/* Visual indicator of listening state */}
           <div
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
+            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${
               realtime.isListening
                 ? 'bg-blue-500 scale-110 shadow-lg shadow-blue-500/50'
                 : realtime.isSpeaking
@@ -468,26 +422,26 @@ export function RealtimeSession({ onComplete, autoStart = false }: RealtimeSessi
                 : 'bg-green-500'
             }`}
           >
-            <MicrophoneIcon className="h-8 w-8 text-white" />
+            <MicrophoneIcon className="h-7 w-7 text-white" />
           </div>
 
-          {/* End conversation button */}
+          {/* Cancel button - just exit without diary */}
           <button
-            onClick={handleDisconnect}
-            className="flex items-center gap-2 px-6 py-3 rounded-full bg-red-500 text-white font-medium hover:bg-red-600 transition-colors"
+            onClick={handleCancel}
+            className="flex items-center gap-2 px-4 py-3 rounded-full bg-gray-400 text-white font-medium hover:bg-gray-500 transition-colors"
           >
-            <PhoneXMarkIcon className="h-5 w-5" />
-            대화 종료
+            <XMarkIcon className="h-5 w-5" />
+            취소
           </button>
-        </div>
-      )}
 
-      {/* Tips - only show when conversation has started */}
-      {conversationStarted && realtime.isConnected && (
-        <div className="px-4 py-2 bg-blue-50 text-center">
-          <p className="text-xs text-blue-600">
-            💡 AI가 말하는 중에도 끼어들 수 있어요. &quot;대화 종료&quot;, &quot;마무리&quot;라고 말하면 대화가 끝나요!
-          </p>
+          {/* Generate diary button */}
+          <button
+            onClick={handleGenerateDiary}
+            className="flex items-center gap-2 px-4 py-3 rounded-full bg-pastel-purple text-white font-medium hover:bg-pastel-purple-dark transition-colors"
+          >
+            <DocumentTextIcon className="h-5 w-5" />
+            일기 생성
+          </button>
         </div>
       )}
     </div>
