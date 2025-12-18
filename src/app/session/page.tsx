@@ -354,10 +354,9 @@ function SessionPageContent() {
                   .eq('id', realtimeSessionId)
 
                 cleanupWebRTC()
-                await new Promise(resolve => setTimeout(resolve, 1000))
                 const today = new Date().toISOString().split('T')[0]
                 router.push(`/diary/${today}`)
-                return
+                throw new Error('__NAVIGATION__')
               } else if (data.type === 'error') {
                 cleanupWebRTC()
                 router.push('/dashboard')
@@ -370,10 +369,12 @@ function SessionPageContent() {
         }
       }
     } catch (error) {
+      if (error instanceof Error && error.message === '__NAVIGATION__') {
+        return
+      }
       console.error('Failed to finish and write diary:', error)
       cleanupWebRTC()
       router.push('/dashboard')
-    } finally {
       setRealtimeLoading(false)
       setStreamingDiary('')
       setStreamingStatus('')
@@ -450,13 +451,11 @@ function SessionPageContent() {
                   })
                   .eq('id', realtimeSessionId)
 
-                // Short delay to show complete content
-                await new Promise(resolve => setTimeout(resolve, 1000))
-
-                // Redirect to diary
+                // Redirect to diary immediately (don't reset loading state)
                 const today = new Date().toISOString().split('T')[0]
                 router.push(`/diary/${today}`)
-                return
+                // Don't return here - let finally block NOT run by keeping realtimeLoading true
+                throw new Error('__NAVIGATION__')
               } else if (data.type === 'error') {
                 console.error('Streaming error:', data.message)
                 router.push('/dashboard')
@@ -469,10 +468,13 @@ function SessionPageContent() {
         }
       }
     } catch (error) {
+      // Navigation throws a special error to skip the finally block reset
+      if (error instanceof Error && error.message === '__NAVIGATION__') {
+        return // Successfully navigating, don't reset loading state
+      }
       console.error('Failed to complete realtime session:', error)
       cleanupWebRTC()
       router.push('/dashboard')
-    } finally {
       setRealtimeLoading(false)
       setStreamingDiary('')
       setStreamingStatus('')
