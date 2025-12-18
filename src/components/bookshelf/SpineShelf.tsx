@@ -22,10 +22,11 @@ export function SpineShelf({ diaries, selectedId, activeDiaryId, onSelect }: Spi
 
       {/* Books container */}
       <motion.div
-        className="flex items-end gap-1 px-4 pb-6 min-h-[220px] overflow-x-auto"
+        className="flex items-end gap-1 px-4 pb-6 pt-4 min-h-[240px] overflow-x-auto overflow-y-visible"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.3 }}
+        style={{ perspective: '1000px' }}
       >
         {sortedDiaries.map((diary, index) => (
           <DiarySpine

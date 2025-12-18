@@ -22,22 +22,31 @@ export function DiarySpine({ diary, index, isSelected, isActive, onClick }: Diar
     <motion.div
       layoutId={`diary-spine-${diary.id}`}
       initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
+      animate={{
+        opacity: 1,
+        x: 0,
+        y: isSelected ? -12 : 0,
+        scale: isSelected ? 1.08 : 1,
+        rotateY: isSelected ? -15 : 0,
+        z: isSelected ? 50 : 0,
+      }}
       transition={{
         delay: index * 0.05,
         duration: 0.3,
         layout: { type: 'spring', stiffness: 300, damping: 30 },
       }}
-      whileHover={{
+      whileHover={!isSelected ? {
         scale: 1.03,
         rotateY: -8,
         z: 20,
         transition: { duration: 0.2 },
-      }}
+      } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className={`relative cursor-pointer rounded-sm shadow-md ${
-        isSelected ? 'ring-2 ring-pastel-purple ring-offset-2' : ''
+      className={`relative cursor-pointer rounded-sm ${
+        isSelected
+          ? 'shadow-xl ring-2 ring-pastel-purple ring-offset-2 z-10'
+          : 'shadow-md'
       }`}
       style={{
         width,

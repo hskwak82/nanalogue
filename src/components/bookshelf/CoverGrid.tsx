@@ -14,8 +14,8 @@ interface CoverGridProps {
 }
 
 export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: CoverGridProps) {
-  // Sort by volume number descending (newest first)
-  const sortedDiaries = [...diaries].sort((a, b) => b.volume_number - a.volume_number)
+  // Sort by volume number ascending (oldest first)
+  const sortedDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
 
   return (
     <motion.div
@@ -24,23 +24,30 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {sortedDiaries.map((diary, index) => (
-        <motion.div
-          key={diary.id}
-          layoutId={`diary-cover-${diary.id}`}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: index * 0.05,
-            duration: 0.3,
-          }}
-          whileHover={{ scale: 1.05, y: -5 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => onSelect?.(diary)}
-          className={`cursor-pointer group flex flex-col items-center ${
-            selectedId === diary.id ? 'ring-2 ring-pastel-purple ring-offset-2 rounded-lg' : ''
-          }`}
-        >
+      {sortedDiaries.map((diary, index) => {
+        const isSelected = selectedId === diary.id
+        return (
+          <motion.div
+            key={diary.id}
+            layoutId={`diary-cover-${diary.id}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{
+              opacity: 1,
+              y: isSelected ? -10 : 0,
+              scale: isSelected ? 1.08 : 1,
+              z: isSelected ? 50 : 0,
+            }}
+            transition={{
+              delay: index * 0.05,
+              duration: 0.3,
+            }}
+            whileHover={!isSelected ? { scale: 1.05, y: -5 } : undefined}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => onSelect?.(diary)}
+            className={`cursor-pointer group flex flex-col items-center ${
+              isSelected ? 'ring-2 ring-pastel-purple ring-offset-4 rounded-lg z-10 shadow-xl' : ''
+            }`}
+          >
           <div className="relative w-fit">
             {/* Cover */}
             <DiaryCover
@@ -86,7 +93,8 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
             )}
           </div>
         </motion.div>
-      ))}
+        )
+      })}
 
       {/* Empty state */}
       {sortedDiaries.length === 0 && (
