@@ -512,6 +512,14 @@ function CustomizePageContent() {
                       )}
                     </div>
                   </div>
+
+                  {/* Spine Preview */}
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                  />
                 </div>
 
                 {/* Bookshelf - below buttons */}
@@ -593,6 +601,14 @@ function CustomizePageContent() {
                     </div>
 
                   </div>
+
+                  {/* Spine Preview */}
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                  />
                 </div>
 
                 {/* Bookshelf - below buttons */}
