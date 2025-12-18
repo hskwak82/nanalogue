@@ -44,6 +44,8 @@ function SessionPageContent() {
   const [checkingMode, setCheckingMode] = useState(true)
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null)
   const [realtimeLoading, setRealtimeLoading] = useState(false)
+  const [streamingDiary, setStreamingDiary] = useState('')
+  const [streamingStatus, setStreamingStatus] = useState('')
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
   const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
 
@@ -295,6 +297,8 @@ function SessionPageContent() {
 
     setShowRealtimeConfirm(false)
     setRealtimeLoading(true)
+    setStreamingDiary('')
+    setStreamingStatus('일기 작성 중...')
 
     try {
       // Generate diary from empty messages (will use session's existing conversation if any)
@@ -307,36 +311,71 @@ function SessionPageContent() {
         }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          // Update session status
-          await supabase
-            .from('daily_sessions')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-            })
-            .eq('id', realtimeSessionId)
+      if (!response.ok) {
+        cleanupWebRTC()
+        router.push('/dashboard')
+        return
+      }
 
-          // Clean up WebRTC before navigation
-          cleanupWebRTC()
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
 
-          // Redirect to diary
-          const today = new Date().toISOString().split('T')[0]
-          router.push(`/diary/${today}`)
-          return
+      const decoder = new TextDecoder()
+      let done = false
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read()
+        done = readerDone
+
+        if (value) {
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'content') {
+                setStreamingDiary(prev => prev + data.text)
+              } else if (data.type === 'status') {
+                setStreamingStatus(data.text)
+              } else if (data.type === 'done') {
+                // Update session status
+                await supabase
+                  .from('daily_sessions')
+                  .update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                  })
+                  .eq('id', realtimeSessionId)
+
+                cleanupWebRTC()
+                await new Promise(resolve => setTimeout(resolve, 1000))
+                const today = new Date().toISOString().split('T')[0]
+                router.push(`/diary/${today}`)
+                return
+              } else if (data.type === 'error') {
+                cleanupWebRTC()
+                router.push('/dashboard')
+                return
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
         }
       }
-      // If failed, just go to dashboard
-      cleanupWebRTC()
-      router.push('/dashboard')
     } catch (error) {
       console.error('Failed to finish and write diary:', error)
       cleanupWebRTC()
       router.push('/dashboard')
     } finally {
       setRealtimeLoading(false)
+      setStreamingDiary('')
+      setStreamingStatus('')
     }
   }
 
@@ -353,9 +392,11 @@ function SessionPageContent() {
     }
 
     setRealtimeLoading(true)
+    setStreamingDiary('')
+    setStreamingStatus('일기 작성 중...')
 
     try {
-      // Generate diary
+      // Generate diary with streaming
       const response = await fetch('/api/diary/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -372,28 +413,58 @@ function SessionPageContent() {
         return
       }
 
-      const data = await response.json()
+      // Handle streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
 
-      if (data.success) {
-        // Update session status
-        await supabase
-          .from('daily_sessions')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', realtimeSessionId)
+      const decoder = new TextDecoder()
+      let done = false
 
-        // Clean up WebRTC before navigation
-        cleanupWebRTC()
+      while (!done) {
+        const { value, done: readerDone } = await reader.read()
+        done = readerDone
 
-        // Redirect to diary
-        const today = new Date().toISOString().split('T')[0]
-        router.push(`/diary/${today}`)
-      } else {
-        console.error('Diary generation failed:', data.error)
-        cleanupWebRTC()
-        router.push('/dashboard')
+        if (value) {
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(line => line.startsWith('data: '))
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'content') {
+                setStreamingDiary(prev => prev + data.text)
+              } else if (data.type === 'status') {
+                setStreamingStatus(data.text)
+              } else if (data.type === 'done') {
+                // Update session status
+                await supabase
+                  .from('daily_sessions')
+                  .update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                  })
+                  .eq('id', realtimeSessionId)
+
+                // Short delay to show complete content
+                await new Promise(resolve => setTimeout(resolve, 1000))
+
+                // Redirect to diary
+                const today = new Date().toISOString().split('T')[0]
+                router.push(`/diary/${today}`)
+                return
+              } else if (data.type === 'error') {
+                console.error('Streaming error:', data.message)
+                router.push('/dashboard')
+                return
+              }
+            } catch {
+              // Skip invalid JSON
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to complete realtime session:', error)
@@ -401,6 +472,8 @@ function SessionPageContent() {
       router.push('/dashboard')
     } finally {
       setRealtimeLoading(false)
+      setStreamingDiary('')
+      setStreamingStatus('')
     }
   }
 
@@ -911,9 +984,29 @@ function SessionPageContent() {
     // Show loading while checking session or generating diary
     if (realtimeLoading || !realtimeSessionId) {
       return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-gray-600">{realtimeLoading ? '일기를 생성하고 있어요...' : '준비 중...'}</p>
+        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream p-4">
+          {streamingDiary ? (
+            // Show streaming diary content
+            <div className="w-full max-w-2xl">
+              <div className="bg-white rounded-2xl shadow-lg p-6 mb-4">
+                <h2 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  오늘의 일기
+                </h2>
+                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+                  {streamingDiary}
+                  <span className="inline-block w-1 h-4 bg-indigo-500 animate-pulse ml-0.5"></span>
+                </div>
+              </div>
+              <p className="text-center text-sm text-gray-500">{streamingStatus}</p>
+            </div>
+          ) : (
+            // Show simple loading
+            <>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
+              <p className="text-gray-600">{realtimeLoading ? streamingStatus || '일기를 생성하고 있어요...' : '준비 중...'}</p>
+            </>
+          )}
         </div>
       )
     }
