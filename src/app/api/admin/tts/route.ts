@@ -164,9 +164,13 @@ export async function PATCH(request: Request) {
         ? GEMINI_REALTIME_VOICES.map(v => v.id)
         : OPENAI_REALTIME_VOICES.map(v => v.id)
       if (!validVoices.includes(realtimeVoice)) {
-        return NextResponse.json({ error: 'Invalid realtime voice' }, { status: 400 })
+        // If voice doesn't match provider, use default voice for that provider
+        const defaultVoice = currentProvider === 'gemini' ? 'Puck' : 'alloy'
+        updateData.realtime_voice = defaultVoice
+        console.log(`[admin/tts] Voice "${realtimeVoice}" not valid for ${currentProvider}, using default: ${defaultVoice}`)
+      } else {
+        updateData.realtime_voice = realtimeVoice
       }
-      updateData.realtime_voice = realtimeVoice
     }
 
     if (realtimeInstructions !== undefined) {

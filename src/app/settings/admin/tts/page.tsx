@@ -91,8 +91,14 @@ export default function AdminTTSPage() {
       setSelectedMode(data.conversationMode || 'classic')
       setSelectedProvider(data.currentProvider)
       setSpeakingRate(data.speakingRate ?? 1.0)
-      setSelectedRealtimeProvider(data.realtimeProvider || 'openai')
-      setSelectedRealtimeVoice(data.realtimeVoice || 'alloy')
+      const rtProvider = data.realtimeProvider || 'openai'
+      setSelectedRealtimeProvider(rtProvider)
+      // Ensure voice matches provider
+      const defaultVoice = rtProvider === 'gemini' ? 'Puck' : 'alloy'
+      const isVoiceValid = rtProvider === 'gemini'
+        ? data.geminiVoices?.some((v: RealtimeVoice) => v.id === data.realtimeVoice)
+        : data.openaiVoices?.some((v: RealtimeVoice) => v.id === data.realtimeVoice)
+      setSelectedRealtimeVoice(isVoiceValid ? data.realtimeVoice : defaultVoice)
       setRealtimeInstructions(data.realtimeInstructions || '')
     } catch (error) {
       console.error('Error fetching TTS settings:', error)
