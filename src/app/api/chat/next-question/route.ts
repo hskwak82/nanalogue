@@ -1,10 +1,5 @@
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ConversationMessage, ParsedSchedule } from '@/types/database'
-
-function getGeminiClient() {
-  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-}
 
 interface PendingScheduleInput {
   id: string
@@ -50,8 +45,10 @@ export async function POST(request: Request) {
       )
       .join('\n')
 
-    const genAI = getGeminiClient()
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
 
     // Determine conversation phase
     let phaseGuidance = ''
@@ -143,9 +140,28 @@ ${conversationContext}
 
 사용자의 마지막 메시지에서 일정이 있다면 감지하고, 부족한 정보가 있으면 자연스럽게 물어보는 응답을 JSON 형식으로 생성하세요:`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    let responseText = response.text().trim()
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`OpenAI API error: ${error}`)
+    }
+
+    const data = await response.json()
+    let responseText = (data.choices?.[0]?.message?.content || '').trim()
 
     // Clean up the response - remove markdown code blocks if present
     if (responseText.startsWith('```json')) {

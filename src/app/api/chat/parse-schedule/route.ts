@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
 interface CurrentSchedule {
   title?: string
@@ -33,10 +32,6 @@ interface ApiResponse {
   followUpQuestion?: string | null
 }
 
-function getGeminiClient() {
-  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
-}
-
 export async function POST(request: Request): Promise<NextResponse<ApiResponse>> {
   try {
     const { text, referenceDate, conversationHistory, currentSchedule }: ParseScheduleRequest = await request.json()
@@ -48,8 +43,10 @@ export async function POST(request: Request): Promise<NextResponse<ApiResponse>>
       })
     }
 
-    const genAI = getGeminiClient()
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is not configured')
+    }
 
     // Build current schedule context
     let currentScheduleContext = ''
@@ -136,9 +133,28 @@ ${conversationContext}
 - 시간일정인데 시간 없음: "몇 시에 시작하나요?"
 - 모든 정보 수집 완료: null`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    let responseText = response.text().trim()
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'user', content: prompt },
+        ],
+        response_format: { type: 'json_object' },
+      }),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`OpenAI API error: ${error}`)
+    }
+
+    const data = await response.json()
+    let responseText = (data.choices?.[0]?.message?.content || '').trim()
 
     // Clean up markdown
     if (responseText.startsWith('```json')) {
