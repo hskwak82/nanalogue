@@ -56,8 +56,13 @@ export async function getRealtimeSettings(): Promise<RealtimeSettings> {
 export async function getEphemeralToken(): Promise<EphemeralToken> {
   const apiKey = process.env.OPENAI_API_KEY
 
+  // Debug: Check environment variable
+  console.log('[getEphemeralToken] OPENAI_API_KEY exists:', !!apiKey)
+  console.log('[getEphemeralToken] OPENAI_API_KEY length:', apiKey?.length || 0)
+  console.log('[getEphemeralToken] Available env vars:', Object.keys(process.env).filter(k => k.includes('OPENAI') || k.includes('API')).join(', '))
+
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY is not set')
+    throw new Error(`OPENAI_API_KEY is not set. Available keys: ${Object.keys(process.env).slice(0, 20).join(', ')}`)
   }
 
   const response = await fetch('https://api.openai.com/v1/realtime/sessions', {
