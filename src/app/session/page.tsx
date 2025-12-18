@@ -187,7 +187,14 @@ function SessionPageContent() {
         const response = await fetch('/api/realtime/session')
         if (response.ok) {
           const data = await response.json()
-          setConversationMode(data.mode || 'classic')
+          const mode = data.mode || 'classic'
+          setConversationMode(mode)
+
+          // If realtime mode, ensure connections are allowed before rendering RealtimeSession
+          if (mode === 'realtime') {
+            console.log('[Session Page] Realtime mode detected, ensuring connections are allowed')
+            allowConnections()
+          }
         }
       } catch (error) {
         console.error('Failed to check conversation mode:', error)
@@ -250,6 +257,9 @@ function SessionPageContent() {
   async function handleRealtimeRestart() {
     if (!realtimeSessionId) return
 
+    // Allow connections for new session
+    allowConnections()
+
     setShowRealtimeConfirm(false)
     setRealtimeLoading(true)
 
@@ -285,6 +295,9 @@ function SessionPageContent() {
 
   // Handle continue conversation (for active session)
   function handleContinueConversation() {
+    // Allow connections for continuing session
+    allowConnections()
+
     setShowRealtimeConfirm(false)
     setExistingSessionStatus(null)
     // Session ID is already set, just proceed to realtime session
