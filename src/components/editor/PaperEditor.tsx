@@ -278,7 +278,7 @@ export function PaperEditor({
       {/* Paper preview wrapper */}
       <div
         className="relative mx-auto"
-        style={{ width: 320, height: 400 }}
+        style={{ width: 300, height: 400 }}
       >
         {/* Paper canvas */}
         <div

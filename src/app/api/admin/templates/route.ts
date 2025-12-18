@@ -1,7 +1,24 @@
 import { NextResponse } from 'next/server'
 import { checkAdminAuth, getAdminServiceClient } from '@/lib/admin'
 
-// GET /api/admin/templates - Get all templates (covers and papers)
+type TemplateType = 'cover' | 'paper' | 'spine'
+
+function getTableName(type: string): string {
+  switch (type) {
+    case 'paper':
+      return 'paper_templates'
+    case 'spine':
+      return 'spine_templates'
+    default:
+      return 'cover_templates'
+  }
+}
+
+function isValidType(type: string): type is TemplateType {
+  return ['cover', 'paper', 'spine'].includes(type)
+}
+
+// GET /api/admin/templates - Get all templates (covers, papers, and spines)
 export async function GET(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
@@ -10,10 +27,14 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const type = searchParams.get('type') || 'cover' // 'cover' | 'paper'
+    const type = searchParams.get('type') || 'cover'
+
+    if (!isValidType(type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    }
 
     const supabase = getAdminServiceClient()
-    const tableName = type === 'paper' ? 'paper_templates' : 'cover_templates'
+    const tableName = getTableName(type)
 
     const { data: templates, error } = await supabase
       .from(tableName)
@@ -40,12 +61,12 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { type, ...templateData } = body
 
-    if (!type || !['cover', 'paper'].includes(type)) {
+    if (!type || !isValidType(type)) {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
     }
 
     const supabase = getAdminServiceClient()
-    const tableName = type === 'paper' ? 'paper_templates' : 'cover_templates'
+    const tableName = getTableName(type)
 
     const { data: template, error } = await supabase
       .from(tableName)
@@ -77,8 +98,12 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'id and type are required' }, { status: 400 })
     }
 
+    if (!isValidType(type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    }
+
     const supabase = getAdminServiceClient()
-    const tableName = type === 'paper' ? 'paper_templates' : 'cover_templates'
+    const tableName = getTableName(type)
 
     const { data: template, error } = await supabase
       .from(tableName)
@@ -112,8 +137,12 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'id and type are required' }, { status: 400 })
     }
 
+    if (!isValidType(type)) {
+      return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
+    }
+
     const supabase = getAdminServiceClient()
-    const tableName = type === 'paper' ? 'paper_templates' : 'cover_templates'
+    const tableName = getTableName(type)
 
     // Soft delete
     const { error } = await supabase

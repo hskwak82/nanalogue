@@ -71,6 +71,7 @@ export async function GET(
       spine_width: diary.spine_width ?? SPINE_WIDTH_RATIO,
       spine_color: diary.spine_color,
       spine_gradient: diary.spine_gradient,
+      spine_preset_id: diary.spine_preset_id ?? null,
       created_at: diary.created_at,
       updated_at: diary.updated_at,
       cover_template: diary.cover_templates || null,

@@ -14,7 +14,7 @@ import {
   CoverTemplateSelector,
   PaperTemplateSelector,
 } from '@/components/editor/TemplateSelector'
-import { SpineRegionSelector } from '@/components/editor/SpineRegionSelector'
+import { SpineCustomizer } from '@/components/editor/SpineCustomizer'
 import { CustomizeBookshelf } from '@/components/editor/CustomizeBookshelf'
 import { useEditorState } from '@/lib/editor/useEditorState'
 import { useToast } from '@/components/ui'
@@ -27,7 +27,7 @@ import type {
 } from '@/types/customization'
 import type { DiaryWithTemplates } from '@/types/diary'
 
-type TabType = 'cover' | 'paper'
+type TabType = 'cover' | 'paper' | 'spine'
 
 function CustomizePageContent() {
   const router = useRouter()
@@ -48,10 +48,8 @@ function CustomizePageContent() {
   const [pendingTextPosition, setPendingTextPosition] = useState<{ x: number; y: number } | null>(null)
   const [editingTextIndex, setEditingTextIndex] = useState<number | null>(null)
 
-  // Spine region selector state
-  const [spinePosition, setSpinePosition] = useState(0) // X position as percentage
-  const [savedCoverImageUrl, setSavedCoverImageUrl] = useState<string | null>(null)
-  const [isSpineEditMode, setIsSpineEditMode] = useState(false)
+  // Spine customization state
+  const [spinePresetId, setSpinePresetId] = useState<string | null>(null)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -126,9 +124,13 @@ function CustomizePageContent() {
     setIsTextModalOpen(true)
   }
 
-  // Sync active tab with active editor
+  // Sync active tab with active editor (spine tab uses cover editor)
   useEffect(() => {
-    setActiveEditor(activeTab)
+    if (activeTab === 'spine') {
+      setActiveEditor('cover')
+    } else {
+      setActiveEditor(activeTab)
+    }
   }, [activeTab, setActiveEditor])
 
   // Handle keyboard delete
@@ -155,7 +157,7 @@ function CustomizePageContent() {
         throw new Error('Failed to load customization data')
       }
 
-      const data: CustomizationLoadResponse & { diaryId?: string; coverImageUrl?: string | null; spinePosition?: number } = await response.json()
+      const data: CustomizationLoadResponse & { diaryId?: string; spinePresetId?: string | null } = await response.json()
 
       const coverTmpl = templates?.cover || coverTemplates
       const paperTmpl = templates?.paper || paperTemplates
@@ -182,21 +184,13 @@ function CustomizePageContent() {
           data.customization.paper_font_family,
           data.customization.paper_font_color
         )
-
-        // Load saved cover image URL for spine selector (spine is cropped from cover)
-        if (data.coverImageUrl) {
-          setSavedCoverImageUrl(data.coverImageUrl)
-        } else {
-          setSavedCoverImageUrl(null)
-        }
       } else if (coverTmpl.length > 0) {
         // Set default cover
         setCover(coverTmpl[0])
-        setSavedCoverImageUrl(null)
       }
 
-      // Load spine position for this diary (default to 0 if not set)
-      setSpinePosition(data.spinePosition ?? 0)
+      // Load spine preset for this diary
+      setSpinePresetId(data.spinePresetId ?? null)
     } catch (err) {
       console.error('Error loading diary customization:', err)
       setError('데이터를 불러오는 데 실패했습니다.')
@@ -231,7 +225,7 @@ function CustomizePageContent() {
           throw new Error('Failed to load customization data')
         }
 
-        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; coverImageUrl?: string | null; spinePosition?: number; user: { id: string; email: string; name: string | null } } = await response.json()
+        const data: CustomizationLoadResponse & { diaryId?: string; isPremium?: boolean; spinePresetId?: string | null; user: { id: string; email: string; name: string | null } } = await response.json()
 
         setUser(data.user as { id: string; email: string; name: string | null })
         setCoverTemplates(data.coverTemplates)
@@ -261,13 +255,8 @@ function CustomizePageContent() {
             data.customization.paper_font_color
           )
 
-          // Load saved cover image URL for spine selector
-          if (data.coverImageUrl) {
-            setSavedCoverImageUrl(data.coverImageUrl)
-          }
-
-          // Load spine position for this diary
-          setSpinePosition(data.spinePosition ?? 0)
+          // Load spine preset for this diary
+          setSpinePresetId(data.spinePresetId ?? null)
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -337,11 +326,8 @@ function CustomizePageContent() {
               const uploadResult = await uploadResponse.json()
               if (uploadResult.success && uploadResult.url) {
                 coverImageUrl = uploadResult.url
-                // Update saved cover image URL for spine selector
-                setSavedCoverImageUrl(uploadResult.url)
               }
             }
-            // Spine is displayed by cropping cover_image_url - no separate spine image needed
           } catch (captureErr) {
             console.warn('Failed to capture cover image:', captureErr)
             // Continue without cover image - don't block save
@@ -362,7 +348,7 @@ function CustomizePageContent() {
           paper_font_family: state.paperFontFamily,
           paper_font_color: state.paperFontColor,
           cover_image_url: coverImageUrl,
-          spine_position: spinePosition,
+          spine_preset_id: spinePresetId,
         }),
       })
 
@@ -379,7 +365,6 @@ function CustomizePageContent() {
 
       markSaved()
       // Exit all editing modes and deselect items after save
-      setIsSpineEditMode(false)
       setIsTextMode(false)
       selectItem(null)
       toast.success('저장되었습니다!')
@@ -456,6 +441,16 @@ function CustomizePageContent() {
             속지 꾸미기
           </button>
           <button
+            onClick={() => setActiveTab('spine')}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+              activeTab === 'spine'
+                ? 'bg-pastel-lavender text-gray-700'
+                : 'bg-white/70 text-gray-600 hover:bg-white'
+            }`}
+          >
+            책등 꾸미기
+          </button>
+          <button
             onClick={handleSave}
             disabled={isSaving}
             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
@@ -475,7 +470,7 @@ function CustomizePageContent() {
               {/* Left: Cover Editor with Spine Preview */}
               <div className="flex flex-col items-start gap-4">
                 {/* Cover + Spine side by side */}
-                <div className="flex items-start">
+                <div className="flex items-start gap-4">
                   {/* Cover Editor wrapper with relative positioning for overlay */}
                   <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
                     <CoverEditor
@@ -493,10 +488,7 @@ function CustomizePageContent() {
                     {/* Text Button + Delete Button */}
                     <div className="mt-2 flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          setIsTextMode(!isTextMode)
-                          if (!isTextMode) setIsSpineEditMode(false)
-                        }}
+                        onClick={() => setIsTextMode(!isTextMode)}
                         className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
                           isTextMode
                             ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
@@ -519,22 +511,16 @@ function CustomizePageContent() {
                         </button>
                       )}
                     </div>
-                    {/* SpineRegionSelector overlay renders here when editing */}
-                    <SpineRegionSelector
-                      coverImageUrl={savedCoverImageUrl}
-                      coverRef={{ current: coverEditorRef.current?.getCanvasElement() || null }}
-                      initialPosition={spinePosition}
-                      onPositionChange={setSpinePosition}
-                      isEditing={isSpineEditMode}
-                      onEditingChange={setIsSpineEditMode}
-                      onEditButtonClick={() => {
-                        setIsSpineEditMode(!isSpineEditMode)
-                        if (!isSpineEditMode) setIsTextMode(false)
-                      }}
-                      disabled={state.isDirty}
-                    />
-
                   </div>
+
+                  {/* Spine Preview */}
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                    isPremium={isPremium}
+                  />
                 </div>
 
                 {/* Bookshelf - below buttons */}
@@ -566,13 +552,13 @@ function CustomizePageContent() {
                 />
               </div>
             </>
-          ) : (
+          ) : activeTab === 'paper' ? (
             <>
-              {/* Left: Paper Editor with Spine Preview */}
+              {/* Left: Paper Editor */}
               <div className="flex flex-col items-start gap-4">
                 {/* Paper + Spine side by side */}
-                <div className="flex items-start">
-                  <div className="relative flex flex-col items-center" style={{ width: 320 }}>
+                <div className="flex items-start gap-4">
+                  <div className="relative flex flex-col items-center" style={{ width: 300 }}>
                     <PaperEditor
                       template={state.selectedPaper}
                       decorations={state.paperDecorations}
@@ -615,14 +601,16 @@ function CustomizePageContent() {
                       )}
                     </div>
 
-                    {/* Spine preview - no edit button */}
-                    <SpineRegionSelector
-                      coverImageUrl={savedCoverImageUrl}
-                      coverRef={{ current: null }}
-                      initialPosition={spinePosition}
-                      hideButton={true}
-                    />
                   </div>
+
+                  {/* Spine Preview */}
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                    isPremium={isPremium}
+                  />
                 </div>
 
                 {/* Bookshelf - below buttons */}
@@ -663,7 +651,62 @@ function CustomizePageContent() {
                 />
               </div>
             </>
-          )}
+          ) : activeTab === 'spine' ? (
+            <>
+              {/* Left: Cover Preview + Spine */}
+              <div className="flex flex-col items-start gap-4">
+                <div className="flex items-start gap-4">
+                  {/* Cover Preview (read-only) */}
+                  <div className="relative" style={{ width: 300 }}>
+                    <CoverEditor
+                      ref={coverEditorRef}
+                      template={state.selectedCover}
+                      decorations={state.coverDecorations}
+                      selectedIndex={null}
+                      onUpdate={() => {}}
+                      onSelect={() => {}}
+                      onRemove={() => {}}
+                      isTextMode={false}
+                      onCanvasClick={() => {}}
+                      onTextDoubleClick={() => {}}
+                    />
+                  </div>
+
+                  {/* Spine Preview */}
+                  <SpineCustomizer
+                    selectedPresetId={spinePresetId}
+                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                    onChange={setSpinePresetId}
+                    previewMode="large"
+                    isPremium={isPremium}
+                  />
+                </div>
+
+                {/* Bookshelf - below preview */}
+                {allDiaries.length > 0 && (
+                  <div className="mt-6 w-full max-w-2xl">
+                    <CustomizeBookshelf
+                      diaries={allDiaries}
+                      activeDiaryId={activeDiaryId}
+                      selectedDiaryId={diaryId}
+                      onSelectDiary={handleSelectDiary}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Spine Selector */}
+              <div className="space-y-4">
+                <SpineCustomizer
+                  selectedPresetId={spinePresetId}
+                  diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                  onChange={setSpinePresetId}
+                  selectorMode
+                  isPremium={isPremium}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       </main>
 
