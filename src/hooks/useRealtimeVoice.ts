@@ -6,6 +6,7 @@ import {
   registerPeerConnection,
   registerAudioElement,
   registerMediaStream,
+  registerDataChannel,
   cleanupWebRTC,
 } from '@/lib/webrtc-cleanup'
 
@@ -164,6 +165,8 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       // Set up audio element for AI responses
       const audioEl = document.createElement('audio')
       audioEl.autoplay = true
+      audioEl.style.display = 'none' // Hidden but in DOM for tracking
+      document.body.appendChild(audioEl) // Add to DOM so we can find it later
       audioElementRef.current = audioEl
       registerAudioElement(audioEl)
 
@@ -192,6 +195,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
       // Create data channel for events
       const dc = pc.createDataChannel('oai-events')
       dataChannelRef.current = dc
+      registerDataChannel(dc)
 
       dc.onopen = () => {
         // Send session update with voice and instructions

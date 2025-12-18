@@ -1,25 +1,37 @@
 // Global WebRTC cleanup utility
 // Tracks and cleans up all WebRTC peer connections created by the app
 
+// Use a unique identifier for our audio elements
+const AUDIO_DATA_ATTR = 'data-nanalogue-realtime'
+
 // Store references to active connections and audio elements
 let activePeerConnection: RTCPeerConnection | null = null
 let activeAudioElement: HTMLAudioElement | null = null
 let activeMediaStream: MediaStream | null = null
+let activeDataChannel: RTCDataChannel | null = null
+
+// Track all created peer connections (in case we lose the reference)
+const allPeerConnections = new Set<RTCPeerConnection>()
 
 // Register a peer connection for tracking
 export function registerPeerConnection(pc: RTCPeerConnection | null) {
   // Clean up any existing connection first
   cleanupWebRTC()
   activePeerConnection = pc
+  if (pc) {
+    allPeerConnections.add(pc)
+  }
 }
 
 // Register an audio element for tracking
 export function registerAudioElement(audio: HTMLAudioElement | null) {
   if (activeAudioElement && activeAudioElement !== audio) {
-    activeAudioElement.pause()
-    activeAudioElement.srcObject = null
+    stopAudioElement(activeAudioElement)
   }
   activeAudioElement = audio
+  if (audio) {
+    audio.setAttribute(AUDIO_DATA_ATTR, 'true')
+  }
 }
 
 // Register a media stream for tracking
@@ -30,9 +42,42 @@ export function registerMediaStream(stream: MediaStream | null) {
   activeMediaStream = stream
 }
 
+// Register a data channel for tracking
+export function registerDataChannel(dc: RTCDataChannel | null) {
+  if (activeDataChannel && activeDataChannel !== dc) {
+    try {
+      activeDataChannel.close()
+    } catch {}
+  }
+  activeDataChannel = dc
+}
+
+// Completely stop an audio element
+function stopAudioElement(audio: HTMLAudioElement) {
+  try {
+    audio.pause()
+    audio.currentTime = 0
+    audio.srcObject = null
+    audio.src = ''
+    audio.load() // Reset the audio element
+    audio.remove() // Remove from DOM if present
+  } catch (e) {
+    console.log('[WebRTC Cleanup] Error stopping audio:', e)
+  }
+}
+
 // Clean up all WebRTC resources
 export function cleanupWebRTC() {
   console.log('[WebRTC Cleanup] Cleaning up all WebRTC resources')
+
+  // Close data channel first
+  if (activeDataChannel) {
+    console.log('[WebRTC Cleanup] Closing data channel')
+    try {
+      activeDataChannel.close()
+    } catch {}
+    activeDataChannel = null
+  }
 
   // Stop media stream
   if (activeMediaStream) {
@@ -43,26 +88,47 @@ export function cleanupWebRTC() {
     activeMediaStream = null
   }
 
-  // Close peer connection
+  // Close active peer connection
   if (activePeerConnection) {
     console.log('[WebRTC Cleanup] Closing peer connection')
-    activePeerConnection.close()
+    try {
+      activePeerConnection.close()
+    } catch {}
     activePeerConnection = null
   }
 
-  // Stop and clear audio element
+  // Close all tracked peer connections
+  allPeerConnections.forEach((pc) => {
+    try {
+      if (pc.connectionState !== 'closed') {
+        console.log('[WebRTC Cleanup] Closing tracked peer connection')
+        pc.close()
+      }
+    } catch {}
+  })
+  allPeerConnections.clear()
+
+  // Stop and clear active audio element
   if (activeAudioElement) {
-    console.log('[WebRTC Cleanup] Stopping audio element')
-    activeAudioElement.pause()
-    activeAudioElement.srcObject = null
+    console.log('[WebRTC Cleanup] Stopping active audio element')
+    stopAudioElement(activeAudioElement)
     activeAudioElement = null
   }
 
-  // Also try to stop any audio elements that might be in the DOM
+  // Find and stop ALL audio elements with our marker
   if (typeof document !== 'undefined') {
+    const ourAudioElements = document.querySelectorAll(`audio[${AUDIO_DATA_ATTR}]`)
+    ourAudioElements.forEach((audio) => {
+      console.log('[WebRTC Cleanup] Stopping marked audio element')
+      stopAudioElement(audio as HTMLAudioElement)
+    })
+
+    // Also stop any other audio elements that might be playing
     document.querySelectorAll('audio').forEach((audio) => {
-      audio.pause()
-      audio.srcObject = null
+      if (audio.srcObject) {
+        console.log('[WebRTC Cleanup] Stopping unmarked audio element with srcObject')
+        stopAudioElement(audio)
+      }
     })
   }
 }
