@@ -21,6 +21,10 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
   const [currentAIText, setCurrentAIText] = useState('')
   const [isMuted, setIsMuted] = useState(false)
   const transcriptsEndRef = useRef<HTMLDivElement>(null)
+  const handleDisconnectRef = useRef<(() => void) | null>(null)
+
+  // Track if end command was triggered (to prevent double-firing)
+  const endCommandTriggered = useRef(false)
 
   const realtime = useRealtimeVoice({
     onTranscript: (text, isFinal) => {
@@ -48,6 +52,17 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
     },
     onStateChange: (state) => {
       console.log('Realtime state:', state)
+    },
+    onEndCommand: () => {
+      // Prevent double-firing
+      if (endCommandTriggered.current) return
+      endCommandTriggered.current = true
+
+      console.log('End command detected via voice')
+      // Small delay to allow final transcript to be added
+      setTimeout(() => {
+        handleDisconnectRef.current?.()
+      }, 500)
     },
   })
 
@@ -77,6 +92,11 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
       )
     }
   }, [realtime, transcripts, onComplete])
+
+  // Update ref for voice command callback
+  useEffect(() => {
+    handleDisconnectRef.current = handleDisconnect
+  }, [handleDisconnect])
 
   const handleMuteToggle = useCallback(() => {
     setIsMuted(!isMuted)
@@ -304,7 +324,7 @@ export function RealtimeSession({ onComplete }: RealtimeSessionProps) {
       {realtime.isConnected && (
         <div className="px-4 py-2 bg-blue-50 text-center">
           <p className="text-xs text-blue-600">
-            💡 AI가 말하는 중에도 끼어들 수 있어요. 자연스럽게 대화하세요!
+            💡 AI가 말하는 중에도 끼어들 수 있어요. &quot;대화 종료&quot;, &quot;마무리&quot;라고 말하면 대화가 끝나요!
           </p>
         </div>
       )}

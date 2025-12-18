@@ -30,6 +30,8 @@ export default function SessionPage() {
   const [checkingMode, setCheckingMode] = useState(true)
   const [realtimeSessionId, setRealtimeSessionId] = useState<string | null>(null)
   const [realtimeLoading, setRealtimeLoading] = useState(false)
+  const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
+  const [existingDiaryDate, setExistingDiaryDate] = useState<string | null>(null)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -167,7 +169,7 @@ export default function SessionPage() {
 
   // Initialize session for realtime mode
   useEffect(() => {
-    if (conversationMode !== 'realtime' || realtimeSessionId) return
+    if (conversationMode !== 'realtime' || realtimeSessionId || showRealtimeConfirm) return
 
     async function initRealtimeSession() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -187,6 +189,12 @@ export default function SessionPage() {
         .single()
 
       if (existingSession) {
+        // If completed, show confirmation dialog
+        if (existingSession.status === 'completed') {
+          setRealtimeSessionId(existingSession.id)
+          setShowRealtimeConfirm(true)
+          return
+        }
         setRealtimeSessionId(existingSession.id)
       } else {
         // Create new session
@@ -207,7 +215,44 @@ export default function SessionPage() {
     }
 
     initRealtimeSession()
-  }, [conversationMode, realtimeSessionId, supabase, router])
+  }, [conversationMode, realtimeSessionId, showRealtimeConfirm, supabase, router])
+
+  // Handle realtime restart after confirmation
+  async function handleRealtimeRestart() {
+    if (!realtimeSessionId) return
+
+    setShowRealtimeConfirm(false)
+    setRealtimeLoading(true)
+
+    try {
+      // Reset session to active state
+      await supabase
+        .from('daily_sessions')
+        .update({ status: 'active', completed_at: null })
+        .eq('id', realtimeSessionId)
+
+      // Delete existing diary entry for today
+      const today = new Date().toISOString().split('T')[0]
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase
+          .from('diary_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('entry_date', today)
+      }
+    } catch (error) {
+      console.error('Failed to restart session:', error)
+    } finally {
+      setRealtimeLoading(false)
+    }
+  }
+
+  // Handle view existing diary
+  function handleViewExistingDiary() {
+    const today = new Date().toISOString().split('T')[0]
+    router.push(`/diary/${today}`)
+  }
 
   // Handle realtime session complete
   async function handleRealtimeComplete(messages: Array<{ role: 'user' | 'assistant'; content: string }>) {
@@ -744,6 +789,49 @@ export default function SessionPage() {
         <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
           <p className="text-gray-600">일기를 생성하고 있어요...</p>
+        </div>
+      )
+    }
+
+    // Show confirmation dialog if diary already exists
+    if (showRealtimeConfirm) {
+      const today = new Date().toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-indigo-200">
+            <h2 className="mb-2 text-xl font-bold text-gray-700">
+              오늘의 일기가 이미 있어요
+            </h2>
+            <p className="mb-6 text-gray-500">
+              {today}에 작성된 일기가 있습니다.<br />
+              새로 대화하면 기존 일기가 대체됩니다.
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={handleViewExistingDiary}
+                className="w-full rounded-full bg-indigo-600 py-3 font-medium text-white hover:bg-indigo-700 transition-colors"
+              >
+                기존 일기 보기
+              </button>
+              <button
+                onClick={handleRealtimeRestart}
+                className="w-full rounded-full border border-indigo-300 bg-white py-3 font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+              >
+                새로 대화하기
+              </button>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full rounded-full py-3 font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
         </div>
       )
     }

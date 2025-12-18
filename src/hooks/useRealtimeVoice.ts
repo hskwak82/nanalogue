@@ -15,7 +15,27 @@ interface UseRealtimeVoiceOptions {
   onAIResponse?: (text: string) => void
   onError?: (error: Error) => void
   onStateChange?: (state: RealtimeState) => void
+  onEndCommand?: () => void
 }
+
+// Keywords that trigger end conversation
+const END_COMMAND_KEYWORDS = [
+  '대화 종료',
+  '대화종료',
+  '대화 끝',
+  '대화를 종료',
+  '대화를 끝',
+  '이만 끝',
+  '이만 종료',
+  '그만할게',
+  '그만할래',
+  '끝낼게',
+  '끝낼래',
+  '종료할게',
+  '종료할래',
+  '여기까지',
+  '마무리',
+]
 
 export type RealtimeState =
   | 'idle'
@@ -26,8 +46,16 @@ export type RealtimeState =
   | 'speaking'
   | 'error'
 
+// Check if text contains end command keywords
+function containsEndCommand(text: string): boolean {
+  const normalizedText = text.toLowerCase().replace(/\s+/g, ' ').trim()
+  return END_COMMAND_KEYWORDS.some((keyword) =>
+    normalizedText.includes(keyword.toLowerCase())
+  )
+}
+
 export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
-  const { onTranscript, onAIResponse, onError, onStateChange } = options
+  const { onTranscript, onAIResponse, onError, onStateChange, onEndCommand } = options
 
   const [state, setState] = useState<RealtimeState>('idle')
   const [isSupported, setIsSupported] = useState(true)
@@ -231,6 +259,10 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           const userText = (event as { transcript?: string }).transcript || ''
           setUserTranscript(userText)
           onTranscript?.(userText, true)
+          // Check for end command keywords
+          if (userText && containsEndCommand(userText)) {
+            onEndCommand?.()
+          }
           break
 
         case 'response.audio_transcript.delta':
@@ -266,7 +298,7 @@ export function useRealtimeVoice(options: UseRealtimeVoiceOptions = {}) {
           }
       }
     },
-    [onTranscript, onAIResponse, onError, updateState]
+    [onTranscript, onAIResponse, onError, updateState, onEndCommand]
   )
 
   // Disconnect and cleanup
