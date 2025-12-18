@@ -31,9 +31,8 @@ CREATE POLICY "Admins can manage spine templates"
   ON spine_templates FOR ALL
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.is_admin = true
+      SELECT 1 FROM admin_users
+      WHERE admin_users.user_id = auth.uid()
     )
   );
 
