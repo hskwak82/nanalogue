@@ -337,25 +337,56 @@ export function DiaryListClient({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 style={{ perspective: '1000px' }}
               >
-                {/* Spine shelf */}
-                <div className="relative pb-3">
-                  <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
-                    <div className="flex items-end gap-1 min-h-[160px]" style={{ perspective: '800px' }}>
-                      {sortedDiaries.map((diary) => (
-                        <MiniSpine
-                          key={diary.id}
-                          diary={diary}
-                          isActive={diary.id === activeDiaryId}
-                          isSelected={diary.id === selectedDiaryId}
-                          onClick={() => setSelectedDiaryId(diary.id)}
-                        />
-                      ))}
-                    </div>
+                {/* Cover + Spine shelf layout */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
+                  {/* Cover display */}
+                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                    <AnimatePresence mode="wait">
+                      {selectedDiary && (
+                        <motion.div
+                          key={selectedDiary.id}
+                          layoutId={`diary-list-main-cover-${selectedDiary.id}`}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <DiaryCover
+                            template={selectedDiary.cover_template}
+                            decorations={selectedDiary.cover_decorations}
+                            coverImageUrl={selectedDiary.cover_image_url}
+                            size="preview"
+                          />
+                          <p className="mt-2 text-xs text-gray-600 font-medium text-center truncate max-w-[120px]">
+                            {selectedDiary.title || `${selectedDiary.volume_number}권`}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* Shelf surface */}
-                  <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
-                  <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
+                  {/* Spine shelf */}
+                  <div className="flex-1 relative min-w-0 w-full">
+                    <div className="relative pb-3">
+                      <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                        <div className="flex items-end gap-1 min-h-[140px] sm:min-h-[160px]" style={{ perspective: '800px' }}>
+                          {sortedDiaries.map((diary) => (
+                            <MiniSpine
+                              key={diary.id}
+                              diary={diary}
+                              isActive={diary.id === activeDiaryId}
+                              isSelected={diary.id === selectedDiaryId}
+                              onClick={() => setSelectedDiaryId(diary.id)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Shelf surface */}
+                      <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
+                      <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             )}
