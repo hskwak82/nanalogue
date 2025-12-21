@@ -56,9 +56,15 @@ export default async function DashboardPage() {
     weekday: 'long',
   })
 
+  const todayDateStr = new Date().toISOString().split('T')[0]
   const todaySession = sessions?.find(
-    (s) => s.session_date === new Date().toISOString().split('T')[0]
+    (s) => s.session_date === todayDateStr
   )
+
+  // Count today's diary entries
+  const todayDiaryCount = diaryEntries?.filter(
+    (e) => e.entry_date === todayDateStr
+  ).length || 0
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
@@ -77,7 +83,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-gray-500">{today}</p>
         </div>
 
-        {/* Responsive Layout - Desktop: grid, Mobile: swipeable */}
+        {/* Responsive Layout - Desktop: grid, Mobile: collapsible calendar */}
         <DashboardLayout
           calendarContent={
             <CalendarWidget
@@ -85,6 +91,7 @@ export default async function DashboardPage() {
               isConnected={isCalendarConnected}
             />
           }
+          todayEventCount={todayDiaryCount}
           mainContent={
             <>
               {/* Diary Shelf - Shows cover + other diaries as spines */}
