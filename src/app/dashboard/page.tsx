@@ -105,58 +105,85 @@ export default async function DashboardPage() {
               <DiaryShelfSection
                 diaries={diaries}
               />
-              {/* Today's Session Card */}
+              {/* Today's Record Card - Always visible */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
-                <h2 className="mb-4 text-lg font-semibold text-gray-700">
-                  오늘의 기록
-                </h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-700">
+                    오늘의 기록
+                  </h2>
+                  <span className="text-sm text-gray-500">
+                    {new Date().toLocaleDateString('ko-KR', {
+                      month: 'long',
+                      day: 'numeric',
+                      weekday: 'short',
+                    })}
+                  </span>
+                </div>
 
-                {todaySession ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`rounded-full px-3 py-1 text-sm ${
-                          todaySession.status === 'completed'
-                            ? 'bg-pastel-mint-light text-pastel-purple-dark'
-                            : 'bg-pastel-peach-light text-pastel-purple-dark'
-                        }`}
-                      >
-                        {todaySession.status === 'completed' ? '완료' : '진행 중'}
-                      </span>
-                      <Link
-                        href={todaySession.status === 'completed' ? `/diary/${todayDateStr}` : '/session?entry=true'}
-                        className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
-                      >
-                        {todaySession.status === 'completed'
-                          ? '일기 보기'
-                          : '이어하기'}
-                      </Link>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="mb-4 text-gray-500">아직 오늘의 기록이 없습니다.</p>
-                    <Link
-                      href="/session?entry=true"
-                      className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
-                    >
-                      오늘 기록 시작하기
-                    </Link>
-                  </div>
-                )}
+                {(() => {
+                  const hasTodayEntry = diaryEntries?.some(e => e.entry_date === todayDateStr)
+                  const hasIncompleteSession = todaySession && todaySession.status !== 'completed'
+
+                  if (hasTodayEntry) {
+                    // Diary written
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full px-3 py-1 text-sm bg-pastel-mint-light text-pastel-purple-dark">
+                          일기 작성완료
+                        </span>
+                        <Link
+                          href={`/diary/${todayDateStr}`}
+                          className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+                        >
+                          일기 보기
+                        </Link>
+                      </div>
+                    )
+                  } else if (hasIncompleteSession) {
+                    // Session in progress, no diary yet
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="rounded-full px-3 py-1 text-sm bg-pastel-peach-light text-pastel-purple-dark">
+                          작성중
+                        </span>
+                        <Link
+                          href="/session?entry=true"
+                          className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+                        >
+                          이어하기
+                        </Link>
+                      </div>
+                    )
+                  } else {
+                    // No session, no diary
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-400">
+                          아직 기록이 없습니다
+                        </span>
+                        <Link
+                          href="/session?entry=true"
+                          className="rounded-full bg-pastel-purple px-4 py-2 text-sm font-medium text-white hover:bg-pastel-purple-dark transition-all"
+                        >
+                          기록 시작하기
+                        </Link>
+                      </div>
+                    )
+                  }
+                })()}
               </div>
 
-              {/* Recent 7 Days - Show status for each day */}
+              {/* Recent 7 Days - Show status for each day (excluding today) */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
                 <h2 className="mb-4 text-lg font-semibold text-gray-700">
-                  최근 7일 기록
+                  지난 7일 기록
                 </h2>
 
                 <div className="space-y-3">
                   {(() => {
-                    // Generate last 7 dates (including today)
+                    // Generate last 7 days (excluding today, starting from yesterday)
                     const last7Days: string[] = []
-                    for (let i = 0; i < 7; i++) {
+                    for (let i = 1; i <= 7; i++) {
                       const date = new Date()
                       date.setDate(date.getDate() - i)
                       last7Days.push(date.toISOString().split('T')[0])
