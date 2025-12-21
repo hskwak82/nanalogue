@@ -146,50 +146,81 @@ export default async function DashboardPage() {
                 )}
               </div>
 
-              {/* Recent Diary Entries - only show dates with actual diary entries */}
+              {/* Recent 7 Days - Show status for each day */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
                 <h2 className="mb-4 text-lg font-semibold text-gray-700">
                   최근 7일 기록
                 </h2>
 
-                {(() => {
-                  // Get recent diary entries (last 7 days with actual entries)
-                  const recentEntryDates = diaryEntries
-                    ?.map(e => e.entry_date)
-                    .sort((a, b) => b.localeCompare(a))
-                    .slice(0, 7) || []
+                <div className="space-y-3">
+                  {(() => {
+                    // Generate last 7 dates (including today)
+                    const last7Days: string[] = []
+                    for (let i = 0; i < 7; i++) {
+                      const date = new Date()
+                      date.setDate(date.getDate() - i)
+                      last7Days.push(date.toISOString().split('T')[0])
+                    }
 
-                  if (recentEntryDates.length > 0) {
-                    return (
-                      <div className="space-y-3">
-                        {recentEntryDates.map((entryDate) => (
-                          <Link
-                            key={entryDate}
-                            href={`/diary/${entryDate}`}
-                            className="flex items-center justify-between rounded-xl border border-pastel-pink/30 p-4 hover:bg-pastel-pink-light/50 transition-all"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-700">
-                                {new Date(entryDate).toLocaleDateString(
-                                  'ko-KR',
-                                  {
-                                    month: 'long',
-                                    day: 'numeric',
-                                    weekday: 'short',
-                                  }
-                                )}
-                              </p>
-                            </div>
-                            <span className="rounded-full px-3 py-1 text-xs font-medium bg-pastel-mint-light text-pastel-purple-dark">
-                              완료
-                            </span>
-                          </Link>
-                        ))}
-                      </div>
+                    // Create lookup sets
+                    const entryDatesSet = new Set(diaryEntries?.map(e => e.entry_date) || [])
+                    const sessionsByDate = new Map(
+                      sessions?.map(s => [s.session_date, s.status]) || []
                     )
-                  }
-                  return <p className="text-center text-gray-500">아직 기록이 없습니다.</p>
-                })()}
+
+                    return last7Days.map((dateStr) => {
+                      const hasEntry = entryDatesSet.has(dateStr)
+                      const sessionStatus = sessionsByDate.get(dateStr)
+                      const hasIncompleteSession = sessionStatus && sessionStatus !== 'completed'
+
+                      // Determine status: 작성완료 | 작성중 | 일기없음
+                      let status: 'completed' | 'in_progress' | 'none'
+                      if (hasEntry) {
+                        status = 'completed'
+                      } else if (hasIncompleteSession) {
+                        status = 'in_progress'
+                      } else {
+                        status = 'none'
+                      }
+
+                      const href = status === 'completed'
+                        ? `/diary/${dateStr}`
+                        : `/session?entry=true&date=${dateStr}`
+
+                      return (
+                        <Link
+                          key={dateStr}
+                          href={href}
+                          className={`flex items-center justify-between rounded-xl border p-4 transition-all ${
+                            status === 'none'
+                              ? 'border-gray-200 hover:bg-gray-50'
+                              : 'border-pastel-pink/30 hover:bg-pastel-pink-light/50'
+                          }`}
+                        >
+                          <p className={`font-medium ${
+                            status === 'none' ? 'text-gray-400' : 'text-gray-700'
+                          }`}>
+                            {new Date(dateStr).toLocaleDateString('ko-KR', {
+                              month: 'long',
+                              day: 'numeric',
+                              weekday: 'short',
+                            })}
+                          </p>
+                          {status === 'in_progress' && (
+                            <span className="rounded-full px-3 py-1 text-xs font-medium bg-pastel-peach-light text-pastel-purple-dark">
+                              작성중
+                            </span>
+                          )}
+                          {status === 'none' && (
+                            <span className="text-xs text-gray-400">
+                              일기없음
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })
+                  })()}
+                </div>
               </div>
             </>
           }
