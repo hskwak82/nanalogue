@@ -315,8 +315,8 @@ export function DiaryListClient({
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
               >
                 {/* Horizontal scrollable cover grid */}
-                <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent -mx-4 sm:-mx-6">
-                  <div className="flex items-start gap-4 min-h-[220px] pt-4 pb-6 px-4 sm:px-6">
+                <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent">
+                  <div className="inline-flex items-start gap-4 min-h-[220px] pt-4 pb-6 px-4 sm:px-6">
                     {sortedDiaries.map((diary) => (
                       <CoverCard
                         key={diary.id}
