@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import type { DiaryWithTemplates } from '@/types/diary'
 import { UnifiedBookshelf } from '@/components/bookshelf/UnifiedBookshelf'
 
@@ -19,21 +18,12 @@ export function CustomizeBookshelf({
   onSelectDiary,
   onCustomize
 }: CustomizeBookshelfProps) {
-  const [displayedDiaryId, setDisplayedDiaryId] = useState<string | null>(selectedDiaryId)
-
-  // Sync with selected diary from parent
-  useEffect(() => {
-    if (selectedDiaryId) {
-      setDisplayedDiaryId(selectedDiaryId)
-    }
-  }, [selectedDiaryId])
-
+  // Directly use parent's selectedDiaryId - no local state needed
   const handleSelectDiary = (diary: DiaryWithTemplates) => {
-    setDisplayedDiaryId(diary.id)
+    onSelectDiary(diary)
   }
 
   const handleCoverClick = (diary: DiaryWithTemplates) => {
-    onSelectDiary(diary)
     onCustomize?.(diary)
   }
 
@@ -44,7 +34,7 @@ export function CustomizeBookshelf({
   return (
     <UnifiedBookshelf
       diaries={diaries}
-      selectedDiaryId={displayedDiaryId}
+      selectedDiaryId={selectedDiaryId}
       activeDiaryId={activeDiaryId}
       onSelectDiary={handleSelectDiary}
       onCoverClick={handleCoverClick}

@@ -50,6 +50,12 @@ function CustomizePageContent() {
 
   // Spine customization state
   const [spinePresetId, setSpinePresetId] = useState<string | null>(null)
+  const [initialSpinePresetId, setInitialSpinePresetId] = useState<string | null>(null)
+  const spineIsDirty = spinePresetId !== initialSpinePresetId
+
+  // Unsaved changes confirmation modal
+  const [pendingDiarySwitch, setPendingDiarySwitch] = useState<DiaryWithTemplates | null>(null)
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false)
 
   // Data from API
   const [user, setUser] = useState<{ email: string; name: string | null; id: string } | null>(null)
@@ -79,6 +85,9 @@ function CustomizePageContent() {
     setPaperFontFamily,
     setPaperFontColor,
   } = useEditorState()
+
+  // Combined dirty check (must be after state is defined)
+  const hasUnsavedChanges = state.isDirty || spineIsDirty
 
   // Handle canvas click in text mode
   const handleCanvasClickForText = (x: number, y: number) => {
@@ -190,7 +199,9 @@ function CustomizePageContent() {
       }
 
       // Load spine preset for this diary
-      setSpinePresetId(data.spinePresetId ?? null)
+      const presetId = data.spinePresetId ?? null
+      setSpinePresetId(presetId)
+      setInitialSpinePresetId(presetId)
     } catch (err) {
       console.error('Error loading diary customization:', err)
       setError('데이터를 불러오는 데 실패했습니다.')
@@ -256,7 +267,9 @@ function CustomizePageContent() {
           )
 
           // Load spine preset for this diary
-          setSpinePresetId(data.spinePresetId ?? null)
+          const presetId = data.spinePresetId ?? null
+          setSpinePresetId(presetId)
+          setInitialSpinePresetId(presetId)
         } else if (data.coverTemplates.length > 0) {
           // Set default cover
           setCover(data.coverTemplates[0])
@@ -275,8 +288,37 @@ function CustomizePageContent() {
   // Handle diary selection from bookshelf
   const handleSelectDiary = useCallback((diary: DiaryWithTemplates) => {
     if (diary.id === diaryId) return // Already selected
+
+    // Check for unsaved changes
+    if (hasUnsavedChanges) {
+      setPendingDiarySwitch(diary)
+      setShowUnsavedModal(true)
+      return
+    }
+
     loadDiaryCustomization(diary.id)
-  }, [diaryId, loadDiaryCustomization])
+  }, [diaryId, loadDiaryCustomization, hasUnsavedChanges])
+
+  // Handle unsaved changes modal actions
+  const handleSaveAndSwitch = async () => {
+    if (!pendingDiarySwitch) return
+    setShowUnsavedModal(false)
+    await handleSave()
+    loadDiaryCustomization(pendingDiarySwitch.id)
+    setPendingDiarySwitch(null)
+  }
+
+  const handleDiscardAndSwitch = () => {
+    if (!pendingDiarySwitch) return
+    setShowUnsavedModal(false)
+    loadDiaryCustomization(pendingDiarySwitch.id)
+    setPendingDiarySwitch(null)
+  }
+
+  const handleCancelSwitch = () => {
+    setShowUnsavedModal(false)
+    setPendingDiarySwitch(null)
+  }
 
   // Save customization
   const handleSave = async () => {
@@ -364,6 +406,7 @@ function CustomizePageContent() {
       }
 
       markSaved()
+      setInitialSpinePresetId(spinePresetId) // Reset spine dirty tracking
       // Exit all editing modes and deselect items after save
       setIsTextMode(false)
       selectItem(null)
@@ -662,6 +705,62 @@ function CustomizePageContent() {
           : undefined
         }
       />
+
+      {/* Unsaved Changes Confirmation Modal */}
+      {showUnsavedModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={handleCancelSwitch}
+          />
+
+          {/* Dialog */}
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full animate-scale-in">
+            <div className="p-6">
+              {/* Icon */}
+              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+
+              {/* Content */}
+              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                저장되지 않은 변경사항
+              </h3>
+              <p className="text-sm text-gray-600 text-center">
+                현재 일기장에 저장되지 않은 변경사항이 있습니다.
+                <br />
+                다른 일기장으로 이동하기 전에 어떻게 하시겠습니까?
+              </p>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-2 mt-6">
+                <button
+                  onClick={handleSaveAndSwitch}
+                  disabled={isSaving}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-white bg-pastel-purple rounded-xl hover:bg-pastel-purple-dark transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? '저장 중...' : '저장 후 이동'}
+                </button>
+                <button
+                  onClick={handleDiscardAndSwitch}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"
+                >
+                  저장하지 않고 이동
+                </button>
+                <button
+                  onClick={handleCancelSwitch}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

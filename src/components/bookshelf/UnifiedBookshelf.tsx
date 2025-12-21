@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import type { DiaryWithTemplates, BookshelfViewMode } from '@/types/diary'
@@ -52,10 +52,14 @@ function ViewToggle({
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           />
         )}
-        <span className="relative z-10 flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <rect x="3" y="3" width="7" height="10" rx="1" strokeWidth="2" />
-            <rect x="14" y="3" width="7" height="10" rx="1" strokeWidth="2" />
+        <span className="relative z-10 flex items-center gap-1.5">
+          {/* Book cover icon - open book showing front */}
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+            <rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" strokeWidth="2" />
+            <path d="M5 3C5 3 5 5 8 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <rect x="8" y="7" width="8" height="1.5" rx="0.5" fill="currentColor" />
+            <rect x="8" y="10" width="6" height="1" rx="0.5" fill="currentColor" opacity="0.6" />
+            <rect x="8" y="14" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.15" />
           </svg>
           표지
         </span>
@@ -74,13 +78,16 @@ function ViewToggle({
             transition={{ type: 'spring', stiffness: 500, damping: 30 }}
           />
         )}
-        <span className="relative z-10 flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <rect x="3" y="4" width="3" height="16" rx="0.5" strokeWidth="2" />
-            <rect x="8" y="4" width="4" height="16" rx="0.5" strokeWidth="2" />
-            <rect x="14" y="4" width="2" height="16" rx="0.5" strokeWidth="2" />
+        <span className="relative z-10 flex items-center gap-1.5">
+          {/* Books on shelf - spine view */}
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="4" width="4" height="14" rx="0.5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.2" />
+            <rect x="7" y="6" width="3" height="12" rx="0.5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.35" />
+            <rect x="11" y="5" width="5" height="13" rx="0.5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.15" />
+            <rect x="17" y="7" width="4" height="11" rx="0.5" stroke="currentColor" strokeWidth="1.5" fill="currentColor" fillOpacity="0.25" />
+            <line x1="1" y1="19" x2="23" y2="19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
-          책장
+          책등
         </span>
       </button>
     </div>
@@ -167,7 +174,10 @@ function MiniSpine({
       layoutId={`${layoutId}-spine-${diary.id}`}
       animate={{
         y: isSelected ? 0 : 8,
+        scale: isSelected ? 1 : 1,
       }}
+      initial={false}
+      transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       whileHover={!isSelected ? { y: 0 } : undefined}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
@@ -227,10 +237,25 @@ export function UnifiedBookshelf({
   onEditDiary,
   layoutId = 'unified'
 }: UnifiedBookshelfProps) {
-  const [viewMode, setViewMode] = useState<BookshelfViewMode>('spines')
+  const [viewMode, setViewMode] = useState<BookshelfViewMode>('covers')
+  const coverScrollRef = useRef<HTMLDivElement>(null)
 
   const selectedDiary = diaries.find(d => d.id === selectedDiaryId)
   const sortedDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
+
+  // Auto-scroll to selected diary in cover view
+  useEffect(() => {
+    if (viewMode === 'covers' && selectedDiaryId && coverScrollRef.current) {
+      const container = coverScrollRef.current
+      const selectedElement = container.querySelector(`[data-diary-id="${selectedDiaryId}"]`) as HTMLElement
+      if (selectedElement) {
+        const containerRect = container.getBoundingClientRect()
+        const elementRect = selectedElement.getBoundingClientRect()
+        const scrollLeft = elementRect.left - containerRect.left + container.scrollLeft - (containerRect.width - elementRect.width) / 2
+        container.scrollTo({ left: Math.max(0, scrollLeft), behavior: 'smooth' })
+      }
+    }
+  }, [selectedDiaryId, viewMode])
 
   const handleCoverClick = () => {
     if (selectedDiary && onCoverClick) {
@@ -283,16 +308,20 @@ export function UnifiedBookshelf({
               transition={{ duration: 0.25, ease: 'easeInOut' }}
             >
               {/* Horizontal scrollable cover grid */}
-              <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent">
+              <div
+                ref={coverScrollRef}
+                className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent"
+              >
                 <div className="inline-flex items-start gap-4 min-h-[220px] pt-4 pb-6 px-4 sm:px-6">
                   {sortedDiaries.map((diary) => (
-                    <CoverCard
-                      key={diary.id}
-                      diary={diary}
-                      isSelected={diary.id === selectedDiaryId}
-                      onClick={() => onSelectDiary(diary)}
-                      layoutId={layoutId}
-                    />
+                    <div key={diary.id} data-diary-id={diary.id}>
+                      <CoverCard
+                        diary={diary}
+                        isSelected={diary.id === selectedDiaryId}
+                        onClick={() => onSelectDiary(diary)}
+                        layoutId={layoutId}
+                      />
+                    </div>
                   ))}
                 </div>
               </div>
@@ -319,24 +348,15 @@ export function UnifiedBookshelf({
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         transition={{ duration: 0.3 }}
-                        className={onCoverClick ? 'cursor-pointer group' : ''}
+                        className={onCoverClick ? 'cursor-pointer' : ''}
                         onClick={handleCoverClick}
                       >
-                        <div className={`relative ${onCoverClick ? 'transition-all duration-200 group-hover:scale-105 group-hover:-translate-y-1 group-hover:shadow-xl' : ''}`}>
-                          <DiaryCover
-                            template={selectedDiary.cover_template}
-                            decorations={selectedDiary.cover_decorations}
-                            coverImageUrl={selectedDiary.cover_image_url}
-                            size="preview"
-                          />
-                          {onCoverClick && (
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-                              <span className="text-white font-medium opacity-0 group-hover:opacity-100 transition-opacity text-sm">
-                                보기
-                              </span>
-                            </div>
-                          )}
-                        </div>
+                        <DiaryCover
+                          template={selectedDiary.cover_template}
+                          decorations={selectedDiary.cover_decorations}
+                          coverImageUrl={selectedDiary.cover_image_url}
+                          size="preview"
+                        />
                         <p className="mt-2 text-xs text-gray-600 font-medium text-center truncate max-w-[120px]">
                           {selectedDiary.title || `${selectedDiary.volume_number}권`}
                         </p>
