@@ -103,12 +103,20 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-500"
-              >
-                비밀번호
-              </label>
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-500"
+                >
+                  비밀번호
+                </label>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+                >
+                  비밀번호를 잊으셨나요?
+                </Link>
+              </div>
               <input
                 id="password"
                 name="password"
