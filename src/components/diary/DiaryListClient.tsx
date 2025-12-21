@@ -316,7 +316,7 @@ export function DiaryListClient({
               >
                 {/* Horizontal scrollable cover grid */}
                 <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <div className="flex items-start gap-4 min-h-[220px] pt-4 pb-6 pr-4 sm:pr-2">
+                  <div className="flex items-start gap-4 min-h-[220px] pt-4 pb-6">
                     {sortedDiaries.map((diary) => (
                       <CoverCard
                         key={diary.id}
@@ -325,6 +325,8 @@ export function DiaryListClient({
                         onClick={() => setSelectedDiaryId(diary.id)}
                       />
                     ))}
+                    {/* Right spacing for last item */}
+                    <div className="flex-shrink-0 w-4 sm:w-2" aria-hidden="true" />
                   </div>
                 </div>
               </motion.div>
