@@ -17,9 +17,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const events = await getMonthEvents(user.id, year, month)
+    const result = await getMonthEvents(user.id, year, month)
 
-    return NextResponse.json({ events })
+    // Handle different status cases
+    if (result.status === 'not_connected') {
+      return NextResponse.json({ events: [], connected: false })
+    }
+
+    if (result.status === 'needs_reconnection') {
+      return NextResponse.json({
+        events: [],
+        connected: false,
+        needsReconnection: true,
+        error: 'Calendar connection expired. Please reconnect.',
+      })
+    }
+
+    if (result.status === 'error') {
+      return NextResponse.json({
+        events: [],
+        error: 'Failed to fetch calendar events',
+      })
+    }
+
+    return NextResponse.json({ events: result.events, connected: true })
   } catch (error) {
     console.error('Error fetching calendar events:', error)
     return NextResponse.json(

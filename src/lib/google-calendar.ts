@@ -49,8 +49,15 @@ export async function exchangeCodeForTokens(code: string) {
   return tokens
 }
 
+// Result type for calendar client
+export type CalendarClientResult =
+  | { status: 'success'; client: calendar_v3.Calendar }
+  | { status: 'not_connected' }
+  | { status: 'needs_reconnection' }
+  | { status: 'error' }
+
 // Get calendar client with valid tokens
-export async function getCalendarClient(userId: string): Promise<calendar_v3.Calendar | null> {
+export async function getCalendarClient(userId: string): Promise<CalendarClientResult> {
   const supabase = await createClient()
 
   // Get stored tokens
@@ -62,7 +69,7 @@ export async function getCalendarClient(userId: string): Promise<calendar_v3.Cal
     .single()
 
   if (error || !tokenData) {
-    return null
+    return { status: 'not_connected' }
   }
 
   const token = tokenData as CalendarToken
@@ -76,20 +83,24 @@ export async function getCalendarClient(userId: string): Promise<calendar_v3.Cal
   // Check if token needs refresh
   const expiresAt = new Date(token.expires_at)
   if (expiresAt <= new Date()) {
-    const refreshed = await refreshTokenIfNeeded(userId, oauth2Client)
-    if (!refreshed) {
-      return null
+    const refreshResult = await refreshTokenIfNeeded(userId, oauth2Client)
+    if (refreshResult === 'invalid_grant') {
+      return { status: 'needs_reconnection' }
+    }
+    if (refreshResult === 'error') {
+      return { status: 'error' }
     }
   }
 
-  return google.calendar({ version: 'v3', auth: oauth2Client })
+  return { status: 'success', client: google.calendar({ version: 'v3', auth: oauth2Client }) }
 }
 
 // Refresh access token if expired
+// Returns: 'success' | 'invalid_grant' | 'error'
 async function refreshTokenIfNeeded(
   userId: string,
   oauth2Client: ReturnType<typeof createOAuth2Client>
-): Promise<boolean> {
+): Promise<'success' | 'invalid_grant' | 'error'> {
   try {
     const { credentials } = await oauth2Client.refreshAccessToken()
     const supabase = await createClient()
@@ -110,14 +121,30 @@ async function refreshTokenIfNeeded(
 
     if (error) {
       console.error('Failed to update token:', error)
-      return false
+      return 'error'
     }
 
     oauth2Client.setCredentials(credentials)
-    return true
-  } catch (error) {
+    return 'success'
+  } catch (error: unknown) {
     console.error('Failed to refresh token:', error)
-    return false
+
+    // Check if it's an invalid_grant error (token revoked or expired)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (errorMessage.includes('invalid_grant')) {
+      // Delete invalid tokens from database
+      const supabase = await createClient()
+      await supabase
+        .from('calendar_tokens')
+        .delete()
+        .eq('user_id', userId)
+        .eq('provider', 'google')
+
+      console.log('Deleted invalid calendar tokens for user:', userId)
+      return 'invalid_grant'
+    }
+
+    return 'error'
   }
 }
 
@@ -127,10 +154,11 @@ export async function createDiaryEvent(
   date: string,
   summary: string
 ): Promise<boolean> {
-  const calendar = await getCalendarClient(userId)
-  if (!calendar) {
+  const clientResult = await getCalendarClient(userId)
+  if (clientResult.status !== 'success') {
     return false
   }
+  const calendar = clientResult.client
 
   try {
     // Check if event already exists for this date
@@ -176,16 +204,26 @@ export async function createDiaryEvent(
   }
 }
 
+// Result type for getMonthEvents
+export type GetMonthEventsResult =
+  | { status: 'success'; events: CalendarEvent[] }
+  | { status: 'not_connected' }
+  | { status: 'needs_reconnection' }
+  | { status: 'error' }
+
 // Get events for a specific month
 export async function getMonthEvents(
   userId: string,
   year: number,
   month: number
-): Promise<CalendarEvent[]> {
-  const calendar = await getCalendarClient(userId)
-  if (!calendar) {
-    return []
+): Promise<GetMonthEventsResult> {
+  const clientResult = await getCalendarClient(userId)
+
+  if (clientResult.status !== 'success') {
+    return { status: clientResult.status }
   }
+
+  const calendar = clientResult.client
 
   try {
     // Get first and last day of month
@@ -259,10 +297,10 @@ export async function getMonthEvents(
       }
     }
 
-    return events
+    return { status: 'success', events }
   } catch (error) {
     console.error('Failed to get calendar events:', error)
-    return []
+    return { status: 'error' }
   }
 }
 
@@ -352,10 +390,14 @@ export async function createCalendarEvent(
 ): Promise<CreateCalendarEventResult> {
   const { userId, title, date, time, duration = 60, description } = params
 
-  const calendar = await getCalendarClient(userId)
-  if (!calendar) {
-    return { success: false, error: 'Calendar not connected' }
+  const clientResult = await getCalendarClient(userId)
+  if (clientResult.status !== 'success') {
+    const errorMsg = clientResult.status === 'needs_reconnection'
+      ? 'Calendar needs reconnection'
+      : 'Calendar not connected'
+    return { success: false, error: errorMsg }
   }
+  const calendar = clientResult.client
 
   try {
     let start: { date?: string; dateTime?: string; timeZone?: string }
