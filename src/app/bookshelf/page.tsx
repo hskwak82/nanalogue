@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { Bookshelf } from '@/components/bookshelf/Bookshelf'
 import { NewDiaryModal } from '@/components/modals/NewDiaryModal'
-import { CompleteDiaryModal } from '@/components/modals/CompleteDiaryModal'
 import { EditDiaryModal } from '@/components/modals/EditDiaryModal'
 import type { DiaryWithTemplates, DiaryListResponse } from '@/types/diary'
 
@@ -14,12 +13,10 @@ export default function BookshelfPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
   const [diaries, setDiaries] = useState<DiaryWithTemplates[]>([])
-  const [activeDiary, setActiveDiary] = useState<DiaryWithTemplates | null>(null)
   const [user, setUser] = useState<{ email: string; name: string | null } | null>(null)
 
   // Modal states
   const [showNewModal, setShowNewModal] = useState(false)
-  const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedDiary, setSelectedDiary] = useState<DiaryWithTemplates | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -38,7 +35,6 @@ export default function BookshelfPage() {
 
       const data: DiaryListResponse = await response.json()
       setDiaries(data.diaries)
-      setActiveDiary(data.activeDiary)
     } catch (error) {
       console.error('Error loading diaries:', error)
     } finally {
@@ -102,27 +98,6 @@ export default function BookshelfPage() {
     await loadDiaries()
   }
 
-  // Handle complete diary
-  const handleComplete = async (endDate: string, createNew: boolean, newTitle?: string) => {
-    if (!activeDiary) return
-
-    const response = await fetch(`/api/diaries/${activeDiary.id}/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        end_date: endDate,
-        create_new: createNew,
-        new_diary_title: newTitle,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to complete diary')
-    }
-
-    await loadDiaries()
-  }
-
   // Handle edit diary title
   const handleEditTitle = async (title: string) => {
     if (!selectedDiary) return
@@ -174,13 +149,8 @@ export default function BookshelfPage() {
         {/* Bookshelf */}
         <Bookshelf
           diaries={diaries}
-          activeDiary={activeDiary}
           onSelectDiary={handleSelectDiary}
           onCreateNew={() => setShowNewModal(true)}
-          onComplete={(diary) => {
-            setSelectedDiary(diary)
-            setShowCompleteModal(true)
-          }}
           onEdit={(diary) => {
             setSelectedDiary(diary)
             setShowEditModal(true)
@@ -195,13 +165,6 @@ export default function BookshelfPage() {
         onClose={() => setShowNewModal(false)}
         onConfirm={handleCreateNew}
         nextVolumeNumber={nextVolumeNumber}
-      />
-
-      <CompleteDiaryModal
-        isOpen={showCompleteModal}
-        onClose={() => setShowCompleteModal(false)}
-        onConfirm={handleComplete}
-        diary={activeDiary}
       />
 
       <EditDiaryModal

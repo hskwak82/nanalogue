@@ -8,14 +8,10 @@ import type { DiaryWithTemplates } from '@/types/diary'
 
 interface DiaryShelfSectionProps {
   diaries: DiaryWithTemplates[]
-  activeDiaryId: string | null
-  userName?: string
 }
 
 export function DiaryShelfSection({
-  diaries,
-  activeDiaryId,
-  userName
+  diaries
 }: DiaryShelfSectionProps) {
   const router = useRouter()
   const [showEditModal, setShowEditModal] = useState(false)
@@ -43,29 +39,11 @@ export function DiaryShelfSection({
     router.refresh()
   }
 
-  const handleActivateDiary = async (diary: DiaryWithTemplates) => {
-    const response = await fetch('/api/diaries/active', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ diary_id: diary.id }),
-    })
-
-    if (!response.ok) {
-      console.error('Failed to activate diary')
-      return
-    }
-
-    // Refresh the page to get updated data
-    router.refresh()
-  }
-
   return (
     <>
       <DiaryShelfViewer
         diaries={diaries}
-        activeDiaryId={activeDiaryId}
         onEditDiary={handleEditDiary}
-        onActivateDiary={handleActivateDiary}
       />
 
       <EditDiaryModal

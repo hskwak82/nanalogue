@@ -15,21 +15,17 @@ const BOOKSHELF_SPINE_WIDTH = Math.round(BOOKSHELF_SPINE_HEIGHT * PRINT_SPECS.PR
 
 interface DiaryShelfViewerProps {
   diaries: DiaryWithTemplates[]
-  activeDiaryId?: string | null
   onSelectDiary?: (diary: DiaryWithTemplates) => void
   onEditDiary?: (diary: DiaryWithTemplates) => void
-  onActivateDiary?: (diary: DiaryWithTemplates) => void
 }
 
 // Mini spine component for the shelf - uses preset-based styling
 function MiniSpine({
   diary,
-  isActive,
   isSelected,
   onClick
 }: {
   diary: DiaryWithTemplates
-  isActive: boolean
   isSelected: boolean
   onClick: () => void
 }) {
@@ -62,11 +58,6 @@ function MiniSpine({
       {/* Bottom band */}
       {bandStyles.bottomBand && <div style={bandStyles.bottomBand} />}
 
-      {/* Active indicator */}
-      {isActive && (
-        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-pastel-mint rounded-full shadow-sm z-20" />
-      )}
-
       {/* Spine edges for book effect */}
       <div className="absolute left-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(0,0,0,0.15)' }} />
       <div className="absolute right-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(255,255,255,0.2)' }} />
@@ -94,16 +85,14 @@ const SELECTED_DIARY_KEY = 'nanalogue_selected_diary'
 
 export function DiaryShelfViewer({
   diaries,
-  activeDiaryId,
   onSelectDiary,
-  onEditDiary,
-  onActivateDiary
+  onEditDiary
 }: DiaryShelfViewerProps) {
   // Currently displayed diary (cover view)
   const [displayedDiaryId, setDisplayedDiaryId] = useState<string | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Initialize from localStorage or active diary
+  // Initialize from localStorage or first diary
   useEffect(() => {
     if (isInitialized || diaries.length === 0) return
 
@@ -113,14 +102,14 @@ export function DiaryShelfViewer({
 
     if (savedDiaryExists) {
       setDisplayedDiaryId(savedId)
-    } else if (activeDiaryId) {
-      setDisplayedDiaryId(activeDiaryId)
     } else {
-      setDisplayedDiaryId(diaries[0].id)
+      // Default to most recent diary (highest volume number)
+      const sortedDiaries = [...diaries].sort((a, b) => b.volume_number - a.volume_number)
+      setDisplayedDiaryId(sortedDiaries[0].id)
     }
 
     setIsInitialized(true)
-  }, [activeDiaryId, diaries, isInitialized])
+  }, [diaries, isInitialized])
 
   // Save to localStorage when selection changes
   useEffect(() => {
@@ -195,18 +184,6 @@ export function DiaryShelfViewer({
               {displayedDiary.volume_number}권
             </span>
           )}
-          {displayedDiaryId === activeDiaryId ? (
-            <span className="text-xs text-white bg-emerald-500 px-2 py-0.5 rounded-full font-medium">
-              사용 중
-            </span>
-          ) : displayedDiary && onActivateDiary && (
-            <button
-              onClick={() => onActivateDiary(displayedDiary)}
-              className="text-xs text-pastel-purple hover:text-pastel-purple-dark bg-pastel-purple/10 hover:bg-pastel-purple/20 px-2 py-0.5 rounded-full transition-colors"
-            >
-              사용하기
-            </button>
-          )}
         </div>
       </div>
 
@@ -256,7 +233,6 @@ export function DiaryShelfViewer({
                     <MiniSpine
                       key={diary.id}
                       diary={diary}
-                      isActive={diary.id === activeDiaryId}
                       isSelected={diary.id === displayedDiaryId}
                       onClick={() => handleSpineClick(diary)}
                     />

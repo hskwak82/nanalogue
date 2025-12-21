@@ -14,11 +14,10 @@ interface DiarySpineProps {
   diary: DiaryWithTemplates
   index: number
   isSelected?: boolean
-  isActive?: boolean
   onClick?: () => void
 }
 
-export function DiarySpine({ diary, index, isSelected, isActive, onClick }: DiarySpineProps) {
+export function DiarySpine({ diary, index, isSelected, onClick }: DiarySpineProps) {
   const title = diary.title || `${diary.volume_number}권`
   const preset = getSpinePreset(diary.spine_preset_id)
   const bandStyles = getSpineBandStyles(preset)
@@ -115,16 +114,6 @@ export function DiarySpine({ diary, index, isSelected, isActive, onClick }: Diar
           {new Date(diary.start_date).getFullYear()}
         </span>
       </div>
-
-      {/* Status indicator for active diary */}
-      {isActive && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute -top-1 -right-1 w-3 h-3 bg-pastel-mint rounded-full border-2 border-white shadow-sm z-20"
-          title="현재 사용 중"
-        />
-      )}
 
       {/* Hover tooltip */}
       <motion.div

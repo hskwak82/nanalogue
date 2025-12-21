@@ -9,20 +9,16 @@ import { SpineShelf } from './SpineShelf'
 
 interface BookshelfProps {
   diaries: DiaryWithTemplates[]
-  activeDiary?: DiaryWithTemplates | null
   onSelectDiary?: (diary: DiaryWithTemplates) => void
   onCreateNew?: () => void
-  onComplete?: (diary: DiaryWithTemplates) => void
   onEdit?: (diary: DiaryWithTemplates) => void
   isAdmin?: boolean
 }
 
 export function Bookshelf({
   diaries,
-  activeDiary,
   onSelectDiary,
   onCreateNew,
-  onComplete,
   onEdit,
   isAdmin = false,
 }: BookshelfProps) {
@@ -62,35 +58,6 @@ export function Bookshelf({
         </div>
       </div>
 
-      {/* Active diary quick info */}
-      {activeDiary && (
-        <div className="mb-4 p-3 bg-pastel-mint-light/50 rounded-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-pastel-mint rounded-full" />
-            <span className="text-sm text-gray-600">
-              현재 사용 중: <span className="font-medium">{activeDiary.title || `${activeDiary.volume_number}권`}</span>
-            </span>
-            {onEdit && (
-              <button
-                onClick={() => onEdit(activeDiary)}
-                className="text-xs text-gray-400 hover:text-pastel-purple transition-colors"
-                title="이름 수정"
-              >
-                ✏️
-              </button>
-            )}
-          </div>
-          {onComplete && (
-            <button
-              onClick={() => onComplete(activeDiary)}
-              className="text-xs text-gray-500 hover:text-pastel-purple transition-colors"
-            >
-              일기장 마무리
-            </button>
-          )}
-        </div>
-      )}
-
       {/* Content with animation */}
       <LayoutGroup>
         <AnimatePresence mode="wait">
@@ -105,7 +72,6 @@ export function Bookshelf({
               <CoverGrid
                 diaries={diaries}
                 selectedId={selectedDiaryId}
-                activeDiaryId={activeDiary?.id}
                 onSelect={handleSelectDiary}
               />
             </motion.div>
@@ -121,7 +87,6 @@ export function Bookshelf({
               <SpineShelf
                 diaries={diaries}
                 selectedId={selectedDiaryId}
-                activeDiaryId={activeDiary?.id}
                 onSelect={handleSelectDiary}
               />
             </motion.div>

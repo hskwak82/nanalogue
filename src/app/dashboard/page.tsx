@@ -90,8 +90,6 @@ export default async function DashboardPage() {
               {/* Diary Shelf - Shows cover + other diaries as spines */}
               <DiaryShelfSection
                 diaries={diaries}
-                activeDiaryId={activeDiary?.id || null}
-                userName={profile?.name || undefined}
               />
               {/* Today's Session Card */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">

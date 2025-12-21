@@ -9,11 +9,10 @@ import { DiaryCover } from '@/components/diary/DiaryCover'
 interface CoverGridProps {
   diaries: DiaryWithTemplates[]
   selectedId?: string | null
-  activeDiaryId?: string | null
   onSelect?: (diary: DiaryWithTemplates) => void
 }
 
-export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: CoverGridProps) {
+export function CoverGrid({ diaries, selectedId, onSelect }: CoverGridProps) {
   // Sort by volume number ascending (oldest first)
   const sortedDiaries = [...diaries].sort((a, b) => a.volume_number - b.volume_number)
 
@@ -60,16 +59,6 @@ export function CoverGrid({ diaries, selectedId, activeDiaryId, onSelect }: Cove
             <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-0.5 text-xs font-medium text-gray-700 shadow-sm">
               {diary.volume_number}권
             </div>
-
-            {/* Active indicator */}
-            {activeDiaryId === diary.id && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute top-2 right-2 w-3 h-3 bg-pastel-mint rounded-full border-2 border-white shadow-sm"
-                title="현재 사용 중"
-              />
-            )}
 
             {/* Completed badge */}
             {diary.status === 'completed' && (
