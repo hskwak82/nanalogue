@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { login, signInWithGoogle } from './actions'
 import { Logo } from '@/components/Logo'
 
-export default function LoginPage() {
+function LoginContent() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showExpiredLinkMessage, setShowExpiredLinkMessage] = useState(false)
@@ -190,5 +190,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
+        <div className="animate-pulse text-gray-500">로딩 중...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   )
 }
