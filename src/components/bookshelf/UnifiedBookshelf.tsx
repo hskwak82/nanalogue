@@ -306,10 +306,10 @@ export function UnifiedBookshelf({
               transition={{ duration: 0.3, ease: 'easeOut' }}
               style={{ perspective: '1000px' }}
             >
-              {/* Cover + Spine shelf layout - bottoms aligned */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 sm:gap-6">
+              {/* Cover + Spine shelf layout - side by side, bottoms aligned */}
+              <div className="flex flex-row items-end gap-4 sm:gap-6">
                 {/* Cover display */}
-                <div className="flex flex-col items-center flex-shrink-0">
+                <div className="flex-shrink-0">
                   <AnimatePresence mode="wait">
                     {selectedDiary && (
                       <motion.div
