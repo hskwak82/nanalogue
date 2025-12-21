@@ -1,6 +1,7 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
+import { DiaryListClient } from '@/components/diary/DiaryListClient'
+import type { DiaryWithTemplates } from '@/types/diary'
 
 interface DiaryListPageProps {
   searchParams: Promise<{ diary?: string }>
@@ -8,55 +9,29 @@ interface DiaryListPageProps {
 
 export default async function DiaryListPage({ searchParams }: DiaryListPageProps) {
   const supabase = await createClient()
-  const { diary: diaryId } = await searchParams
+  const { diary: initialDiaryId } = await searchParams
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user?.id)
-    .single()
+  // Fetch all data in parallel
+  const [profileResult, diariesResult, entriesResult] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user?.id).single(),
+    supabase.from('diaries').select('*, cover_templates(*)').eq('user_id', user?.id).order('volume_number', { ascending: true }),
+    supabase.from('diary_entries').select('id, entry_date, summary, emotions, diary_id').eq('user_id', user?.id).order('entry_date', { ascending: false }),
+  ])
 
-  // Get diary info if diaryId is provided
-  let diaryTitle: string | null = null
-  if (diaryId) {
-    const { data: diary } = await supabase
-      .from('diaries')
-      .select('title, volume_number')
-      .eq('id', diaryId)
-      .eq('user_id', user?.id)
-      .single()
+  const profile = profileResult.data
+  const diariesData = diariesResult.data
+  const entries = entriesResult.data || []
 
-    if (diary) {
-      diaryTitle = diary.title || `${diary.volume_number}권`
-    }
-  }
-
-  // Get diary entries filtered by diary_id if provided
-  let query = supabase
-    .from('diary_entries')
-    .select('*')
-    .eq('user_id', user?.id)
-    .order('entry_date', { ascending: false })
-
-  if (diaryId) {
-    query = query.eq('diary_id', diaryId)
-  }
-
-  const { data: entries } = await query
-
-  // Group by month
-  const entriesByMonth: Record<string, typeof entries> = {}
-  entries?.forEach((entry) => {
-    const monthKey = entry.entry_date.substring(0, 7) // YYYY-MM
-    if (!entriesByMonth[monthKey]) {
-      entriesByMonth[monthKey] = []
-    }
-    entriesByMonth[monthKey]!.push(entry)
-  })
+  // Transform to DiaryWithTemplates format
+  const diaries: DiaryWithTemplates[] = (diariesData || []).map(d => ({
+    ...d,
+    cover_template: d.cover_templates,
+    paper_template: null,
+  }))
 
   return (
     <div className="min-h-screen bg-pastel-cream">
@@ -65,91 +40,15 @@ export default async function DiaryListPage({ searchParams }: DiaryListPageProps
       />
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3 mb-8">
-          {diaryId && (
-            <Link
-              href="/dashboard"
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-          )}
-          <h1 className="text-2xl font-bold text-gray-700">
-            {diaryTitle ? `${diaryTitle}` : '나의 일기'}
-          </h1>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-700">나의 일기</h1>
         </div>
 
-        {entries && entries.length > 0 ? (
-          <div className="space-y-8">
-            {Object.entries(entriesByMonth).map(([monthKey, monthEntries]) => (
-              <div key={monthKey}>
-                <h2 className="mb-4 text-lg font-semibold text-pastel-purple-dark">
-                  {new Date(monthKey + '-01').toLocaleDateString('ko-KR', {
-                    year: 'numeric',
-                    month: 'long',
-                  })}
-                </h2>
-                <div className="space-y-3">
-                  {monthEntries?.map((entry) => (
-                    <Link
-                      key={entry.id}
-                      href={`/diary/${entry.entry_date}`}
-                      className="block rounded-2xl bg-white/70 backdrop-blur-sm p-5 shadow-sm border border-pastel-pink/30 hover:shadow-md hover:bg-white/80 transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-700">
-                            {new Date(entry.entry_date).toLocaleDateString(
-                              'ko-KR',
-                              {
-                                month: 'long',
-                                day: 'numeric',
-                                weekday: 'long',
-                              }
-                            )}
-                          </p>
-                          {entry.summary && (
-                            <p className="mt-1 text-sm text-gray-500 line-clamp-2">
-                              {entry.summary}
-                            </p>
-                          )}
-                          {entry.emotions &&
-                            Array.isArray(entry.emotions) &&
-                            entry.emotions.length > 0 && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {(entry.emotions as string[]).slice(0, 3).map(
-                                  (emotion, idx) => (
-                                    <span
-                                      key={idx}
-                                      className="rounded-full bg-pastel-purple-light px-2 py-0.5 text-xs text-pastel-purple-dark"
-                                    >
-                                      {emotion}
-                                    </span>
-                                  )
-                                )}
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-gray-500 mb-4">아직 작성된 일기가 없습니다.</p>
-            <Link
-              href="/session?entry=true"
-              className="inline-flex items-center justify-center rounded-full bg-pastel-purple px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
-            >
-              첫 일기 작성하기
-            </Link>
-          </div>
-        )}
+        <DiaryListClient
+          diaries={diaries}
+          entries={entries}
+          initialDiaryId={initialDiaryId}
+        />
       </main>
     </div>
   )
