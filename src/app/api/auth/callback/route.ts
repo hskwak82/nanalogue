@@ -35,6 +35,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
+  // If this is a recovery flow but no code or token_hash, redirect to reset-password
+  // The client-side will handle session detection and error display
+  if (type === 'recovery' && !code && !token_hash) {
+    console.log('Recovery flow without code/token - redirecting to reset-password')
+    return NextResponse.redirect(`${origin}/reset-password`)
+  }
+
   const supabase = await createClient()
 
   // Handle password recovery with token_hash (implicit flow)

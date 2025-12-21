@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 import { updatePassword } from './actions'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -15,20 +16,78 @@ export default function ResetPasswordPage() {
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check for error from callback
-    const errorParam = searchParams.get('error')
-    if (errorParam === 'invalid_link') {
-      setIsValidSession(false)
+    const supabase = createClient()
+    let isMounted = true
+
+    // Check for error from callback - use callback to avoid direct setState in effect
+    const handleInitialState = () => {
+      const errorParam = searchParams.get('error')
+      if (errorParam === 'invalid_link') {
+        return false
+      }
+
+      // Check hash fragment for error (client-side only)
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash
+        if (hash.includes('error=') || hash.includes('error_code=')) {
+          console.log('Error in hash fragment:', hash)
+          // Clean up URL
+          window.history.replaceState({}, '', '/reset-password?error=invalid_link')
+          return false
+        }
+      }
+
+      return null // Need to check session
+    }
+
+    const initialState = handleInitialState()
+    if (initialState !== null) {
+      // Use setTimeout to defer the state update
+      setTimeout(() => {
+        if (isMounted) setIsValidSession(initialState)
+      }, 0)
       return
     }
 
-    // Check if we have a valid session
+    // Listen for PASSWORD_RECOVERY event (client-side auth handling)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, !!session)
+      if (!isMounted) return
+      if (event === 'PASSWORD_RECOVERY') {
+        // Password recovery flow detected
+        setIsValidSession(true)
+      } else if (event === 'SIGNED_IN' && session) {
+        // User is signed in (after successful code exchange)
+        setIsValidSession(true)
+      }
+    })
+
+    // Also check if we already have a valid session
     const checkSession = async () => {
-      const response = await fetch('/api/auth/check-session')
-      const data = await response.json()
-      setIsValidSession(data.hasSession)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!isMounted) return
+      if (session) {
+        setIsValidSession(true)
+      } else {
+        // No session yet - might be waiting for code exchange
+        // Give a short delay and check again
+        setTimeout(async () => {
+          const { data: { session: retrySession } } = await supabase.auth.getSession()
+          if (!isMounted) return
+          if (retrySession) {
+            setIsValidSession(true)
+          } else {
+            setIsValidSession(false)
+          }
+        }, 1000)
+      }
     }
     checkSession()
+
+    return () => {
+      isMounted = false
+      subscription.unsubscribe()
+    }
   }, [searchParams])
 
   async function handleSubmit(formData: FormData) {

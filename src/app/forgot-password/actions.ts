@@ -11,9 +11,13 @@ export async function resetPassword(formData: FormData) {
     return { error: '이메일을 입력해주세요.' }
   }
 
+  // Use the callback URL for PKCE flow - Supabase will send the code there
+  // The callback will exchange the code and redirect to reset-password
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?type=recovery`,
   })
+
+  console.log('Password reset requested for:', email, 'with redirectTo:', `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback?type=recovery`)
 
   if (error) {
     // Don't reveal if email exists or not for security
