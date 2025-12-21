@@ -236,7 +236,7 @@ export default function PointsPage() {
           {/* Filters */}
           <div className="mb-4 space-y-3">
             {/* Type Filter */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {(['all', 'earn', 'bonus', 'spend', 'admin'] as FilterType[]).map((type) => (
                 <button
                   key={type}
@@ -244,7 +244,7 @@ export default function PointsPage() {
                     setFilterType(type)
                     setTimeout(handleFilterChange, 0)
                   }}
-                  className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                  className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
                     filterType === type
                       ? 'bg-pastel-purple text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -256,35 +256,35 @@ export default function PointsPage() {
             </div>
 
             {/* Date Filter */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+                className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
               />
-              <span className="text-gray-400">~</span>
+              <span className="text-gray-400 text-xs">~</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+                className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
               />
               <button
                 onClick={handleFilterChange}
-                className="px-3 py-1.5 text-sm bg-pastel-purple text-white rounded-lg hover:bg-pastel-purple-dark transition-colors"
+                className="px-3 py-1.5 text-xs bg-pastel-purple text-white rounded-lg hover:bg-pastel-purple-dark transition-colors whitespace-nowrap"
               >
                 검색
               </button>
-              {(filterType !== 'all' || startDate || endDate) && (
-                <button
-                  onClick={handleResetFilters}
-                  className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                >
-                  초기화
-                </button>
-              )}
             </div>
+            {(filterType !== 'all' || startDate || endDate) && (
+              <button
+                onClick={handleResetFilters}
+                className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                필터 초기화
+              </button>
+            )}
           </div>
 
           {/* Transaction List */}
@@ -300,30 +300,28 @@ export default function PointsPage() {
               {transactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-gray-100 hover:border-pastel-purple/30 transition-colors"
+                  className="p-3 bg-white/50 rounded-xl border border-gray-100 hover:border-pastel-purple/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${getTypeColor(tx.type)}`}>
-                      {getTypeLabel(tx.type)}
-                    </span>
-                    <div>
-                      <p className="font-medium text-gray-700">{getReasonLabel(tx.reason)}</p>
-                      <p className="text-xs text-gray-400">
-                        {formatDate(tx.created_at)} {formatTime(tx.created_at)}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getTypeColor(tx.type)}`}>
+                          {getTypeLabel(tx.type)}
+                        </span>
+                        <p className="font-medium text-sm text-gray-700 truncate">{getReasonLabel(tx.reason)}</p>
+                      </div>
+                      <p className="text-[11px] text-gray-400">
+                        {formatDate(tx.created_at)} {formatTime(tx.created_at)} · 잔액 {formatNumber(tx.balance_after)}P
                       </p>
                     </div>
-                  </div>
-                  <div className="text-right">
                     <p
-                      className={`font-semibold ${
+                      className={`font-bold text-base whitespace-nowrap ${
                         tx.amount > 0 ? 'text-green-600' : 'text-red-500'
                       }`}
                     >
                       {tx.amount > 0 ? '+' : ''}
-                      {formatNumber(tx.amount)} P
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      잔액 {formatNumber(tx.balance_after)} P
+                      {formatNumber(tx.amount)}
+                      <span className="text-xs ml-0.5">P</span>
                     </p>
                   </div>
                 </div>
@@ -333,11 +331,11 @@ export default function PointsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
+            <div className="flex items-center justify-center gap-1.5 mt-6">
               <button
                 onClick={() => fetchTransactions(page - 1)}
                 disabled={page <= 1}
-                className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 이전
               </button>
@@ -359,7 +357,7 @@ export default function PointsPage() {
                     <button
                       key={pageNum}
                       onClick={() => fetchTransactions(pageNum)}
-                      className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                      className={`w-7 h-7 text-xs rounded-lg transition-colors ${
                         page === pageNum
                           ? 'bg-pastel-purple text-white'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -374,7 +372,7 @@ export default function PointsPage() {
               <button
                 onClick={() => fetchTransactions(page + 1)}
                 disabled={page >= totalPages}
-                className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-2.5 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 다음
               </button>
@@ -383,16 +381,16 @@ export default function PointsPage() {
 
           {/* Page Info */}
           {total > 0 && (
-            <p className="text-center text-xs text-gray-400 mt-4">
+            <p className="text-center text-[11px] text-gray-400 mt-3">
               {page} / {totalPages} 페이지
             </p>
           )}
         </div>
 
         {/* Info */}
-        <div className="bg-blue-50 rounded-xl p-4 text-sm text-blue-700">
-          <p className="font-medium mb-1">포인트 안내</p>
-          <ul className="list-disc list-inside space-y-1 text-blue-600 text-xs">
+        <div className="bg-blue-50/70 rounded-xl p-3 text-xs text-blue-700">
+          <p className="font-medium mb-1.5">포인트 안내</p>
+          <ul className="list-disc list-inside space-y-0.5 text-blue-600 text-[11px]">
             <li>일기 작성 시 자동으로 포인트가 적립됩니다</li>
             <li>연속 기록 달성 시 추가 보너스가 지급됩니다</li>
             <li>적립된 포인트는 구독 결제 시 사용할 수 있습니다</li>
