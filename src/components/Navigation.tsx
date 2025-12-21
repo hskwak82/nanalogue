@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/login/actions'
-import { Logo } from './Logo'
 import {
   HomeIcon,
   PencilSquareIcon,
@@ -40,11 +39,39 @@ export function Navigation({ user }: NavigationProps) {
     <nav className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 sm:h-16 justify-between">
-          {/* Logo */}
-          <div className="flex items-center">
-            <Link href="/home" className="flex flex-shrink-0 items-center">
-              <Logo size="md" className="hidden sm:block" />
-              <Logo size="sm" className="block sm:hidden" />
+          {/* Logo - always show icon, hide text on very small screens */}
+          <div className="flex items-center flex-shrink-0">
+            <Link href="/home" className="flex items-center gap-1.5 sm:gap-2">
+              {/* Icon always visible */}
+              <svg
+                width={28}
+                height={28}
+                viewBox="0 0 48 48"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="flex-shrink-0 sm:w-8 sm:h-8"
+              >
+                <defs>
+                  <linearGradient id="navLeafGradient" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                    <stop stopColor="#86EFAC" />
+                    <stop offset="1" stopColor="#4ADE80" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M24 4C24 4 8 16 8 32C8 40 16 44 24 44C32 44 40 40 40 32C40 16 24 4 24 4Z"
+                  fill="url(#navLeafGradient)"
+                />
+                <path
+                  d="M24 12V36M24 20L18 26M24 28L30 22"
+                  stroke="#FAF8F5"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              {/* Text - always visible */}
+              <span className="text-lg sm:text-xl font-semibold text-pastel-purple-dark whitespace-nowrap">
+                나날로그
+              </span>
             </Link>
           </div>
 
