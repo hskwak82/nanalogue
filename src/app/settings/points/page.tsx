@@ -295,18 +295,13 @@ export default function PointsPage() {
                   key={tx.id}
                   className="p-3 bg-white/50 rounded-xl border border-gray-100 hover:border-pastel-purple/30 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getTypeColor(tx.type)}`}>
-                          {getTypeLabel(tx.type)}
-                        </span>
-                        <p className="font-medium text-sm text-gray-700 truncate">{getReasonLabel(tx.reason)}</p>
-                      </div>
-                      <div className="flex justify-between text-[11px] text-gray-400">
-                        <span>{formatDateTime(tx.created_at)}</span>
-                        <span>잔액 {formatNumber(tx.balance_after)}P</span>
-                      </div>
+                  {/* 첫째 줄: 타입 + 제목 + 금액 */}
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className={`px-2 py-0.5 text-[10px] rounded-full whitespace-nowrap ${getTypeColor(tx.type)}`}>
+                        {getTypeLabel(tx.type)}
+                      </span>
+                      <p className="font-medium text-sm text-gray-700 truncate">{getReasonLabel(tx.reason)}</p>
                     </div>
                     <p
                       className={`font-bold text-base whitespace-nowrap ${
@@ -317,6 +312,11 @@ export default function PointsPage() {
                       {formatNumber(tx.amount)}
                       <span className="text-xs ml-0.5">P</span>
                     </p>
+                  </div>
+                  {/* 둘째 줄: 날짜 + 잔액 */}
+                  <div className="flex justify-between text-[11px] text-gray-400">
+                    <span>{formatDateTime(tx.created_at)}</span>
+                    <span>잔액 {formatNumber(tx.balance_after)}P</span>
                   </div>
                 </div>
               ))}
