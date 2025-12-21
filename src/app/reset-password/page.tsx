@@ -1,33 +1,35 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Logo } from '@/components/Logo'
 import { updatePassword } from './actions'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [isValidSession, setIsValidSession] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check if we have a valid session from the email link
+    // Check for error from callback
+    const errorParam = searchParams.get('error')
+    if (errorParam === 'invalid_link') {
+      setIsValidSession(false)
+      return
+    }
+
+    // Check if we have a valid session
     const checkSession = async () => {
-      const hash = window.location.hash
-      if (hash && hash.includes('access_token')) {
-        setIsValidSession(true)
-      } else {
-        // Try to check if there's an active session
-        const response = await fetch('/api/auth/check-session')
-        const data = await response.json()
-        setIsValidSession(data.hasSession)
-      }
+      const response = await fetch('/api/auth/check-session')
+      const data = await response.json()
+      setIsValidSession(data.hasSession)
     }
     checkSession()
-  }, [])
+  }, [searchParams])
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)

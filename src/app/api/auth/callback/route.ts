@@ -4,10 +4,28 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  const token_hash = searchParams.get('token_hash')
+  const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/home'
 
+  const supabase = await createClient()
+
+  // Handle password recovery (from email link)
+  if (token_hash && type === 'recovery') {
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: 'recovery',
+    })
+
+    if (!error) {
+      // Redirect to reset password page
+      return NextResponse.redirect(`${origin}/reset-password`)
+    }
+    return NextResponse.redirect(`${origin}/reset-password?error=invalid_link`)
+  }
+
+  // Handle OAuth and other code exchanges
   if (code) {
-    const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
