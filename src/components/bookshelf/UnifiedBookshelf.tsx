@@ -306,7 +306,7 @@ export function UnifiedBookshelf({
               transition={{ duration: 0.3, ease: 'easeOut' }}
               style={{ perspective: '1000px' }}
             >
-              {/* Cover + Spine shelf layout - side by side, bottoms aligned */}
+              {/* Cover + Spine shelf layout - shelf bottom aligns with cover bottom */}
               <div className="flex flex-row items-end gap-4 sm:gap-6">
                 {/* Cover display */}
                 <div className="flex-shrink-0">
@@ -345,32 +345,25 @@ export function UnifiedBookshelf({
                   </AnimatePresence>
                 </div>
 
-                {/* Spine shelf - aligned to cover bottom */}
-                <div className="flex-1 relative min-w-0 w-full self-end">
-                  <div className="relative" style={{ paddingBottom: '12px' }}>
-                    <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent">
-                      <div className="inline-flex items-end gap-1 px-1" style={{
-                        minHeight: BOOKSHELF_SPINE_HEIGHT + 16,
-                        paddingTop: '16px',
-                        paddingBottom: '8px'
-                      }}>
-                        {sortedDiaries.map((diary) => (
-                          <MiniSpine
-                            key={diary.id}
-                            diary={diary}
-                            isActive={diary.id === activeDiaryId}
-                            isSelected={diary.id === selectedDiaryId}
-                            onClick={() => onSelectDiary(diary)}
-                            layoutId={layoutId}
-                          />
-                        ))}
-                      </div>
+                {/* Spine shelf - shelf surface bottom aligns with cover bottom */}
+                <div className="flex-1 min-w-0 relative" style={{ marginBottom: '20px' }}>
+                  <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-4">
+                    <div className="inline-flex items-end gap-1 px-1" style={{ minHeight: BOOKSHELF_SPINE_HEIGHT + 16 }}>
+                      {sortedDiaries.map((diary) => (
+                        <MiniSpine
+                          key={diary.id}
+                          diary={diary}
+                          isActive={diary.id === activeDiaryId}
+                          isSelected={diary.id === selectedDiaryId}
+                          onClick={() => onSelectDiary(diary)}
+                          layoutId={layoutId}
+                        />
+                      ))}
                     </div>
-
-                    {/* Shelf surface */}
-                    <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
-                    <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
                   </div>
+                  {/* Shelf surface */}
+                  <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
+                  <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
                 </div>
               </div>
             </motion.div>
