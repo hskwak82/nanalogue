@@ -292,7 +292,7 @@ export function DiaryListClient({
   return (
     <div className="space-y-6">
       {/* Bookshelf Card */}
-      <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 sm:p-6 shadow-sm border border-pastel-pink/30">
+      <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 sm:p-6 shadow-sm border border-pastel-pink/30 overflow-visible">
         {/* Header */}
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
@@ -315,8 +315,8 @@ export function DiaryListClient({
                 transition={{ duration: 0.25, ease: 'easeInOut' }}
               >
                 {/* Horizontal scrollable cover grid */}
-                <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
-                  <div className="flex items-start gap-4 min-h-[200px] py-2">
+                <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-pastel-purple/30 scrollbar-track-transparent -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="flex items-start gap-4 min-h-[220px] pt-4 pb-6">
                     {sortedDiaries.map((diary) => (
                       <CoverCard
                         key={diary.id}
