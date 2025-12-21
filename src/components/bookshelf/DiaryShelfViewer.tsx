@@ -147,43 +147,34 @@ export function DiaryShelfViewer({
   return (
     <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 sm:p-6 shadow-sm border border-pastel-pink/30">
       {/* Header */}
-      <div className="mb-4">
-        {/* First row: Title + Links */}
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-base sm:text-lg font-semibold text-gray-700 truncate">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-700 truncate max-w-[180px] sm:max-w-[250px]">
             {displayedDiary?.title || '나의 일기장'}
           </h2>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <Link
-              href="/bookshelf"
-              className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
-            >
-              📚 책장
-            </Link>
-            <Link
-              href={`/customize${displayedDiaryId ? `?diary=${displayedDiaryId}` : ''}`}
-              className="text-xs font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors whitespace-nowrap"
-            >
-              꾸미기
-            </Link>
-          </div>
-        </div>
-        {/* Second row: Badges */}
-        <div className="flex items-center gap-2 mt-1.5">
           {displayedDiary && onEditDiary && (
             <button
               onClick={() => onEditDiary(displayedDiary)}
-              className="text-gray-400 hover:text-pastel-purple transition-colors"
+              className="text-gray-400 hover:text-pastel-purple transition-colors flex-shrink-0"
               title="이름 수정"
             >
               ✏️
             </button>
           )}
-          {displayedDiary && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-              {displayedDiary.volume_number}권
-            </span>
-          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Link
+            href="/bookshelf"
+            className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+          >
+            📚 책장
+          </Link>
+          <Link
+            href={`/customize${displayedDiaryId ? `?diary=${displayedDiaryId}` : ''}`}
+            className="text-xs font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors whitespace-nowrap"
+          >
+            꾸미기
+          </Link>
         </div>
       </div>
 
