@@ -434,32 +434,68 @@ export async function adminDeductPoints(
   return { success: true, new_balance: newBalance }
 }
 
-// Get point transactions for a user
+// Filter options for transactions
+export interface TransactionFilter {
+  type?: 'earn' | 'spend' | 'bonus' | 'admin' | 'all'
+  startDate?: string
+  endDate?: string
+}
+
+// Get point transactions for a user with filters
 export async function getPointTransactions(
   userId: string,
   page: number = 1,
-  limit: number = 20
-): Promise<{ transactions: PointTransaction[]; total: number }> {
+  limit: number = 20,
+  filter?: TransactionFilter
+): Promise<{ transactions: PointTransaction[]; total: number; hasMore: boolean }> {
   const supabase = getServiceClient()
   const offset = (page - 1) * limit
 
-  // Get total count
-  const { count } = await supabase
+  // Build base query
+  let countQuery = supabase
     .from('point_transactions')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
 
-  // Get transactions
-  const { data } = await supabase
+  let dataQuery = supabase
     .from('point_transactions')
     .select('*')
     .eq('user_id', userId)
+
+  // Apply filters
+  if (filter) {
+    if (filter.type && filter.type !== 'all') {
+      countQuery = countQuery.eq('type', filter.type)
+      dataQuery = dataQuery.eq('type', filter.type)
+    }
+    if (filter.startDate) {
+      countQuery = countQuery.gte('created_at', filter.startDate)
+      dataQuery = dataQuery.gte('created_at', filter.startDate)
+    }
+    if (filter.endDate) {
+      // Add 1 day to include the end date fully
+      const endDate = new Date(filter.endDate)
+      endDate.setDate(endDate.getDate() + 1)
+      countQuery = countQuery.lt('created_at', endDate.toISOString())
+      dataQuery = dataQuery.lt('created_at', endDate.toISOString())
+    }
+  }
+
+  // Get total count
+  const { count } = await countQuery
+
+  // Get transactions with ordering and pagination
+  const { data } = await dataQuery
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
+  const total = count || 0
+  const hasMore = offset + limit < total
+
   return {
     transactions: (data || []) as PointTransaction[],
-    total: count || 0,
+    total,
+    hasMore,
   }
 }
 

@@ -1,36 +1,79 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import type { PointsResponse, PointTransaction } from '@/types/points'
-import { getReasonLabel } from '@/types/points'
+import type { PointsResponse, PointTransaction, PointTransactionType } from '@/types/points'
+import { getReasonLabel, getTypeLabel } from '@/types/points'
+
+type FilterType = 'all' | 'earn' | 'spend' | 'bonus' | 'admin'
 
 export default function PointsPage() {
   const [points, setPoints] = useState<PointsResponse | null>(null)
   const [transactions, setTransactions] = useState<PointTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
+
+  // Pagination
   const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const limit = 10
+
+  // Filters
+  const [filterType, setFilterType] = useState<FilterType>('all')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  const fetchTransactions = useCallback(async (pageNum: number, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true)
+    }
+
+    try {
+      const params = new URLSearchParams({
+        page: pageNum.toString(),
+        limit: limit.toString(),
+      })
+
+      if (filterType !== 'all') {
+        params.set('type', filterType)
+      }
+      if (startDate) {
+        params.set('startDate', startDate)
+      }
+      if (endDate) {
+        params.set('endDate', endDate)
+      }
+
+      const res = await fetch(`/api/points/history?${params}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (append) {
+          setTransactions(prev => [...prev, ...data.transactions])
+        } else {
+          setTransactions(data.transactions)
+        }
+        setTotalPages(data.totalPages)
+        setTotal(data.total)
+        setPage(pageNum)
+      }
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [filterType, startDate, endDate])
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true)
       try {
-        const [pointsRes, historyRes] = await Promise.all([
-          fetch('/api/points'),
-          fetch('/api/points/history?limit=20'),
-        ])
-
+        const pointsRes = await fetch('/api/points')
         if (pointsRes.ok) {
           const data = await pointsRes.json()
           setPoints(data)
         }
-
-        if (historyRes.ok) {
-          const data = await historyRes.json()
-          setTransactions(data.transactions)
-          setHasMore(data.hasMore)
-        }
+        await fetchTransactions(1)
       } catch (error) {
         console.error('Failed to fetch points data:', error)
       } finally {
@@ -39,37 +82,54 @@ export default function PointsPage() {
     }
 
     fetchData()
-  }, [])
+  }, [fetchTransactions])
 
-  const loadMore = async () => {
-    if (loadingMore || !hasMore) return
-    setLoadingMore(true)
+  // Reset and refetch when filters change
+  const handleFilterChange = () => {
+    setPage(1)
+    fetchTransactions(1)
+  }
 
-    try {
-      const res = await fetch(`/api/points/history?limit=20&offset=${page * 20}`)
-      if (res.ok) {
-        const data = await res.json()
-        setTransactions(prev => [...prev, ...data.transactions])
-        setHasMore(data.hasMore)
-        setPage(prev => prev + 1)
-      }
-    } catch (error) {
-      console.error('Failed to load more transactions:', error)
-    } finally {
-      setLoadingMore(false)
-    }
+  const handleResetFilters = () => {
+    setFilterType('all')
+    setStartDate('')
+    setEndDate('')
+    setPage(1)
+    // Fetch will be triggered by useEffect
   }
 
   const formatNumber = (num: number) => num.toLocaleString('ko-KR')
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
+    })
+  }
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const getTypeColor = (type: PointTransactionType) => {
+    switch (type) {
+      case 'earn':
+        return 'bg-green-100 text-green-700'
+      case 'bonus':
+        return 'bg-purple-100 text-purple-700'
+      case 'spend':
+        return 'bg-red-100 text-red-700'
+      case 'admin':
+        return 'bg-gray-100 text-gray-700'
+      default:
+        return 'bg-gray-100 text-gray-700'
+    }
   }
 
   if (loading) {
@@ -168,42 +228,164 @@ export default function PointsPage() {
 
         {/* Transaction History */}
         <div className="bg-white/70 rounded-2xl p-6 shadow-sm border border-pastel-pink/30">
-          <h2 className="text-lg font-semibold text-gray-700 mb-4">포인트 내역</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-700">포인트 내역</h2>
+            <span className="text-sm text-gray-500">총 {formatNumber(total)}건</span>
+          </div>
 
-          {transactions.length === 0 ? (
-            <p className="text-center text-gray-400 py-8">아직 포인트 내역이 없습니다.</p>
-          ) : (
-            <div className="space-y-3">
-              {transactions.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
-                >
-                  <div>
-                    <p className="font-medium text-gray-700">{getReasonLabel(tx.reason)}</p>
-                    <p className="text-xs text-gray-400">{formatDate(tx.created_at)}</p>
-                  </div>
-                  <p
-                    className={`font-semibold ${
-                      tx.amount > 0 ? 'text-green-600' : 'text-red-500'
-                    }`}
-                  >
-                    {tx.amount > 0 ? '+' : ''}
-                    {formatNumber(tx.amount)} P
-                  </p>
-                </div>
-              ))}
-
-              {hasMore && (
+          {/* Filters */}
+          <div className="mb-4 space-y-3">
+            {/* Type Filter */}
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'earn', 'bonus', 'spend', 'admin'] as FilterType[]).map((type) => (
                 <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  className="w-full py-3 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  key={type}
+                  onClick={() => {
+                    setFilterType(type)
+                    setTimeout(handleFilterChange, 0)
+                  }}
+                  className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+                    filterType === type
+                      ? 'bg-pastel-purple text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
-                  {loadingMore ? '로딩 중...' : '더 보기'}
+                  {type === 'all' ? '전체' : getTypeLabel(type)}
+                </button>
+              ))}
+            </div>
+
+            {/* Date Filter */}
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+              />
+              <span className="text-gray-400">~</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+              />
+              <button
+                onClick={handleFilterChange}
+                className="px-3 py-1.5 text-sm bg-pastel-purple text-white rounded-lg hover:bg-pastel-purple-dark transition-colors"
+              >
+                검색
+              </button>
+              {(filterType !== 'all' || startDate || endDate) && (
+                <button
+                  onClick={handleResetFilters}
+                  className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  초기화
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Transaction List */}
+          {transactions.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400">포인트 내역이 없습니다.</p>
+              {(filterType !== 'all' || startDate || endDate) && (
+                <p className="text-sm text-gray-400 mt-1">필터를 변경해보세요.</p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {transactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-gray-100 hover:border-pastel-purple/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${getTypeColor(tx.type)}`}>
+                      {getTypeLabel(tx.type)}
+                    </span>
+                    <div>
+                      <p className="font-medium text-gray-700">{getReasonLabel(tx.reason)}</p>
+                      <p className="text-xs text-gray-400">
+                        {formatDate(tx.created_at)} {formatTime(tx.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={`font-semibold ${
+                        tx.amount > 0 ? 'text-green-600' : 'text-red-500'
+                      }`}
+                    >
+                      {tx.amount > 0 ? '+' : ''}
+                      {formatNumber(tx.amount)} P
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      잔액 {formatNumber(tx.balance_after)} P
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <button
+                onClick={() => fetchTransactions(page - 1)}
+                disabled={page <= 1}
+                className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                이전
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum: number
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (page <= 3) {
+                    pageNum = i + 1
+                  } else if (page >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = page - 2 + i
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => fetchTransactions(pageNum)}
+                      className={`w-8 h-8 text-sm rounded-lg transition-colors ${
+                        page === pageNum
+                          ? 'bg-pastel-purple text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                onClick={() => fetchTransactions(page + 1)}
+                disabled={page >= totalPages}
+                className="px-3 py-2 text-sm rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                다음
+              </button>
+            </div>
+          )}
+
+          {/* Page Info */}
+          {total > 0 && (
+            <p className="text-center text-xs text-gray-400 mt-4">
+              {page} / {totalPages} 페이지
+            </p>
           )}
         </div>
 
