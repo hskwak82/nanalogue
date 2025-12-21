@@ -100,21 +100,14 @@ export default function PointsPage() {
 
   const formatNumber = (num: number) => num.toLocaleString('ko-KR')
 
-  const formatDate = (dateStr: string) => {
+  const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hour = String(date.getHours()).padStart(2, '0')
+    const minute = String(date.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day} ${hour}:${minute}`
   }
 
   const getTypeColor = (type: PointTransactionType) => {
@@ -311,7 +304,7 @@ export default function PointsPage() {
                         <p className="font-medium text-sm text-gray-700 truncate">{getReasonLabel(tx.reason)}</p>
                       </div>
                       <p className="text-[11px] text-gray-400">
-                        {formatDate(tx.created_at)} {formatTime(tx.created_at)} · 잔액 {formatNumber(tx.balance_after)}P
+                        {formatDateTime(tx.created_at)} · 잔액 {formatNumber(tx.balance_after)}P
                       </p>
                     </div>
                     <p
