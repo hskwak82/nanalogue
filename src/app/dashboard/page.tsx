@@ -146,55 +146,50 @@ export default async function DashboardPage() {
                 )}
               </div>
 
-              {/* Recent Sessions */}
+              {/* Recent Diary Entries - only show dates with actual diary entries */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
                 <h2 className="mb-4 text-lg font-semibold text-gray-700">
                   최근 7일 기록
                 </h2>
 
-                {sessions && sessions.length > 0 ? (
-                  <div className="space-y-3">
-                    {sessions.map((session) => (
-                      <Link
-                        key={session.id}
-                        href={session.status === 'completed'
-                          ? `/diary/${session.session_date}`
-                          : `/session?entry=true&date=${session.session_date}`}
-                        className="flex items-center justify-between rounded-xl border border-pastel-pink/30 p-4 hover:bg-pastel-pink-light/50 transition-all"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-700">
-                            {new Date(session.session_date).toLocaleDateString(
-                              'ko-KR',
-                              {
-                                month: 'long',
-                                day: 'numeric',
-                                weekday: 'short',
-                              }
-                            )}
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-medium ${
-                            session.status === 'completed'
-                              ? 'bg-pastel-mint-light text-pastel-purple-dark'
-                              : session.status === 'active'
-                                ? 'bg-pastel-peach-light text-pastel-purple-dark'
-                                : 'bg-pastel-warm text-gray-600'
-                          }`}
-                        >
-                          {session.status === 'completed'
-                            ? '완료'
-                            : session.status === 'active'
-                              ? '진행 중'
-                              : '중단'}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500">아직 기록이 없습니다.</p>
-                )}
+                {(() => {
+                  // Get recent diary entries (last 7 days with actual entries)
+                  const recentEntryDates = diaryEntries
+                    ?.map(e => e.entry_date)
+                    .sort((a, b) => b.localeCompare(a))
+                    .slice(0, 7) || []
+
+                  if (recentEntryDates.length > 0) {
+                    return (
+                      <div className="space-y-3">
+                        {recentEntryDates.map((entryDate) => (
+                          <Link
+                            key={entryDate}
+                            href={`/diary/${entryDate}`}
+                            className="flex items-center justify-between rounded-xl border border-pastel-pink/30 p-4 hover:bg-pastel-pink-light/50 transition-all"
+                          >
+                            <div>
+                              <p className="font-medium text-gray-700">
+                                {new Date(entryDate).toLocaleDateString(
+                                  'ko-KR',
+                                  {
+                                    month: 'long',
+                                    day: 'numeric',
+                                    weekday: 'short',
+                                  }
+                                )}
+                              </p>
+                            </div>
+                            <span className="rounded-full px-3 py-1 text-xs font-medium bg-pastel-mint-light text-pastel-purple-dark">
+                              완료
+                            </span>
+                          </Link>
+                        ))}
+                      </div>
+                    )
+                  }
+                  return <p className="text-center text-gray-500">아직 기록이 없습니다.</p>
+                })()}
               </div>
             </>
           }
