@@ -7,6 +7,7 @@ import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { AnnouncementCard } from '@/components/home/AnnouncementCard'
 import { AnnouncementPopup } from '@/components/home/AnnouncementPopup'
+import { getDailyQuote } from '@/lib/daily-quotes'
 import type { DiaryWithTemplates } from '@/types/diary'
 
 export default async function DashboardPage() {
@@ -66,6 +67,9 @@ export default async function DashboardPage() {
     (e) => e.entry_date === todayDateStr
   ).length || 0
 
+  // Get daily quote
+  const dailyQuote = getDailyQuote()
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-pastel-cream via-pastel-pink-light/30 to-pastel-cream">
       <Navigation
@@ -75,12 +79,15 @@ export default async function DashboardPage() {
       <main className="mx-auto max-w-6xl px-4 pt-8 pb-12 sm:px-6 sm:pt-12 lg:px-8">
         {/* Announcement Card */}
         <AnnouncementCard />
-        {/* Greeting */}
+        {/* Daily Quote & Date */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-700">
-            안녕하세요{profile?.name ? `, ${profile.name}님` : ''}!
+          <h1 className="text-xl sm:text-2xl font-medium text-gray-700 leading-relaxed">
+            &ldquo;{dailyQuote.text}&rdquo;
+            {dailyQuote.author && (
+              <span className="text-base sm:text-lg text-gray-400 font-normal ml-2">- {dailyQuote.author}</span>
+            )}
           </h1>
-          <p className="mt-1 text-gray-500">{today}</p>
+          <p className="mt-2 text-gray-500">{today}</p>
         </div>
 
         {/* Responsive Layout - Desktop: grid, Mobile: collapsible calendar */}
@@ -117,7 +124,7 @@ export default async function DashboardPage() {
                         {todaySession.status === 'completed' ? '완료' : '진행 중'}
                       </span>
                       <Link
-                        href={todaySession.status === 'completed' ? `/diary/${today}` : '/session?entry=true'}
+                        href={todaySession.status === 'completed' ? `/diary/${todayDateStr}` : '/session?entry=true'}
                         className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
                       >
                         {todaySession.status === 'completed'
@@ -150,7 +157,9 @@ export default async function DashboardPage() {
                     {sessions.map((session) => (
                       <Link
                         key={session.id}
-                        href={`/diary/${session.session_date}`}
+                        href={session.status === 'completed'
+                          ? `/diary/${session.session_date}`
+                          : `/session?entry=true&date=${session.session_date}`}
                         className="flex items-center justify-between rounded-xl border border-pastel-pink/30 p-4 hover:bg-pastel-pink-light/50 transition-all"
                       >
                         <div>

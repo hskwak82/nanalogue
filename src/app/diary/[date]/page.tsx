@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { DiaryActions } from './DiaryActions'
@@ -36,7 +36,8 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     .single()
 
   if (!entry) {
-    return notFound()
+    // Redirect to session page to write diary for this date
+    redirect(`/session?entry=true&date=${date}`)
   }
 
   // Get diary customization for paper template and decorations

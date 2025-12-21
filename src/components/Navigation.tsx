@@ -50,12 +50,12 @@ export function Navigation({ user }: NavigationProps) {
 
           {/* Desktop Navigation */}
           {user && (
-            <div className="hidden sm:flex items-center space-x-2">
+            <div className="hidden sm:flex items-center space-x-1 lg:space-x-2">
               {navItems.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  className={`rounded-full px-3 lg:px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                     (item.exact ? isActive(item.href) : isActivePrefix(item.href))
                       ? 'bg-pastel-purple-light text-pastel-purple-dark'
                       : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
@@ -91,12 +91,12 @@ export function Navigation({ user }: NavigationProps) {
           )}
 
           {/* Right side - Desktop */}
-          <div className="hidden sm:flex items-center space-x-4">
+          <div className="hidden sm:flex items-center space-x-2 lg:space-x-4">
             {user ? (
               <>
                 <Link
                   href="/about"
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  className={`rounded-full px-3 lg:px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                     isActive('/about')
                       ? 'bg-pastel-purple-light text-pastel-purple-dark'
                       : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
@@ -106,7 +106,7 @@ export function Navigation({ user }: NavigationProps) {
                 </Link>
                 <Link
                   href="/announcements"
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  className={`rounded-full px-3 lg:px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                     isActive('/announcements')
                       ? 'bg-pastel-purple-light text-pastel-purple-dark'
                       : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
@@ -116,7 +116,7 @@ export function Navigation({ user }: NavigationProps) {
                 </Link>
                 <Link
                   href="/settings"
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  className={`rounded-full px-3 lg:px-4 py-2 text-sm font-medium whitespace-nowrap transition-all ${
                     isActivePrefix('/settings')
                       ? 'bg-pastel-purple-light text-pastel-purple-dark'
                       : 'text-gray-500 hover:bg-pastel-pink-light hover:text-pastel-purple-dark'
@@ -124,11 +124,11 @@ export function Navigation({ user }: NavigationProps) {
                 >
                   설정
                 </Link>
-                <span className="text-sm text-gray-400 max-w-[150px] truncate">{user.email}</span>
+                <span className="text-sm text-gray-400 max-w-[120px] lg:max-w-[150px] truncate hidden md:block">{user.email}</span>
                 <form action={signOut}>
                   <button
                     type="submit"
-                    className="rounded-full bg-pastel-warm px-4 py-2 text-sm font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
+                    className="rounded-full bg-pastel-warm px-3 lg:px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap hover:bg-pastel-pink-light transition-all"
                   >
                     로그아웃
                   </button>
