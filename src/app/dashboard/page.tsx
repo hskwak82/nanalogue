@@ -5,6 +5,7 @@ import { Navigation } from '@/components/Navigation'
 import { CalendarWidget } from '@/components/CalendarWidget'
 import { DiaryShelfSection } from '@/components/dashboard/DiaryShelfSection'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
+import { PointsWidget } from '@/components/dashboard/PointsWidget'
 import { AnnouncementCard } from '@/components/home/AnnouncementCard'
 import { AnnouncementPopup } from '@/components/home/AnnouncementPopup'
 import { getDailyQuote } from '@/lib/daily-quotes'
@@ -105,6 +106,8 @@ export default async function DashboardPage() {
               <DiaryShelfSection
                 diaries={diaries}
               />
+              {/* Points Widget */}
+              <PointsWidget />
               {/* Today's Record Card - Always visible */}
               <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
                 <div className="flex items-center justify-between mb-4">

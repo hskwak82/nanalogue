@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import { getAIProvider, streamWithProvider, generateWithProvider } from '@/lib/ai/provider'
+import { earnDiaryPoints } from '@/lib/points'
 import type { ConversationMessage } from '@/types/database'
 
 const createDiaryPrompt = (dateInfo: string) => `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
@@ -156,17 +157,35 @@ export async function POST(request: Request) {
             tomorrow_plan: metadata.tomorrow_plan || '',
           }
 
+          let newEntryId: string | null = null
+
           if (existingEntry) {
             // Update existing entry, also set diary_id if missing
             const updateData = existingEntry.diary_id ? diaryData : { ...diaryData, diary_id: activeDiary?.id }
             await client.from('diary_entries').update(updateData).eq('id', existingEntry.id)
           } else {
-            await client.from('diary_entries').insert({
+            // Insert new entry
+            const { data: insertedEntry } = await client.from('diary_entries').insert({
               user_id: user.id,
               entry_date: today,
               diary_id: activeDiary?.id,
               ...diaryData,
-            })
+            }).select('id').single()
+
+            newEntryId = insertedEntry?.id
+
+            // Award points for new diary entry
+            if (newEntryId) {
+              try {
+                const pointResult = await earnDiaryPoints(user.id, newEntryId, today)
+                if (pointResult) {
+                  console.log(`[diary/generate] Points earned: ${pointResult.points_earned}, streak: ${pointResult.streak}`)
+                }
+              } catch (pointError) {
+                console.error('[diary/generate] Error awarding points:', pointError)
+                // Don't fail the diary generation if points fail
+              }
+            }
           }
 
           // Sync to Google Calendar

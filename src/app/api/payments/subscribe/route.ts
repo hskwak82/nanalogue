@@ -3,10 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { approveBillingPayment, generateOrderId } from '@/lib/toss'
 import { getSubscriptionPlan } from '@/lib/premium'
+import { getUserPoints, usePointsForPayment } from '@/lib/points'
 import { IS_TEST_MODE } from '@/types/payment'
 
 interface SubscribeRequest {
   planId: string
+  pointsToUse?: number // Optional: points to use for this payment
 }
 
 // POST /api/payments/subscribe - Subscribe to a plan
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
     }
 
     const body: SubscribeRequest = await request.json()
-    const { planId } = body
+    const { planId, pointsToUse = 0 } = body
 
     if (!planId) {
       return NextResponse.json({ error: 'planId is required' }, { status: 400 })
@@ -35,6 +37,23 @@ export async function POST(request: Request) {
     if (!plan) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
     }
+
+    // Validate points to use
+    let validatedPointsToUse = 0
+    if (pointsToUse > 0) {
+      const userPoints = await getUserPoints(user.id)
+      if (!userPoints || userPoints.balance < pointsToUse) {
+        return NextResponse.json(
+          { error: '포인트가 부족합니다.' },
+          { status: 400 }
+        )
+      }
+      // Can't use more points than the plan price
+      validatedPointsToUse = Math.min(pointsToUse, plan.price)
+    }
+
+    // Calculate final amount after points deduction
+    const finalAmount = plan.price - validatedPointsToUse
 
     // Get user's current subscription
     const { data: subscription } = await supabase
@@ -72,8 +91,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, plan: 'free' })
     }
 
-    // Pro plan - need billing key
-    if (!subscription.toss_billing_key) {
+    // Pro plan - need billing key if there's an amount to charge
+    if (finalAmount > 0 && !subscription.toss_billing_key) {
       return NextResponse.json(
         { error: 'Please register a payment method first' },
         { status: 400 }
@@ -87,63 +106,95 @@ export async function POST(request: Request) {
     const nextBillingDate = new Date()
     nextBillingDate.setMonth(nextBillingDate.getMonth() + 1)
 
-    // In test mode, skip actual payment
-    if (IS_TEST_MODE) {
-      // Record test payment in history
-      await serviceClient.from('payment_history').insert({
+    let paymentKey = null
+    let pointsUsed = 0
+
+    // If fully paid with points (final amount is 0)
+    if (finalAmount === 0) {
+      // Use points
+      const pointResult = await usePointsForPayment(user.id, validatedPointsToUse, orderId)
+      if (!pointResult.success) {
+        return NextResponse.json(
+          { error: pointResult.error || '포인트 사용 중 오류가 발생했습니다.' },
+          { status: 400 }
+        )
+      }
+      pointsUsed = validatedPointsToUse
+
+      // Record payment in history (0원 결제)
+      const { data: paymentRecord } = await serviceClient.from('payment_history').insert({
         user_id: user.id,
         plan_id: planId,
-        payment_key: `test_payment_${Date.now()}`,
+        payment_key: `points_only_${Date.now()}`,
         order_id: orderId,
-        amount: plan.price,
+        amount: 0,
         status: 'DONE',
         paid_at: new Date().toISOString(),
-      })
+      }).select('id').single()
 
-      // Update subscription
-      const { error: updateError } = await serviceClient
-        .from('subscriptions')
-        .update({
-          plan: planId,
-          status: 'active',
-          next_billing_date: nextBillingDate.toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: nextBillingDate.toISOString(),
-          updated_at: new Date().toISOString(),
+      paymentKey = `points_only_${Date.now()}`
+    } else {
+      // In test mode, skip actual payment
+      if (IS_TEST_MODE) {
+        // Use points first if any
+        if (validatedPointsToUse > 0) {
+          const pointResult = await usePointsForPayment(user.id, validatedPointsToUse, orderId)
+          if (!pointResult.success) {
+            return NextResponse.json(
+              { error: pointResult.error || '포인트 사용 중 오류가 발생했습니다.' },
+              { status: 400 }
+            )
+          }
+          pointsUsed = validatedPointsToUse
+        }
+
+        // Record test payment in history
+        await serviceClient.from('payment_history').insert({
+          user_id: user.id,
+          plan_id: planId,
+          payment_key: `test_payment_${Date.now()}`,
+          order_id: orderId,
+          amount: finalAmount,
+          status: 'DONE',
+          paid_at: new Date().toISOString(),
         })
-        .eq('user_id', user.id)
 
-      if (updateError) {
-        return NextResponse.json({ error: 'Failed to update subscription' }, { status: 500 })
+        paymentKey = `test_payment_${Date.now()}`
+      } else {
+        // Production: Approve real payment for the remaining amount
+        const paymentResponse = await approveBillingPayment(
+          subscription.toss_billing_key,
+          subscription.toss_customer_key,
+          finalAmount,
+          orderId,
+          orderName
+        )
+
+        // Use points after successful payment
+        if (validatedPointsToUse > 0) {
+          const pointResult = await usePointsForPayment(user.id, validatedPointsToUse, paymentResponse.paymentKey)
+          if (!pointResult.success) {
+            console.error('Failed to deduct points after payment:', pointResult.error)
+            // Payment succeeded but points failed - log but don't fail
+          } else {
+            pointsUsed = validatedPointsToUse
+          }
+        }
+
+        // Record payment in history
+        await serviceClient.from('payment_history').insert({
+          user_id: user.id,
+          plan_id: planId,
+          payment_key: paymentResponse.paymentKey,
+          order_id: orderId,
+          amount: finalAmount,
+          status: paymentResponse.status,
+          paid_at: paymentResponse.approvedAt,
+        })
+
+        paymentKey = paymentResponse.paymentKey
       }
-
-      return NextResponse.json({
-        success: true,
-        testMode: true,
-        plan: planId,
-        nextBillingDate: nextBillingDate.toISOString(),
-      })
     }
-
-    // Production: Approve real payment
-    const paymentResponse = await approveBillingPayment(
-      subscription.toss_billing_key,
-      subscription.toss_customer_key,
-      plan.price,
-      orderId,
-      orderName
-    )
-
-    // Record payment in history
-    await serviceClient.from('payment_history').insert({
-      user_id: user.id,
-      plan_id: planId,
-      payment_key: paymentResponse.paymentKey,
-      order_id: orderId,
-      amount: plan.price,
-      status: paymentResponse.status,
-      paid_at: paymentResponse.approvedAt,
-    })
 
     // Update subscription
     const { error: updateError } = await serviceClient
@@ -165,8 +216,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       plan: planId,
-      paymentKey: paymentResponse.paymentKey,
+      paymentKey,
+      pointsUsed,
+      amountCharged: finalAmount,
       nextBillingDate: nextBillingDate.toISOString(),
+      testMode: IS_TEST_MODE && finalAmount > 0,
     })
   } catch (error) {
     console.error('Error in POST /api/payments/subscribe:', error)
