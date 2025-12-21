@@ -6,9 +6,10 @@ import { MobileSwipeView } from './MobileSwipeView'
 interface DashboardLayoutProps {
   calendarContent: React.ReactNode
   mainContent: React.ReactNode
+  todayEventCount?: number
 }
 
-export function DashboardLayout({ calendarContent, mainContent }: DashboardLayoutProps) {
+export function DashboardLayout({ calendarContent, mainContent, todayEventCount }: DashboardLayoutProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [mounted, setMounted] = useState(false)
 
@@ -34,12 +35,13 @@ export function DashboardLayout({ calendarContent, mainContent }: DashboardLayou
     )
   }
 
-  // Mobile: Swipeable view
+  // Mobile: Collapsible calendar + main content
   if (isMobile) {
     return (
       <MobileSwipeView
         calendarContent={calendarContent}
         mainContent={mainContent}
+        todayEventCount={todayEventCount}
       />
     )
   }

@@ -128,22 +128,9 @@ export function CustomizeBookshelf({
   return (
     <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-gray-700">
-            {displayedDiary?.title || '나의 일기장'}
-          </h2>
-          {displayedDiary && (
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-              {displayedDiary.volume_number}권
-            </span>
-          )}
-          {displayedDiaryId === activeDiaryId && (
-            <span className="text-xs text-white bg-emerald-500 px-2 py-0.5 rounded-full font-medium">
-              사용 중
-            </span>
-          )}
-        </div>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-lg">📚</span>
+        <h2 className="text-lg font-semibold text-gray-700">책장</h2>
       </div>
 
       {/* Main content: Cover + Shelf */}

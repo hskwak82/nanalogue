@@ -418,223 +418,203 @@ function CustomizePageContent() {
           </div>
         )}
 
-        {/* Tabs + Save Button */}
-        <div className="flex items-center gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab('cover')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'cover'
-                ? 'bg-pastel-pink text-gray-700'
-                : 'bg-white/70 text-gray-600 hover:bg-white'
-            }`}
-          >
-            표지 꾸미기
-          </button>
-          <button
-            onClick={() => setActiveTab('paper')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'paper'
-                ? 'bg-pastel-mint text-gray-700'
-                : 'bg-white/70 text-gray-600 hover:bg-white'
-            }`}
-          >
-            속지 꾸미기
-          </button>
-          <button
-            onClick={() => setActiveTab('spine')}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-              activeTab === 'spine'
-                ? 'bg-pastel-lavender text-gray-700'
-                : 'bg-white/70 text-gray-600 hover:bg-white'
-            }`}
-          >
-            책등 꾸미기
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
-              isSaving
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
-            }`}
-          >
-            {isSaving ? '저장 중...' : '저장'}
-          </button>
-        </div>
-
         {/* Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {activeTab === 'cover' ? (
-            <>
-              {/* Left: Cover Editor with Spine Preview */}
-              <div className="flex flex-col items-start gap-4">
-                {/* Cover + Spine side by side */}
-                <div className="flex items-start gap-4">
-                  {/* Cover Editor wrapper with relative positioning for overlay */}
-                  <div className="relative flex flex-col items-center" data-cover-editor style={{ width: 300 }}>
-                    <CoverEditor
-                      ref={coverEditorRef}
-                      template={state.selectedCover}
-                      decorations={state.coverDecorations}
-                      selectedIndex={state.selectedItemIndex}
-                      onUpdate={updateDecoration}
-                      onSelect={selectItem}
-                      onRemove={removeDecoration}
-                      isTextMode={isTextMode}
-                      onCanvasClick={handleCanvasClickForText}
-                      onTextDoubleClick={handleTextDoubleClick}
-                    />
-                    {/* Text Button + Delete Button */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={() => setIsTextMode(!isTextMode)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                          isTextMode
-                            ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
-                            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                        }`}
-                      >
-                        <span className="text-base">T</span>
-                        텍스트
-                      </button>
-                      {/* Delete button - shows when item is selected */}
-                      {state.selectedItemIndex !== null && (
-                        <button
-                          onClick={() => removeDecoration(state.selectedItemIndex!)}
-                          className="px-4 py-2 rounded-full text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          삭제
-                        </button>
-                      )}
-                    </div>
-                  </div>
+          {/* Left Column: Bookshelf + Editor */}
+          <div className="flex flex-col gap-4 w-full">
+            {/* 1. Bookshelf Card - 맨 위 */}
+            {allDiaries.length > 0 && (
+              <CustomizeBookshelf
+                diaries={allDiaries}
+                activeDiaryId={activeDiaryId}
+                selectedDiaryId={diaryId}
+                onSelectDiary={handleSelectDiary}
+              />
+            )}
 
-                  {/* Spine Preview */}
-                  <SpineCustomizer
-                    selectedPresetId={spinePresetId}
-                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
-                    onChange={setSpinePresetId}
-                    previewMode="large"
-                    isPremium={isPremium}
-                  />
-                </div>
-
-                {/* Bookshelf - below buttons */}
-                {allDiaries.length > 0 && (
-                  <div className="mt-6 w-full max-w-2xl">
-                    <CustomizeBookshelf
-                      diaries={allDiaries}
-                      activeDiaryId={activeDiaryId}
-                      selectedDiaryId={diaryId}
-                      onSelectDiary={handleSelectDiary}
-                    />
-                  </div>
-                )}
+            {/* 2. Editor Card - 탭 버튼 포함 */}
+            <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 shadow-sm border border-pastel-pink/30">
+              {/* Tabs + Save Button */}
+              <div className="flex items-center gap-1.5 mb-4">
+                <button
+                  onClick={() => setActiveTab('cover')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    activeTab === 'cover'
+                      ? 'bg-pastel-pink text-gray-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  표지
+                </button>
+                <button
+                  onClick={() => setActiveTab('paper')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    activeTab === 'paper'
+                      ? 'bg-pastel-mint text-gray-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  속지
+                </button>
+                <button
+                  onClick={() => setActiveTab('spine')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    activeTab === 'spine'
+                      ? 'bg-pastel-lavender text-gray-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  책등
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className={`ml-auto px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    isSaving
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-pastel-purple text-white hover:bg-pastel-purple-dark'
+                  }`}
+                >
+                  {isSaving ? '저장 중...' : '저장'}
+                </button>
               </div>
 
-              {/* Right: Controls */}
-              <div className="space-y-4">
+              {/* Editor Content */}
+              {activeTab === 'cover' && (
+                <>
+                  <div className="flex justify-center">
+                    <div className="[&>*]:!w-full [&>*]:!h-full w-full max-w-[300px]" style={{ aspectRatio: '3/4' }}>
+                      <CoverEditor
+                        ref={coverEditorRef}
+                        template={state.selectedCover}
+                        decorations={state.coverDecorations}
+                        selectedIndex={state.selectedItemIndex}
+                        onUpdate={updateDecoration}
+                        onSelect={selectItem}
+                        onRemove={removeDecoration}
+                        isTextMode={isTextMode}
+                        onCanvasClick={handleCanvasClickForText}
+                        onTextDoubleClick={handleTextDoubleClick}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-center items-center gap-2 mt-3">
+                    <button
+                      onClick={() => setIsTextMode(!isTextMode)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        isTextMode
+                          ? 'bg-pastel-purple text-white ring-2 ring-pastel-purple/50'
+                          : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                      }`}
+                    >
+                      <span className="text-sm">T</span>
+                      텍스트
+                    </button>
+                    {state.selectedItemIndex !== null && (
+                      <button
+                        onClick={() => removeDecoration(state.selectedItemIndex!)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'paper' && (
+                <>
+                  <div className="flex justify-center">
+                    <div className="[&>*]:!w-full [&>*]:!h-full w-full max-w-[300px]" style={{ aspectRatio: '3/4' }}>
+                      <PaperEditor
+                        template={state.selectedPaper}
+                        decorations={state.paperDecorations}
+                        selectedIndex={state.selectedItemIndex}
+                        onUpdate={updateDecoration}
+                        onSelect={selectItem}
+                        onRemove={removeDecoration}
+                        paperOpacity={state.paperOpacity}
+                        paperFontFamily={state.paperFontFamily}
+                        paperFontColor={state.paperFontColor}
+                        isTextMode={isTextMode}
+                        onCanvasClick={handleCanvasClickForText}
+                        onTextDoubleClick={handleTextDoubleClick}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-center items-center gap-2 mt-3">
+                    <button
+                      onClick={() => setIsTextMode(!isTextMode)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 ${
+                        isTextMode
+                          ? 'bg-pastel-mint text-white ring-2 ring-pastel-mint/50'
+                          : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
+                      }`}
+                    >
+                      <span className="text-sm">T</span>
+                      텍스트
+                    </button>
+                    {state.selectedItemIndex !== null && (
+                      <button
+                        onClick={() => removeDecoration(state.selectedItemIndex!)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        삭제
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'spine' && (
+                <div className="flex justify-center">
+                  <div style={{ width: '48px', height: '400px' }}>
+                    <SpineCustomizer
+                      selectedPresetId={spinePresetId}
+                      diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                      onChange={setSpinePresetId}
+                      previewMode="large"
+                      fillHeight
+                      isPremium={isPremium}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Controls */}
+          <div className="space-y-4">
+            {activeTab === 'cover' && (
+              <>
                 <CoverTemplateSelector
                   templates={coverTemplates}
                   selectedId={state.selectedCover?.id || null}
                   onSelect={setCover}
                   isPremium={isPremium}
                 />
-
                 <ItemPalette
                   items={decorationItems}
                   onSelectItem={addDecoration}
                   isPremium={isPremium}
                 />
-              </div>
-            </>
-          ) : activeTab === 'paper' ? (
-            <>
-              {/* Left: Paper Editor */}
-              <div className="flex flex-col items-start gap-4">
-                {/* Paper + Spine side by side */}
-                <div className="flex items-start gap-4">
-                  <div className="relative flex flex-col items-center" style={{ width: 300 }}>
-                    <PaperEditor
-                      template={state.selectedPaper}
-                      decorations={state.paperDecorations}
-                      selectedIndex={state.selectedItemIndex}
-                      onUpdate={updateDecoration}
-                      onSelect={selectItem}
-                      onRemove={removeDecoration}
-                      paperOpacity={state.paperOpacity}
-                      paperFontFamily={state.paperFontFamily}
-                      paperFontColor={state.paperFontColor}
-                      isTextMode={isTextMode}
-                      onCanvasClick={handleCanvasClickForText}
-                      onTextDoubleClick={handleTextDoubleClick}
-                    />
+              </>
+            )}
 
-                    {/* Text Button + Delete Button for Paper */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        onClick={() => setIsTextMode(!isTextMode)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2 ${
-                          isTextMode
-                            ? 'bg-pastel-mint text-white ring-2 ring-pastel-mint/50'
-                            : 'bg-white/80 text-gray-600 hover:bg-white border border-gray-200'
-                        }`}
-                      >
-                        <span className="text-base">T</span>
-                        텍스트
-                      </button>
-                      {/* Delete button - shows when item is selected */}
-                      {state.selectedItemIndex !== null && (
-                        <button
-                          onClick={() => removeDecoration(state.selectedItemIndex!)}
-                          className="px-4 py-2 rounded-full text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          삭제
-                        </button>
-                      )}
-                    </div>
-
-                  </div>
-
-                  {/* Spine Preview */}
-                  <SpineCustomizer
-                    selectedPresetId={spinePresetId}
-                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
-                    onChange={setSpinePresetId}
-                    previewMode="large"
-                    isPremium={isPremium}
-                  />
-                </div>
-
-                {/* Bookshelf - below buttons */}
-                {allDiaries.length > 0 && (
-                  <div className="mt-6 w-full max-w-2xl">
-                    <CustomizeBookshelf
-                      diaries={allDiaries}
-                      activeDiaryId={activeDiaryId}
-                      selectedDiaryId={diaryId}
-                      onSelectDiary={handleSelectDiary}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Right: Controls */}
-              <div className="space-y-4">
+            {activeTab === 'paper' && (
+              <>
                 <PaperTemplateSelector
                   templates={paperTemplates}
                   selectedId={state.selectedPaper?.id || null}
                   onSelect={setPaper}
                   isPremium={isPremium}
                 />
-
                 <PaperStyleSettings
                   opacity={state.paperOpacity}
                   fontFamily={state.paperFontFamily}
@@ -643,70 +623,24 @@ function CustomizePageContent() {
                   onFontFamilyChange={setPaperFontFamily}
                   onFontColorChange={setPaperFontColor}
                 />
-
                 <ItemPalette
                   items={decorationItems}
                   onSelectItem={addDecoration}
                   isPremium={isPremium}
                 />
-              </div>
-            </>
-          ) : activeTab === 'spine' ? (
-            <>
-              {/* Left: Cover Preview + Spine */}
-              <div className="flex flex-col items-start gap-4">
-                <div className="flex items-start gap-4">
-                  {/* Cover Preview (read-only) */}
-                  <div className="relative" style={{ width: 300 }}>
-                    <CoverEditor
-                      ref={coverEditorRef}
-                      template={state.selectedCover}
-                      decorations={state.coverDecorations}
-                      selectedIndex={null}
-                      onUpdate={() => {}}
-                      onSelect={() => {}}
-                      onRemove={() => {}}
-                      isTextMode={false}
-                      onCanvasClick={() => {}}
-                      onTextDoubleClick={() => {}}
-                    />
-                  </div>
+              </>
+            )}
 
-                  {/* Spine Preview */}
-                  <SpineCustomizer
-                    selectedPresetId={spinePresetId}
-                    diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
-                    onChange={setSpinePresetId}
-                    previewMode="large"
-                    isPremium={isPremium}
-                  />
-                </div>
-
-                {/* Bookshelf - below preview */}
-                {allDiaries.length > 0 && (
-                  <div className="mt-6 w-full max-w-2xl">
-                    <CustomizeBookshelf
-                      diaries={allDiaries}
-                      activeDiaryId={activeDiaryId}
-                      selectedDiaryId={diaryId}
-                      onSelectDiary={handleSelectDiary}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Right: Spine Selector */}
-              <div className="space-y-4">
-                <SpineCustomizer
-                  selectedPresetId={spinePresetId}
-                  diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
-                  onChange={setSpinePresetId}
-                  selectorMode
-                  isPremium={isPremium}
-                />
-              </div>
-            </>
-          ) : null}
+            {activeTab === 'spine' && (
+              <SpineCustomizer
+                selectedPresetId={spinePresetId}
+                diaryTitle={allDiaries.find(d => d.id === diaryId)?.title || '일기장'}
+                onChange={setSpinePresetId}
+                selectorMode
+                isPremium={isPremium}
+              />
+            )}
+          </div>
         </div>
       </main>
 

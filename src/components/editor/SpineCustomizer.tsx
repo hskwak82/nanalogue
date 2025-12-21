@@ -24,6 +24,7 @@ interface SpineCustomizerProps {
   previewMode?: 'large'  // Large preview only (left side)
   selectorMode?: boolean // Selector panel only (right side)
   isPremium?: boolean    // User has premium subscription
+  fillHeight?: boolean   // Fill parent height (for editor card layout)
 }
 
 // Large spine preview dimensions (matches cover height of 400px)
@@ -156,6 +157,7 @@ export function SpineCustomizer({
   previewMode,
   selectorMode,
   isPremium = false,
+  fillHeight = false,
 }: SpineCustomizerProps) {
   const [activeCategory, setActiveCategory] = useState<'free' | 'premium'>('free')
   const [dbTemplates, setDbTemplates] = useState<SpinePreset[] | null>(null)
@@ -199,6 +201,43 @@ export function SpineCustomizer({
 
   // Large preview mode only (left side of spine tab)
   if (previewMode === 'large') {
+    // fillHeight mode: stretch to parent, no label
+    if (fillHeight) {
+      const bandStyles = getSpineBandStyles(selectedPreset)
+      return (
+        <div
+          className="relative rounded-sm shadow-lg overflow-hidden w-full h-full"
+          style={getSpineBackgroundStyle(selectedPreset)}
+        >
+          {/* Top band */}
+          {bandStyles.topBand && <div style={bandStyles.topBand} />}
+
+          {/* Title */}
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden px-1 z-10">
+            <span
+              className="text-[10px] font-medium text-center drop-shadow-sm"
+              style={{
+                color: selectedPreset.textColor,
+                writingMode: 'vertical-rl',
+                textOrientation: 'upright',
+                letterSpacing: '-0.02em',
+                textShadow: '0 1px 2px rgba(255,255,255,0.3), 0 -1px 2px rgba(255,255,255,0.3)',
+              }}
+            >
+              {(diaryTitle || '일기장').length > 18 ? (diaryTitle || '일기장').slice(0, 18) + '..' : (diaryTitle || '일기장')}
+            </span>
+          </div>
+
+          {/* Bottom band */}
+          {bandStyles.bottomBand && <div style={bandStyles.bottomBand} />}
+
+          {/* Spine edge effects */}
+          <div className="absolute left-0 top-0 bottom-0 w-[2px] z-10" style={{ background: 'rgba(0,0,0,0.15)' }} />
+          <div className="absolute right-0 top-0 bottom-0 w-[1px] z-10" style={{ background: 'rgba(255,255,255,0.3)' }} />
+        </div>
+      )
+    }
+
     return (
       <div className="flex flex-col items-center">
         <LargeSpinePreview preset={selectedPreset} title={diaryTitle || '일기장'} />
