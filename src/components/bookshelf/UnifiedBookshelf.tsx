@@ -361,9 +361,29 @@ export function UnifiedBookshelf({
                       ))}
                     </div>
                   </div>
-                  {/* Shelf surface */}
-                  <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-b from-amber-100/60 to-amber-200/70 rounded-b shadow-inner" />
-                  <div className="absolute -bottom-1 left-1 right-1 h-1 bg-amber-900/10 rounded-full blur-sm" />
+                  {/* Shelf surface - walnut wood */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 h-4 rounded-b shadow-md"
+                    style={{
+                      background: `
+                        linear-gradient(90deg,
+                          transparent 0%,
+                          rgba(255,255,255,0.03) 20%,
+                          transparent 40%,
+                          rgba(255,255,255,0.02) 60%,
+                          transparent 80%,
+                          rgba(255,255,255,0.03) 100%
+                        ),
+                        linear-gradient(180deg,
+                          #5D4037 0%,
+                          #4E342E 40%,
+                          #3E2723 100%
+                        )
+                      `,
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 2px rgba(0,0,0,0.3)',
+                    }}
+                  />
+                  <div className="absolute -bottom-1 left-1 right-1 h-1.5 bg-black/20 rounded-full blur-sm" />
                 </div>
               </div>
             </motion.div>
