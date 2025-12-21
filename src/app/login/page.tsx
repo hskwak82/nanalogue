@@ -1,13 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { login, signInWithGoogle } from './actions'
 import { Logo } from '@/components/Logo'
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showExpiredLinkMessage, setShowExpiredLinkMessage] = useState(false)
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    // Check for auth_failed error from callback
+    const errorParam = searchParams.get('error')
+    if (errorParam === 'auth_failed') {
+      // Check hash fragment for more details (only accessible client-side)
+      if (typeof window !== 'undefined') {
+        const hash = window.location.hash
+        if (hash.includes('otp_expired') || hash.includes('access_denied')) {
+          setShowExpiredLinkMessage(true)
+          // Clean up the URL
+          window.history.replaceState({}, '', '/login')
+        } else {
+          setError('인증에 실패했습니다. 다시 시도해주세요.')
+        }
+      }
+    }
+  }, [searchParams])
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
@@ -76,6 +97,26 @@ export default function LoginPage() {
               <span className="bg-white/80 px-2 text-gray-400">또는</span>
             </div>
           </div>
+
+          {showExpiredLinkMessage && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <p className="font-medium text-amber-800">비밀번호 재설정 링크가 만료되었습니다</p>
+                  <p className="mt-1 text-amber-700">링크는 1시간 동안만 유효합니다. 다시 비밀번호 재설정을 요청해주세요.</p>
+                  <Link
+                    href="/forgot-password"
+                    className="inline-block mt-2 text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
+                  >
+                    비밀번호 재설정 다시 요청하기 →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           <form action={handleSubmit} className="space-y-4">
             {error && (
