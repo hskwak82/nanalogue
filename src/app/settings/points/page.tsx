@@ -249,23 +249,23 @@ export default function PointsPage() {
             </div>
 
             {/* Date Filter */}
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-[1fr_auto_1fr_auto] items-center gap-1.5">
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+                className="w-full px-1.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
               />
               <span className="text-gray-400 text-xs">~</span>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
+                className="w-full px-1.5 py-1.5 text-[11px] border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pastel-purple/50"
               />
               <button
                 onClick={handleFilterChange}
-                className="px-3 py-1.5 text-xs bg-pastel-purple text-white rounded-lg hover:bg-pastel-purple-dark transition-colors whitespace-nowrap"
+                className="px-2.5 py-1.5 text-xs bg-pastel-purple text-white rounded-lg hover:bg-pastel-purple-dark transition-colors whitespace-nowrap"
               >
                 검색
               </button>
