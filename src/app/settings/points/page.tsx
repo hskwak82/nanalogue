@@ -303,9 +303,10 @@ export default function PointsPage() {
                         </span>
                         <p className="font-medium text-sm text-gray-700 truncate">{getReasonLabel(tx.reason)}</p>
                       </div>
-                      <p className="text-[11px] text-gray-400">
-                        {formatDateTime(tx.created_at)} · 잔액 {formatNumber(tx.balance_after)}P
-                      </p>
+                      <div className="flex justify-between text-[11px] text-gray-400">
+                        <span>{formatDateTime(tx.created_at)}</span>
+                        <span>잔액 {formatNumber(tx.balance_after)}P</span>
+                      </div>
                     </div>
                     <p
                       className={`font-bold text-base whitespace-nowrap ${
