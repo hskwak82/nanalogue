@@ -156,3 +156,12 @@ body {
 .react-datepicker-popper {
   z-index: 50 !important;
 }
+
+/* Scrollbar utilities */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

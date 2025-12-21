@@ -156,13 +156,31 @@ export function DiaryShelfViewer({
   }
 
   return (
-    <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+    <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 sm:p-6 shadow-sm border border-pastel-pink/30">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-semibold text-gray-700">
+      <div className="mb-4">
+        {/* First row: Title + Links */}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-700 truncate">
             {displayedDiary?.title || '나의 일기장'}
           </h2>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link
+              href="/bookshelf"
+              className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+            >
+              📚 책장
+            </Link>
+            <Link
+              href={`/customize${displayedDiaryId ? `?diary=${displayedDiaryId}` : ''}`}
+              className="text-xs font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors whitespace-nowrap"
+            >
+              꾸미기
+            </Link>
+          </div>
+        </div>
+        {/* Second row: Badges */}
+        <div className="flex items-center gap-2 mt-1.5">
           {displayedDiary && onEditDiary && (
             <button
               onClick={() => onEditDiary(displayedDiary)}
@@ -190,26 +208,12 @@ export function DiaryShelfViewer({
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/bookshelf"
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            📚 책장
-          </Link>
-          <Link
-            href={`/customize${displayedDiaryId ? `?diary=${displayedDiaryId}` : ''}`}
-            className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
-          >
-            꾸미기
-          </Link>
-        </div>
       </div>
 
       {/* Main content: Cover + Shelf */}
-      <div className="flex items-start gap-6">
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
         {/* Cover display */}
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2 flex-shrink-0">
           <AnimatePresence mode="wait">
             {displayedDiary && (
               <motion.div
@@ -242,12 +246,12 @@ export function DiaryShelfViewer({
 
         {/* Mini bookshelf with other diaries */}
         {shelfDiaries.length > 0 && (
-          <div className="flex-1 relative min-w-0">
+          <div className="flex-1 relative min-w-0 w-full overflow-hidden">
             {/* Shelf */}
             <div className="relative pb-3">
               {/* Books - scrollable container */}
-              <div className="overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4">
-                <div className="flex items-end gap-1 min-h-[160px]" style={{ perspective: '800px' }}>
+              <div className="overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-amber-200 scrollbar-track-transparent pb-2 pt-4 -mx-4 px-4 sm:mx-0 sm:px-0">
+                <div className="flex items-end gap-1 min-h-[140px] sm:min-h-[160px]" style={{ perspective: '800px' }}>
                   {shelfDiaries.map((diary) => (
                     <MiniSpine
                       key={diary.id}
