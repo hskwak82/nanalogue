@@ -297,10 +297,14 @@ function SessionPageContent() {
     setRealtimeLoading(true)
 
     try {
-      // Reset session to active state
+      // Reset session to active state and clear previous image
       await supabase
         .from('daily_sessions')
-        .update({ status: 'active', completed_at: null })
+        .update({
+          status: 'active',
+          completed_at: null,
+          session_image_url: null,
+        })
         .eq('id', realtimeSessionId)
 
       // Delete existing diary entry for today
@@ -963,38 +967,21 @@ function SessionPageContent() {
           status: 'active',
           raw_conversation: [],
           completed_at: null,
+          session_image_url: null, // Clear previous image
         })
         .eq('id', completedSessionId)
 
       setSessionId(completedSessionId)
       setMessages([])
       setQuestionCount(0)
+      setConversationStarted(false) // Show image upload screen first
 
-      // Start with greeting
-      const response = await fetch('/api/chat/next-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [],
-          questionCount: 0,
-        }),
-      })
-      const data = await response.json()
-      if (data.question) {
-        const aiMessage: ConversationMessage = {
-          role: 'assistant',
-          content: data.question,
-          timestamp: new Date().toISOString(),
-          purpose: data.purpose,
-        }
-        setMessages([aiMessage])
-        setQuestionCount(1)
-
-        await supabase
-          .from('daily_sessions')
-          .update({ raw_conversation: [aiMessage] })
-          .eq('id', completedSessionId)
+      // Clear any previous image state
+      if (sessionImagePreview) {
+        URL.revokeObjectURL(sessionImagePreview)
       }
+      setSessionImageFile(null)
+      setSessionImagePreview(null)
     } catch (err) {
       console.error('Failed to restart session:', err)
       setError('세션 재시작에 실패했습니다.')
