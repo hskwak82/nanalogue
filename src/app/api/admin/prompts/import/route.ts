@@ -169,7 +169,7 @@ export async function POST(request: Request) {
       }
     } else {
       // No metadata.json - scan for MD files directly
-      const mdFiles = Object.keys(zip.files).filter(name => name.endsWith('.md') && name !== 'README.md')
+      const mdFiles = Object.keys(zip.files).filter(name => name.endsWith('.md') && !name.endsWith('README.md'))
 
       if (mdFiles.length === 0) {
         return NextResponse.json({ error: 'ZIP 파일에 MD 파일이 없습니다.' }, { status: 400 })
