@@ -39,6 +39,7 @@ function SessionPageContent() {
   const [isCompleting, setIsCompleting] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
+  const [existingSessionIsCompleted, setExistingSessionIsCompleted] = useState(false)
   const [isCalendarConnected, setIsCalendarConnected] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
   const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
@@ -614,23 +615,21 @@ function SessionPageContent() {
     }
 
     if (existingSession) {
-      // If completed, show confirmation dialog instead of auto-reset
-      if (existingSession.status === 'completed') {
+      const conversation = existingSession.raw_conversation as ConversationMessage[]
+      const hasMessages = conversation && conversation.length > 0
+
+      // If completed OR has existing messages, show confirmation dialog
+      if (existingSession.status === 'completed' || hasMessages) {
         setCompletedSessionId(existingSession.id)
+        setExistingSessionIsCompleted(existingSession.status === 'completed')
         setShowRestartConfirm(true)
         return
       }
 
+      // Active session without messages - show image upload screen
       setSessionId(existingSession.id)
-      const conversation = existingSession.raw_conversation as ConversationMessage[]
-      setMessages(conversation || [])
-      setQuestionCount(
-        conversation?.filter((m) => m.role === 'assistant').length || 0
-      )
-      // Resume existing conversation
-      if (conversation && conversation.length > 0) {
-        setConversationStarted(true)
-      }
+      setMessages([])
+      setQuestionCount(0)
     } else {
       // Create new session
       const { data: newSession, error } = await supabase
@@ -998,6 +997,38 @@ function SessionPageContent() {
     router.push(`/diary/${today}`)
   }
 
+  // Continue existing active session (resume conversation)
+  async function handleContinueSession() {
+    if (!completedSessionId) return
+
+    setShowRestartConfirm(false)
+    setLoading(true)
+
+    try {
+      // Fetch existing session data
+      const { data: session } = await supabase
+        .from('daily_sessions')
+        .select('*')
+        .eq('id', completedSessionId)
+        .single()
+
+      if (session) {
+        const conversation = session.raw_conversation as ConversationMessage[]
+        setSessionId(completedSessionId)
+        setMessages(conversation || [])
+        setQuestionCount(
+          conversation?.filter((m) => m.role === 'assistant').length || 0
+        )
+        setConversationStarted(true)
+      }
+    } catch (err) {
+      console.error('Failed to continue session:', err)
+      setError('세션을 불러오는데 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
     // Mark as completing to prevent TTS auto-play
     setIsCompleting(true)
@@ -1274,26 +1305,47 @@ function SessionPageContent() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
         <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-pastel-pink/30">
           <h2 className="mb-2 text-xl font-bold text-gray-700">
-            오늘의 일기가 있습니다
+            {existingSessionIsCompleted ? '오늘의 일기가 있습니다' : '진행 중인 대화가 있습니다'}
           </h2>
           <p className="mb-6 text-gray-500">
-            {today} 일기가 이미 작성되어 있습니다.
-            <br />
-            기존 일기를 보시겠습니까, 새로 작성하시겠습니까?
+            {existingSessionIsCompleted ? (
+              <>{today} 일기가 이미 작성되어 있습니다.<br />기존 일기를 보시겠습니까, 새로 작성하시겠습니까?</>
+            ) : (
+              <>{today}에 시작한 대화가 있습니다.<br />이어서 대화하시겠습니까?</>
+            )}
           </p>
           <div className="flex flex-col gap-3">
-            <button
-              onClick={handleViewDiary}
-              className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
-            >
-              기존 일기 보기
-            </button>
-            <button
-              onClick={handleRestartSession}
-              className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
-            >
-              새로 작성하기
-            </button>
+            {existingSessionIsCompleted ? (
+              <>
+                <button
+                  onClick={handleViewDiary}
+                  className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
+                >
+                  기존 일기 보기
+                </button>
+                <button
+                  onClick={handleRestartSession}
+                  className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
+                >
+                  새로 작성하기
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleContinueSession}
+                  className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
+                >
+                  이어서 대화하기
+                </button>
+                <button
+                  onClick={handleRestartSession}
+                  className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
+                >
+                  새로 시작하기
+                </button>
+              </>
+            )}
             <button
               onClick={() => router.push('/dashboard')}
               className="w-full px-4 py-2 text-sm text-gray-400 hover:text-pastel-purple-dark transition-colors"
