@@ -9,7 +9,7 @@ personas: []
 
 # /chat-prompts - AI 대화 프롬프트 생성
 
-사용자가 원하는 스타일로 8개의 대화 프롬프트를 생성하고 ZIP 파일로 저장합니다.
+사용자가 원하는 스타일로 8개의 대화 프롬프트를 생성하고 MD 파일로 저장합니다.
 
 ## 사용법
 ```
@@ -25,9 +25,8 @@ personas: []
 
 1. 사용자의 스타일 요청을 분석
 2. 아래 템플릿을 사용하여 chat.md 파일 생성 (8개 프롬프트 통합)
-3. `/tmp/chat-prompts/` 폴더에 chat.md 파일 생성
-4. ZIP으로 압축하여 `~/Downloads/nanalogue-chat-[스타일명].zip` 저장
-5. 결과 보고
+3. `~/Downloads/nanalogue-chat-[스타일명].md` 파일로 직접 저장
+4. 결과 보고
 
 ## 통합 MD 파일 형식 (chat.md)
 
@@ -178,13 +177,8 @@ shouldEnd는 7회 이상 대화 후 자연스러운 마무리 시점에만 true
 ## 파일 생성 명령
 
 ```bash
-# 폴더 생성
-mkdir -p /tmp/chat-prompts
-
-# chat.md 파일 생성 (위 통합 형식대로)
-
-# ZIP 생성
-cd /tmp && zip -r ~/Downloads/nanalogue-chat-[스타일명].zip chat-prompts/
+# MD 파일 직접 생성
+# ~/Downloads/nanalogue-chat-[스타일명].md 경로에 위 통합 형식으로 저장
 ```
 
 ## 스타일 작성 원칙
