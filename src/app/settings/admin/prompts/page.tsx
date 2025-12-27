@@ -356,6 +356,62 @@ export default function AdminPromptsPage() {
     return AI_PROMPT_CATEGORIES[category as keyof typeof AI_PROMPT_CATEGORIES] || category
   }
 
+  const handleOpenTest = (promptKey: string) => {
+    setTestPromptKey(promptKey)
+    setTestInput('')
+    setTestResult('')
+    setShowTestModal(true)
+  }
+
+  const handleRunTest = async () => {
+    const prompt = prompts.find(p => p.prompt_key === testPromptKey)
+    if (!prompt) return
+
+    setTesting(true)
+    setTestResult('')
+
+    try {
+      // Prepare sample variables for testing
+      const sampleVariables: Record<string, string> = {}
+      for (const v of prompt.variables) {
+        if (v === 'today') {
+          sampleVariables[v] = new Date().toLocaleDateString('ko-KR')
+        } else if (v === 'userName') {
+          sampleVariables[v] = '테스트 사용자'
+        } else if (v === 'conversationPhase') {
+          sampleVariables[v] = 'early'
+        } else {
+          sampleVariables[v] = `[${v}]`
+        }
+      }
+
+      const res = await fetch('/api/admin/prompts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: prompt.content,
+          testInput,
+          variables: sampleVariables,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Test failed')
+      }
+
+      setTestResult(data.response || '응답 없음')
+    } catch (error) {
+      console.error('Error testing prompt:', error)
+      setTestResult(`오류: ${error instanceof Error ? error.message : '테스트 실패'}`)
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  const currentPresets = TEST_PRESETS[selectedCategory] || []
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -512,11 +568,21 @@ export default function AdminPromptsPage() {
                       <hr className="border-gray-200 mb-6" />
                     )}
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="text-base font-semibold text-gray-900 font-mono">
-                          ## {prompt.prompt_key}
-                        </h3>
-                        <span className="text-xs text-gray-400">v{prompt.version}</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-base font-semibold text-gray-900 font-mono">
+                            ## {prompt.prompt_key}
+                          </h3>
+                          <span className="text-xs text-gray-400">v{prompt.version}</span>
+                        </div>
+                        <button
+                          onClick={() => handleOpenTest(prompt.prompt_key)}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                          title="프롬프트 테스트"
+                        >
+                          <BeakerIcon className="h-3.5 w-3.5" />
+                          테스트
+                        </button>
                       </div>
                       <div className="text-sm text-gray-600 space-y-1">
                         <p>- <strong>이름</strong>: {prompt.name}</p>
@@ -536,6 +602,108 @@ export default function AdminPromptsPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Test Modal */}
+      {showTestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">프롬프트 테스트</h2>
+                <p className="text-sm text-gray-500 font-mono">{testPromptKey}</p>
+              </div>
+              <button
+                onClick={() => setShowTestModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-200px)]">
+              {/* Preset Selection */}
+              {currentPresets.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    프리셋 선택
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {currentPresets.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setTestInput(preset.input)}
+                        className={`px-3 py-1.5 text-sm rounded-full border ${
+                          testInput === preset.input
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                            : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Direct Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  테스트 입력
+                </label>
+                <textarea
+                  value={testInput}
+                  onChange={(e) => setTestInput(e.target.value)}
+                  placeholder="테스트할 사용자 입력을 작성하세요..."
+                  className="w-full h-24 rounded-lg border border-gray-300 px-4 py-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Test Result */}
+              {testResult && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    AI 응답
+                  </label>
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <pre className="text-sm text-gray-800 whitespace-pre-wrap font-sans">
+                      {testResult}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowTestModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                닫기
+              </button>
+              <button
+                onClick={handleRunTest}
+                disabled={testing || !testInput.trim()}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {testing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    테스트 중...
+                  </>
+                ) : (
+                  <>
+                    <BeakerIcon className="h-4 w-4" />
+                    테스트 실행
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
