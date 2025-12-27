@@ -16,7 +16,7 @@ interface CalendarThumbnailProps {
 export function CalendarThumbnail({
   imageUrl,
   cropData,
-  size = 32,
+  size,
   className = '',
   onMouseEnter,
   onMouseLeave,
