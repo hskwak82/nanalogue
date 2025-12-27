@@ -276,7 +276,7 @@ export default function AdminPromptsPage() {
             가져오기
             <input
               type="file"
-              accept=".zip,.json"
+              accept=".zip"
               onChange={handleImport}
               className="hidden"
               disabled={importing}
