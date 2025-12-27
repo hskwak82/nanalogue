@@ -165,10 +165,12 @@ ${conversationContext}
     let question = '그렇군요, 더 자세히 이야기해 주실 수 있어요?'
     let detectedSchedules: ParsedSchedule[] = []
     let updatedPendingSchedule: ParsedSchedule | null = null
+    let shouldEnd = false
 
     try {
       const parsed = JSON.parse(cleanedResponse)
       question = parsed.question || question
+      shouldEnd = parsed.shouldEnd === true
 
       if (parsed.detectedSchedules && Array.isArray(parsed.detectedSchedules)) {
         detectedSchedules = parsed.detectedSchedules.map((s: {
@@ -214,10 +216,10 @@ ${conversationContext}
     return NextResponse.json({
       question: question.trim(),
       purpose: 'conversation',
-      shouldEnd: false,
+      shouldEnd,
       detectedSchedules,
       updatedPendingSchedule,
-      provider, // Include which provider was used
+      provider,
     })
   } catch (error) {
     console.error('Error generating question:', error)
