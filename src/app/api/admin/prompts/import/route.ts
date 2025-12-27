@@ -34,6 +34,33 @@ function extractContentFromMd(mdContent: string): string | null {
   return null
 }
 
+// Extract prompt_key from MD file
+function extractPromptKeyFromMd(mdContent: string): string | null {
+  const match = mdContent.match(/- \*\*키\*\*:\s*`([^`]+)`/)
+  if (match && match[1]) {
+    return match[1]
+  }
+  return null
+}
+
+// Extract category from MD file
+function extractCategoryFromMd(mdContent: string): string | null {
+  const match = mdContent.match(/- \*\*카테고리\*\*:\s*[^\(]+\(([^)]+)\)/)
+  if (match && match[1]) {
+    return match[1]
+  }
+  return null
+}
+
+// Extract variables from MD file
+function extractVariablesFromMd(mdContent: string): string[] {
+  const match = mdContent.match(/- \*\*변수\*\*:\s*(.+)/)
+  if (match && match[1]) {
+    return match[1].split(',').map(v => v.trim()).filter(v => v.length > 0)
+  }
+  return []
+}
+
 // POST /api/admin/prompts/import - Import prompts from ZIP file
 export async function POST(request: Request) {
   const auth = await checkAdminAuth()
@@ -64,85 +91,164 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer()
     const zip = await JSZip.loadAsync(arrayBuffer)
 
-    // Read metadata.json
+    // Try to read metadata.json
     const metadataFile = zip.file('metadata.json')
-    if (!metadataFile) {
-      return NextResponse.json({ error: 'Invalid ZIP: missing metadata.json' }, { status: 400 })
-    }
 
-    const metadataContent = await metadataFile.async('string')
-    const metadata: Metadata = JSON.parse(metadataContent)
+    if (metadataFile) {
+      // Use metadata.json for import
+      const metadataContent = await metadataFile.async('string')
+      const metadata: Metadata = JSON.parse(metadataContent)
 
-    // Process each prompt from metadata
-    for (const promptMeta of metadata.prompts) {
-      // Skip if category filter is set and doesn't match
-      if (categoryFilter && promptMeta.category !== categoryFilter) {
-        continue
+      for (const promptMeta of metadata.prompts) {
+        if (categoryFilter && promptMeta.category !== categoryFilter) {
+          continue
+        }
+
+        const mdFile = zip.file(promptMeta.filename)
+        if (!mdFile) {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'failed',
+            reason: 'md_file_not_found'
+          })
+          continue
+        }
+
+        const mdContent = await mdFile.async('string')
+        const extractedContent = extractContentFromMd(mdContent)
+
+        if (!extractedContent) {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'failed',
+            reason: 'content_extraction_failed'
+          })
+          continue
+        }
+
+        const existing = await getPromptByKey(promptMeta.prompt_key)
+        if (!existing) {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'failed',
+            reason: 'not_found'
+          })
+          continue
+        }
+
+        if (existing.content === extractedContent) {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'skipped',
+            reason: 'no_change'
+          })
+          continue
+        }
+
+        const updated = await updatePrompt(
+          existing.id,
+          extractedContent,
+          promptMeta.variables || [],
+          'Imported from ZIP file',
+          auth.userId
+        )
+
+        if (updated) {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'updated',
+            version: updated.version
+          })
+        } else {
+          results.push({
+            key: promptMeta.prompt_key,
+            status: 'failed',
+            reason: 'update_failed'
+          })
+        }
+      }
+    } else {
+      // No metadata.json - scan for MD files directly
+      const mdFiles = Object.keys(zip.files).filter(name => name.endsWith('.md') && name !== 'README.md')
+
+      if (mdFiles.length === 0) {
+        return NextResponse.json({ error: 'ZIP 파일에 MD 파일이 없습니다.' }, { status: 400 })
       }
 
-      const mdFile = zip.file(promptMeta.filename)
-      if (!mdFile) {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'failed',
-          reason: 'md_file_not_found'
-        })
-        continue
-      }
+      for (const filename of mdFiles) {
+        const mdFile = zip.file(filename)
+        if (!mdFile) continue
 
-      const mdContent = await mdFile.async('string')
-      const extractedContent = extractContentFromMd(mdContent)
+        const mdContent = await mdFile.async('string')
+        const promptKey = extractPromptKeyFromMd(mdContent)
+        const category = extractCategoryFromMd(mdContent)
+        const variables = extractVariablesFromMd(mdContent)
 
-      if (!extractedContent) {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'failed',
-          reason: 'content_extraction_failed'
-        })
-        continue
-      }
+        if (!promptKey) {
+          results.push({
+            key: filename,
+            status: 'failed',
+            reason: 'key_extraction_failed'
+          })
+          continue
+        }
 
-      const existing = await getPromptByKey(promptMeta.prompt_key)
-      if (!existing) {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'failed',
-          reason: 'not_found'
-        })
-        continue
-      }
+        // Apply category filter
+        if (categoryFilter && category !== categoryFilter) {
+          continue
+        }
 
-      // Skip if content is the same
-      if (existing.content === extractedContent) {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'skipped',
-          reason: 'no_change'
-        })
-        continue
-      }
+        const extractedContent = extractContentFromMd(mdContent)
 
-      // Update the prompt
-      const updated = await updatePrompt(
-        existing.id,
-        extractedContent,
-        promptMeta.variables || [],
-        'Imported from ZIP file',
-        auth.userId
-      )
+        if (!extractedContent) {
+          results.push({
+            key: promptKey,
+            status: 'failed',
+            reason: 'content_extraction_failed'
+          })
+          continue
+        }
 
-      if (updated) {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'updated',
-          version: updated.version
-        })
-      } else {
-        results.push({
-          key: promptMeta.prompt_key,
-          status: 'failed',
-          reason: 'update_failed'
-        })
+        const existing = await getPromptByKey(promptKey)
+        if (!existing) {
+          results.push({
+            key: promptKey,
+            status: 'failed',
+            reason: 'not_found'
+          })
+          continue
+        }
+
+        if (existing.content === extractedContent) {
+          results.push({
+            key: promptKey,
+            status: 'skipped',
+            reason: 'no_change'
+          })
+          continue
+        }
+
+        const updated = await updatePrompt(
+          existing.id,
+          extractedContent,
+          variables,
+          'Imported from ZIP file',
+          auth.userId
+        )
+
+        if (updated) {
+          results.push({
+            key: promptKey,
+            status: 'updated',
+            version: updated.version
+          })
+        } else {
+          results.push({
+            key: promptKey,
+            status: 'failed',
+            reason: 'update_failed'
+          })
+        }
       }
     }
 
