@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin'
 import { getPromptByKey, updatePrompt, clearPromptCache } from '@/lib/ai-prompts'
-import JSZip from 'jszip'
 
 interface ParsedPrompt {
   prompt_key: string
@@ -70,7 +69,7 @@ function parseMultiplePromptsFromMd(mdContent: string): ParsedPrompt[] {
   return prompts
 }
 
-// POST /api/admin/prompts/import - Import prompts from ZIP file with unified MD format
+// POST /api/admin/prompts/import - Import prompts from MD file(s)
 export async function POST(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
@@ -79,49 +78,27 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData()
-    const file = formData.get('file') as File | null
+    const files = formData.getAll('file') as File[]
 
-    if (!file) {
+    if (files.length === 0) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    // Check file type - only ZIP allowed
-    const isZip = file.name.endsWith('.zip') || file.type === 'application/zip'
-    if (!isZip) {
-      return NextResponse.json({ error: 'ZIP 파일만 가져올 수 있습니다.' }, { status: 400 })
-    }
-
-    // Get category filter (optional)
-    const categoryFilter = formData.get('category') as string | null
-
     const results: ImportResult[] = []
 
-    // Handle ZIP file
-    const arrayBuffer = await file.arrayBuffer()
-    const zip = await JSZip.loadAsync(arrayBuffer)
-
-    // Find category MD files (chat.md, diary.md, schedule.md)
-    const categoryMdFiles = Object.keys(zip.files).filter(name =>
-      name.match(/^[a-z]+\.md$/) && !name.includes('/')
-    )
-
-    if (categoryMdFiles.length === 0) {
-      return NextResponse.json({ error: 'ZIP 파일에 카테고리 MD 파일이 없습니다. (예: chat.md, diary.md)' }, { status: 400 })
-    }
-
-    for (const filename of categoryMdFiles) {
-      // Extract category from filename (chat.md -> chat)
-      const category = filename.replace('.md', '')
-
-      // Apply category filter
-      if (categoryFilter && category !== categoryFilter) {
+    for (const file of files) {
+      // Check file type - only MD allowed
+      const isMd = file.name.endsWith('.md') || file.type === 'text/markdown'
+      if (!isMd) {
+        results.push({
+          key: file.name,
+          status: 'failed',
+          reason: 'not_md_file'
+        })
         continue
       }
 
-      const mdFile = zip.file(filename)
-      if (!mdFile) continue
-
-      const mdContent = await mdFile.async('string')
+      const mdContent = await file.text()
       const parsedPrompts = parseMultiplePromptsFromMd(mdContent)
 
       for (const parsed of parsedPrompts) {
@@ -148,7 +125,7 @@ export async function POST(request: Request) {
           existing.id,
           parsed.content,
           parsed.variables,
-          'Imported from ZIP file',
+          'Imported from MD file',
           auth.userId
         )
 

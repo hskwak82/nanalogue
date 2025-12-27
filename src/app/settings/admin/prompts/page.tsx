@@ -217,22 +217,48 @@ export default function AdminPromptsPage() {
   const handleExport = () => {
     window.location.href = `/api/admin/prompts/export?category=${selectedCategory}`
     const categoryLabel = AI_PROMPT_CATEGORIES[selectedCategory as keyof typeof AI_PROMPT_CATEGORIES]
-    toast.success(`${categoryLabel} 프롬프트가 내보내기되었습니다.`)
+    toast.success(`${categoryLabel}.md 파일이 다운로드됩니다.`)
   }
 
-  const handleExportAll = () => {
-    window.location.href = '/api/admin/prompts/export'
-    toast.success('전체 프롬프트가 내보내기되었습니다.')
+  const handleExportAll = async () => {
+    try {
+      const res = await fetch('/api/admin/prompts/export')
+      const data = await res.json()
+
+      if (data.files) {
+        // Download each MD file
+        for (const [category, content] of Object.entries(data.files)) {
+          const blob = new Blob([content as string], { type: 'text/markdown' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `${category}.md`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+          // Small delay between downloads
+          await new Promise(resolve => setTimeout(resolve, 300))
+        }
+        toast.success(`${Object.keys(data.files).length}개 MD 파일이 다운로드되었습니다.`)
+      }
+    } catch (error) {
+      console.error('Error exporting all prompts:', error)
+      toast.error('내보내기에 실패했습니다.')
+    }
   }
 
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    const files = event.target.files
+    if (!files || files.length === 0) return
 
     setImporting(true)
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      // Support multiple file selection
+      for (let i = 0; i < files.length; i++) {
+        formData.append('file', files[i])
+      }
 
       const res = await fetch('/api/admin/prompts/import', {
         method: 'POST',
@@ -287,7 +313,8 @@ export default function AdminPromptsPage() {
             가져오기
             <input
               type="file"
-              accept=".zip"
+              accept=".md"
+              multiple
               onChange={handleImport}
               className="hidden"
               disabled={importing}

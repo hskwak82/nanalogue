@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin'
 import { getAllPrompts, getPromptsByCategory } from '@/lib/ai-prompts'
-import JSZip from 'jszip'
 import { AI_PROMPT_CATEGORIES, AIPrompt } from '@/types/ai-prompts'
 
 // Generate unified MD content for a category
@@ -27,7 +26,7 @@ function generateCategoryMd(category: string, prompts: AIPrompt[]): string {
   return md
 }
 
-// GET /api/admin/prompts/export - Export prompts as ZIP with unified MD files per category
+// GET /api/admin/prompts/export - Export prompts as MD file(s)
 export async function GET(request: Request) {
   const auth = await checkAdminAuth()
   if (!auth) {
@@ -38,12 +37,21 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
 
-    // Get prompts based on category filter
-    const prompts = category && category !== 'all'
-      ? await getPromptsByCategory(category)
-      : await getAllPrompts()
+    // Single category export - return MD file directly
+    if (category && category !== 'all') {
+      const prompts = await getPromptsByCategory(category)
+      const mdContent = generateCategoryMd(category, prompts)
 
-    const zip = new JSZip()
+      return new Response(mdContent, {
+        headers: {
+          'Content-Type': 'text/markdown; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${category}.md"`
+        }
+      })
+    }
+
+    // All categories - return JSON with all MD contents for frontend to handle
+    const prompts = await getAllPrompts()
 
     // Group prompts by category
     const groupedByCategory = prompts.reduce((acc, p) => {
@@ -52,27 +60,13 @@ export async function GET(request: Request) {
       return acc
     }, {} as Record<string, AIPrompt[]>)
 
-    // Create unified MD file for each category
+    // Generate MD for each category
+    const files: Record<string, string> = {}
     for (const [cat, catPrompts] of Object.entries(groupedByCategory)) {
-      const mdContent = generateCategoryMd(cat, catPrompts)
-      zip.file(`${cat}.md`, mdContent)
+      files[cat] = generateCategoryMd(cat, catPrompts)
     }
 
-    // Generate ZIP as base64 then convert
-    const zipBase64 = await zip.generateAsync({ type: 'base64' })
-    const zipBuffer = Buffer.from(zipBase64, 'base64')
-
-    // Generate filename based on category
-    const filename = category && category !== 'all'
-      ? `nanalogue-prompts-${category}.zip`
-      : 'nanalogue-prompts.zip'
-
-    return new Response(zipBuffer, {
-      headers: {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="${filename}"`
-      }
-    })
+    return NextResponse.json({ files })
   } catch (error) {
     console.error('Error exporting prompts:', error)
     return NextResponse.json({ error: 'Failed to export prompts' }, { status: 500 })
