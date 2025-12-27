@@ -6,6 +6,8 @@ import { Calendar } from './Calendar'
 import { AddScheduleModal } from './AddScheduleModal'
 import { Toast } from './Toast'
 
+import type { ThumbnailCropData } from '@/types/database'
+
 interface DiaryEntry {
   entry_date: string
   status?: string
@@ -19,10 +21,17 @@ interface GoogleEvent {
   isAllDay: boolean
 }
 
+interface SessionImage {
+  date: string
+  imageUrl: string
+  cropData?: ThumbnailCropData | null | unknown
+}
+
 interface CalendarWidgetProps {
   entries: DiaryEntry[]
   isConnected: boolean
   googleEvents?: GoogleEvent[]
+  sessionImages?: SessionImage[]
   onConnect?: () => void
 }
 
@@ -30,6 +39,7 @@ export function CalendarWidget({
   entries,
   isConnected: initialIsConnected,
   googleEvents: initialGoogleEvents = [],
+  sessionImages = [],
   onConnect,
 }: CalendarWidgetProps) {
   const router = useRouter()
@@ -257,6 +267,11 @@ export function CalendarWidget({
         googleEvents={googleEvents}
         selectedDate={selectedDate}
         onMonthChange={handleMonthChange}
+        sessionImages={sessionImages.map(img => ({
+          date: img.date,
+          imageUrl: img.imageUrl,
+          cropData: img.cropData as ThumbnailCropData | null | undefined,
+        }))}
       />
 
       {/* Connection status - needs reconnection */}

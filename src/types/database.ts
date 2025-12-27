@@ -85,6 +85,7 @@ export interface Database {
           completed_at: string | null
           created_at: string
           session_image_url: string | null
+          thumbnail_crop_data: Json | null
         }
         Insert: {
           id?: string
@@ -97,6 +98,7 @@ export interface Database {
           completed_at?: string | null
           created_at?: string
           session_image_url?: string | null
+          thumbnail_crop_data?: Json | null
         }
         Update: {
           id?: string
@@ -109,6 +111,7 @@ export interface Database {
           completed_at?: string | null
           created_at?: string
           session_image_url?: string | null
+          thumbnail_crop_data?: Json | null
         }
       }
       diary_entries: {
@@ -432,4 +435,18 @@ export interface ScheduleDetectionResult {
   hasSchedule: boolean
   schedules: ParsedSchedule[]
   followUpQuestion?: string  // question to ask for missing info
+}
+
+// Thumbnail crop data for calendar display
+export type ThumbnailCropType = 'center' | 'manual' | 'smart'
+
+export interface ThumbnailCropData {
+  type: ThumbnailCropType
+  crop: {
+    x: number      // 0-100 (percentage)
+    y: number
+    width: number
+    height: number
+  }
+  thumbnail_url?: string  // Pre-generated thumbnail URL (optional)
 }

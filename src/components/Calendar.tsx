@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
+import { CalendarThumbnail } from '@/components/calendar/CalendarThumbnail'
+import type { ThumbnailCropData } from '@/types/database'
 
 interface DiaryEntry {
   entry_date: string
   status?: string
+}
+
+interface SessionImage {
+  date: string
+  imageUrl: string
+  cropData?: ThumbnailCropData | null
 }
 
 interface CalendarProps {
@@ -13,12 +21,29 @@ interface CalendarProps {
   googleEvents?: { date: string; title: string }[]
   selectedDate?: string | null
   onMonthChange?: (year: number, month: number) => void
+  sessionImages?: SessionImage[]
+  onImageEdit?: (date: string, imageUrl: string) => void
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDate, onMonthChange }: CalendarProps) {
+export function Calendar({
+  entries,
+  onDateSelect,
+  googleEvents = [],
+  selectedDate,
+  onMonthChange,
+  sessionImages = [],
+  onImageEdit,
+}: CalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [hoveredImage, setHoveredImage] = useState<{
+    imageUrl: string
+    date: string
+    position: { x: number; y: number }
+    size: number
+  } | null>(null)
+  const calendarRef = useRef<HTMLDivElement>(null)
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -32,6 +57,49 @@ export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDat
   const googleEventDates = useMemo(() => {
     return new Set(googleEvents.map((e) => e.date))
   }, [googleEvents])
+
+  // Get session images as a Map for quick lookup
+  const sessionImageMap = useMemo(() => {
+    const map = new Map<string, SessionImage>()
+    sessionImages.forEach((img) => map.set(img.date, img))
+    return map
+  }, [sessionImages])
+
+  // Handle image hover - position based on day of week
+  const handleImageHover = (e: React.MouseEvent, imageUrl: string, date: string, dayOfWeek: number) => {
+    if (!calendarRef.current) return
+    const rect = calendarRef.current.getBoundingClientRect()
+    const cellRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+
+    // Larger preview on desktop (window width > 768)
+    const isDesktop = window.innerWidth > 768
+    const previewWidth = isDesktop ? 320 : 192
+    const previewHeight = isDesktop ? 320 : 192
+
+    let x: number
+    let y: number
+
+    // Position based on day of week:
+    // Sun(0), Mon(1), Tue(2) -> show on RIGHT
+    // Thu(4), Fri(5), Sat(6) -> show on LEFT
+    // Wed(3) -> show on RIGHT (default)
+    if (dayOfWeek >= 4) {
+      // Thursday, Friday, Saturday -> show on LEFT
+      x = cellRect.left - rect.left - previewWidth - 12
+    } else {
+      // Sunday, Monday, Tuesday, Wednesday -> show on RIGHT
+      x = cellRect.right - rect.left + 12
+    }
+
+    // Center vertically relative to cell
+    y = cellRect.top - rect.top - previewHeight / 2 + cellRect.height / 2
+
+    // Adjust if would go off top or bottom
+    if (y < 0) y = 8
+    if (y + previewHeight > rect.height) y = rect.height - previewHeight - 8
+
+    setHoveredImage({ imageUrl, date, position: { x, y }, size: previewWidth })
+  }
 
   // Get calendar grid data
   const calendarDays = useMemo(() => {
@@ -92,7 +160,7 @@ export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDat
   }
 
   return (
-    <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 shadow-sm border border-pastel-pink/30">
+    <div ref={calendarRef} className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 shadow-sm border border-pastel-pink/30 relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button
@@ -134,12 +202,13 @@ export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDat
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((day, index) => {
           if (day === null) {
-            return <div key={`empty-${index}`} className="aspect-square" />
+            return <div key={`empty-${index}`} className="aspect-[4/5]" />
           }
 
           const dateStr = formatDateString(day)
           const hasDiary = entryDates.has(dateStr)
           const hasGoogleEvent = googleEventDates.has(dateStr)
+          const sessionImage = sessionImageMap.get(dateStr)
           const isTodayDate = isToday(day)
           const isSelected = selectedDate === dateStr
           const dayOfWeek = (index % 7)
@@ -149,30 +218,70 @@ export function Calendar({ entries, onDateSelect, googleEvents = [], selectedDat
               key={day}
               onClick={() => handleDateClick(day)}
               className={`
-                aspect-square flex flex-col items-center justify-center rounded-lg text-sm
-                transition-all relative
+                aspect-[4/5] flex flex-col items-center justify-center rounded-lg text-sm
+                transition-all relative overflow-hidden
                 ${isSelected ? 'ring-2 ring-pastel-purple-dark bg-pastel-purple-light' : ''}
                 ${isTodayDate && !isSelected ? 'ring-2 ring-pastel-purple font-bold' : ''}
-                ${hasDiary && !isSelected ? 'bg-pastel-mint-light text-gray-700 hover:bg-pastel-mint' : ''}
+                ${hasDiary && !isSelected && !sessionImage ? 'bg-pastel-mint-light text-gray-700 hover:bg-pastel-mint' : ''}
                 ${!hasDiary && !isSelected ? 'hover:bg-pastel-pink-light' : ''}
                 ${dayOfWeek === 0 ? 'text-red-400' : dayOfWeek === 6 ? 'text-blue-400' : 'text-gray-600'}
                 ${!hasDiary && !isTodayDate && !isSelected ? 'hover:text-pastel-purple-dark' : ''}
               `}
             >
-              <span>{day}</span>
-              {/* Indicators */}
-              <div className="flex gap-0.5 mt-0.5">
-                {hasDiary && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-pastel-purple" />
-                )}
-                {hasGoogleEvent && !hasDiary && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-pastel-peach" />
-                )}
-              </div>
+              {/* Session image thumbnail - fills entire cell */}
+              {sessionImage ? (
+                <>
+                  <CalendarThumbnail
+                    imageUrl={sessionImage.imageUrl}
+                    cropData={sessionImage.cropData}
+                    className="absolute inset-0 w-full h-full"
+                    onMouseEnter={(e) => handleImageHover(e, sessionImage.imageUrl, dateStr, dayOfWeek)}
+                    onMouseLeave={() => setHoveredImage(null)}
+                    onClick={() => onImageEdit?.(dateStr, sessionImage.imageUrl)}
+                  />
+                  {/* Date number badge */}
+                  <span className="absolute top-1 left-1 z-10 min-w-[18px] h-[18px] flex items-center justify-center rounded bg-black/50 text-[10px] font-bold text-white px-1">
+                    {day}
+                  </span>
+                </>
+              ) : (
+                <>
+                  {/* Date number */}
+                  <span>{day}</span>
+                  {/* Indicators for non-image entries */}
+                  <div className="flex gap-0.5 mt-0.5">
+                    {hasDiary && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-pastel-purple" />
+                    )}
+                    {hasGoogleEvent && !hasDiary && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-pastel-peach" />
+                    )}
+                  </div>
+                </>
+              )}
             </button>
           )
         })}
       </div>
+
+      {/* Hover preview popover */}
+      {hoveredImage && (
+        <div
+          className="absolute z-50 rounded-xl shadow-xl overflow-hidden border-2 border-white bg-white pointer-events-none"
+          style={{
+            left: hoveredImage.position.x,
+            top: hoveredImage.position.y,
+            width: hoveredImage.size,
+            height: hoveredImage.size,
+          }}
+        >
+          <img
+            src={hoveredImage.imageUrl}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 mt-4 text-xs text-gray-500">
