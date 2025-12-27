@@ -52,6 +52,7 @@ function SessionPageContent() {
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
   const [inputModeLoaded, setInputModeLoaded] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
+  const [pendingEndConfirmation, setPendingEndConfirmation] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -766,6 +767,7 @@ function SessionPageContent() {
             endDate: pendingSchedule.endDate,
             missingFields: pendingSchedule.missingFields,
           } : undefined,
+          pendingEndConfirmation,
         }),
       })
 
@@ -782,6 +784,9 @@ function SessionPageContent() {
         const updatedMessages = [...currentMessages, aiMessage]
         setMessages(updatedMessages)
         setQuestionCount((prev) => prev + 1)
+
+        // Update pending end confirmation state from response
+        setPendingEndConfirmation(data.pendingEndConfirmation === true)
 
         // Save to database
         await supabase
@@ -863,15 +868,11 @@ function SessionPageContent() {
         .update({ raw_conversation: currentMessages })
         .eq('id', sessionId)
 
-      // Check if we should end session (after 5-7 questions)
-      if (questionCount >= 6) {
-        await handleSessionComplete(currentMessages)
-      } else {
-        await generateNextQuestion(currentMessages)
-      }
+      // Let AI decide when to end via shouldEnd flag (with confirmation flow)
+      await generateNextQuestion(currentMessages)
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [input, loading, messages, sessionId, questionCount, supabase, stt]
+    [input, loading, messages, sessionId, questionCount, supabase, stt, pendingEndConfirmation]
   )
 
   // Update ref for voice callback

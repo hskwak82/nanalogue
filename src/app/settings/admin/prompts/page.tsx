@@ -84,6 +84,7 @@ export default function AdminPromptsPage() {
   const [fullTestQuestionCount, setFullTestQuestionCount] = useState(0)
   const [fullTestEnded, setFullTestEnded] = useState(false)
   const [generatingPreset, setGeneratingPreset] = useState<string | null>(null)
+  const [fullTestPendingEndConfirmation, setFullTestPendingEndConfirmation] = useState(false)
 
   const fetchPrompts = useCallback(async () => {
     setLoading(true)
@@ -437,6 +438,7 @@ export default function AdminPromptsPage() {
     setFullTestQuestionCount(0)
     setFullTestEnded(false)
     setFullTestLoading(true)
+    setFullTestPendingEndConfirmation(false)
 
     try {
       // Get initial greeting
@@ -481,6 +483,7 @@ export default function AdminPromptsPage() {
         body: JSON.stringify({
           messages: updatedMessages,
           questionCount: fullTestQuestionCount,
+          pendingEndConfirmation: fullTestPendingEndConfirmation,
         }),
       })
 
@@ -491,6 +494,9 @@ export default function AdminPromptsPage() {
         { role: 'assistant', content: data.question },
       ])
       setFullTestQuestionCount(prev => prev + 1)
+
+      // Track pending end confirmation state
+      setFullTestPendingEndConfirmation(data.pendingEndConfirmation === true)
 
       if (data.shouldEnd) {
         setFullTestEnded(true)
@@ -616,6 +622,7 @@ AI의 질문: "${lastAiMessage}"
           body: JSON.stringify({
             messages: updatedMessages,
             questionCount: fullTestQuestionCount,
+            pendingEndConfirmation: fullTestPendingEndConfirmation,
           }),
         })
 
@@ -626,6 +633,9 @@ AI의 질문: "${lastAiMessage}"
           { role: 'assistant', content: aiData.question },
         ])
         setFullTestQuestionCount(prev => prev + 1)
+
+        // Track pending end confirmation state
+        setFullTestPendingEndConfirmation(aiData.pendingEndConfirmation === true)
 
         if (aiData.shouldEnd) {
           setFullTestEnded(true)

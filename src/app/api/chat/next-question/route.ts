@@ -13,12 +13,34 @@ interface PendingScheduleInput {
   missingFields?: string[]
 }
 
+// Patterns that indicate user wants to end the conversation
+// Using [.!?]* at the end to allow optional punctuation
+const END_CONFIRMATION_PATTERNS = [
+  /^(없어|없어요|없습니다|없어용)[.!?]*$/,
+  /^(아니|아니요|아닙니다|아니용)[.!?]*$/,
+  /^(그게\s*다야|그게\s*다예요|그게\s*다입니다|그게\s*다)[.!?]*$/,
+  /^(됐어|됐어요|됐습니다|됐어용)[.!?]*$/,
+  /^(끝|끝이야|끝이에요|끝입니다)[.!?]*$/,
+  /^(네|응|그래|그래요|좋아|좋아요|넵|넹|웅)[.!?]*$/, // Short affirmative to "더 이야기할 거 있어요?" means "no more"
+  /^(괜찮아|괜찮아요|괜찮습니다)[.!?]*$/,
+  /^(이제\s*(끝|됐어|마무리))[.!?]*/, // "이제 끝", "이제 됐어"
+  /^(더\s*(없어|없어요))[.!?]*$/, // "더 없어", "더 없어요"
+  /^(딱히\s*(없어|없어요))[.!?]*$/, // "딱히 없어"
+]
+
+function isEndConfirmation(message: string): boolean {
+  // Normalize: trim whitespace and remove trailing periods/spaces
+  const trimmed = message.trim().replace(/[\s.!?]+$/, '')
+  return END_CONFIRMATION_PATTERNS.some(pattern => pattern.test(trimmed))
+}
+
 export async function POST(request: Request) {
   try {
-    const { messages, questionCount, pendingSchedule } = await request.json() as {
+    const { messages, questionCount, pendingSchedule, pendingEndConfirmation } = await request.json() as {
       messages: ConversationMessage[]
       questionCount: number
       pendingSchedule?: PendingScheduleInput
+      pendingEndConfirmation?: boolean
     }
 
     // Get the current AI provider
@@ -56,33 +78,35 @@ ${greetingTemplate}
       })
     }
 
-    // Closing message with personality applied
-    if (questionCount >= 7) {
+    // Safety fallback: if conversation goes too long, end it (very rare case)
+    if (questionCount >= 15) {
       const closingTemplate = await getPromptContent('chat.closing')
-
-      const closingPrompt = `${personality}
-
-다음 마무리 인사 템플릿을 참고하여 위 성격에 맞는 자연스러운 마무리 인사를 생성하세요:
----
-${closingTemplate}
----
-
-주의사항:
-- 템플릿의 의도를 유지하되, 위 성격에 맞게 말투와 표현을 조절하세요
-- 이모지는 사용하지 마세요 (TTS용)
-- 한 문장 또는 두 문장으로 간결하게 작성하세요
-- JSON이 아닌 순수 텍스트로 응답하세요`
-
-      const closing = await generateWithProvider(provider, {
-        messages: [{ role: 'user', content: closingPrompt }],
-      })
-
       return NextResponse.json({
-        question: closing.trim(),
+        question: closingTemplate.trim(),
         purpose: 'closing',
         shouldEnd: true,
         provider,
       })
+    }
+
+    // Handle pending end confirmation state
+    // If we previously asked "더 이야기하고 싶은 게 있어요?" and waiting for response
+    if (pendingEndConfirmation) {
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop()
+
+      if (lastUserMessage && isEndConfirmation(lastUserMessage.content)) {
+        // User confirmed they're done - actually end the conversation
+        const closingTemplate = await getPromptContent('chat.closing')
+        return NextResponse.json({
+          question: closingTemplate.trim(),
+          purpose: 'closing',
+          shouldEnd: true,
+          pendingEndConfirmation: false,
+          provider,
+        })
+      }
+      // User provided new content - continue conversation, reset pending state
+      // Fall through to normal conversation logic
     }
 
     console.log(`[chat/next-question] Using AI provider: ${provider}`)
@@ -213,10 +237,25 @@ ${conversationContext}
       question = cleanedResponse || question
     }
 
+    // Intercept first shouldEnd: true and ask confirmation instead
+    // Only do this if we're not already waiting for confirmation
+    if (shouldEnd && !pendingEndConfirmation) {
+      return NextResponse.json({
+        question: '혹시 더 이야기하고 싶은 게 있어요?',
+        purpose: 'end_confirmation',
+        shouldEnd: false,
+        pendingEndConfirmation: true,
+        detectedSchedules,
+        updatedPendingSchedule,
+        provider,
+      })
+    }
+
     return NextResponse.json({
       question: question.trim(),
       purpose: 'conversation',
       shouldEnd,
+      pendingEndConfirmation: false,
       detectedSchedules,
       updatedPendingSchedule,
       provider,
