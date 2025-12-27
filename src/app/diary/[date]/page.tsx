@@ -1,10 +1,15 @@
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
-import { DiaryActions } from './DiaryActions'
 import { DiaryPaper } from '@/components/diary/DiaryPaper'
 import type { PaperTemplate, PlacedDecoration } from '@/types/customization'
+
+// Dynamic import to ensure client-side only rendering with providers
+const DiaryActions = dynamic(() => import('./DiaryActions').then(mod => ({ default: mod.DiaryActions })), {
+  ssr: false,
+})
 
 interface DiaryDetailPageProps {
   params: Promise<{ date: string }>
