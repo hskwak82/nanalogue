@@ -736,7 +736,8 @@ function SessionPageContent() {
           })
 
           if (!uploadResponse.ok) {
-            console.error('Failed to upload session image')
+            const errorData = await uploadResponse.json().catch(() => ({}))
+            console.error('Failed to upload session image:', errorData.error || uploadResponse.status)
             // Continue without image if upload fails
           }
 
