@@ -50,6 +50,8 @@ function SessionPageContent() {
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
   const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
+  const [inputModeLoaded, setInputModeLoaded] = useState(false)
+  const [conversationStarted, setConversationStarted] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -112,8 +114,8 @@ function SessionPageContent() {
     // Don't auto-play if completing session (about to redirect)
     if (isCompleting) return
 
-    // Don't auto-play while still checking mode
-    if (checkingMode) return
+    // Don't auto-play while still checking mode or loading input mode preference
+    if (checkingMode || !inputModeLoaded) return
 
     if (messages.length > 0 && tts.isEnabled) {
       const lastMessage = messages[messages.length - 1]
@@ -122,7 +124,7 @@ function SessionPageContent() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, loading, isCompleting, conversationMode, checkingMode, inputMode])
+  }, [messages.length, loading, isCompleting, conversationMode, checkingMode, inputMode, inputModeLoaded])
 
   // STT 결과를 입력창에 반영
   useEffect(() => {
@@ -203,6 +205,35 @@ function SessionPageContent() {
     }
     checkMode()
   }, [])
+
+  // Load user's input mode preference (independent of conversation mode)
+  useEffect(() => {
+    if (checkingMode) return
+
+    async function loadInputMode() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setInputModeLoaded(true)
+        return
+      }
+
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('input_mode')
+        .eq('user_id', user.id)
+        .single()
+
+      if (preferences?.input_mode) {
+        setInputMode(preferences.input_mode as 'voice' | 'text')
+        if (preferences.input_mode === 'text') {
+          tts.setEnabled(false)
+        }
+      }
+      setInputModeLoaded(true)
+    }
+
+    loadInputMode()
+  }, [checkingMode, supabase, tts])
 
   // Initialize session for realtime mode
   useEffect(() => {
@@ -490,9 +521,14 @@ function SessionPageContent() {
     // Don't initialize classic session until mode check is complete
     if (checkingMode) return
 
-    // Skip if already initialized or if we're in realtime mode
+    // Wait for input mode to be loaded
+    if (!inputModeLoaded) return
+
+    // Skip if already initialized
     if (initialized) return
-    if (conversationMode === 'realtime') return
+
+    // Skip if realtime mode AND not text mode (text mode uses classic UI even when system is realtime)
+    if (conversationMode === 'realtime' && inputMode !== 'text') return
 
     setInitialized(true)
 
@@ -511,24 +547,15 @@ function SessionPageContent() {
       .eq('id', user.id)
       .single()
 
-    // Fetch user's voice preference and input mode
+    // Fetch user's voice preference (input mode is loaded by separate useEffect)
     const { data: preferences } = await supabase
       .from('user_preferences')
-      .select('tts_voice, input_mode')
+      .select('tts_voice')
       .eq('user_id', user.id)
       .single()
 
     if (preferences?.tts_voice) {
       setUserVoice(preferences.tts_voice)
-    }
-
-    // Set input mode from user preferences (default: voice)
-    if (preferences?.input_mode) {
-      setInputMode(preferences.input_mode as 'voice' | 'text')
-      // If text mode, disable TTS auto-play
-      if (preferences.input_mode === 'text') {
-        tts.setEnabled(false)
-      }
     }
 
     // Check if calendar is connected
@@ -588,6 +615,10 @@ function SessionPageContent() {
       setQuestionCount(
         conversation?.filter((m) => m.role === 'assistant').length || 0
       )
+      // Resume existing conversation
+      if (conversation && conversation.length > 0) {
+        setConversationStarted(true)
+      }
     } else {
       // Create new session
       const { data: newSession, error } = await supabase
@@ -640,46 +671,54 @@ function SessionPageContent() {
       }
 
       setSessionId(currentSessionId)
-
-      // Start with greeting - fetch directly
-      setLoading(true)
-      try {
-        const response = await fetch('/api/chat/next-question', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [],
-            questionCount: 0,
-          }),
-        })
-        const data = await response.json()
-        if (data.question) {
-          const aiMessage: ConversationMessage = {
-            role: 'assistant',
-            content: data.question,
-            timestamp: new Date().toISOString(),
-            purpose: data.purpose,
-          }
-          setMessages([aiMessage])
-          setQuestionCount(1)
-
-          // Save to database
-          await supabase
-            .from('daily_sessions')
-            .update({ raw_conversation: [aiMessage] })
-            .eq('id', currentSessionId)
-        }
-      } catch (error) {
-        console.error('Failed to generate question:', error)
-      } finally {
-        setLoading(false)
-      }
+      // Don't auto-start - wait for user to click "대화 시작" button
     }
-  }, [initialized, router, supabase, checkingMode, conversationMode])
+  }, [initialized, router, supabase, checkingMode, conversationMode, inputMode, inputModeLoaded])
 
   useEffect(() => {
     initializeSession()
   }, [initializeSession])
+
+  // Start conversation - fetch AI greeting
+  const handleStartConversation = useCallback(async () => {
+    if (!sessionId) return
+
+    setConversationStarted(true)
+    setLoading(true)
+
+    try {
+      const response = await fetch('/api/chat/next-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [],
+          questionCount: 0,
+        }),
+      })
+      const data = await response.json()
+      if (data.question) {
+        const aiMessage: ConversationMessage = {
+          role: 'assistant',
+          content: data.question,
+          timestamp: new Date().toISOString(),
+          purpose: data.purpose,
+        }
+        setMessages([aiMessage])
+        setQuestionCount(1)
+
+        // Save to database
+        await supabase
+          .from('daily_sessions')
+          .update({ raw_conversation: [aiMessage] })
+          .eq('id', sessionId)
+      }
+    } catch (error) {
+      console.error('Failed to start conversation:', error)
+      setError('대화 시작에 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }, [sessionId, supabase])
 
   // Helper function to add schedule to calendar
   async function addScheduleToCalendar(schedule: ParsedSchedule) {
@@ -917,7 +956,7 @@ function SessionPageContent() {
     setError(null)
 
     try {
-      // Generate diary
+      // Generate diary (streaming response)
       const response = await fetch('/api/diary/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -936,25 +975,50 @@ function SessionPageContent() {
         return
       }
 
-      const data = await response.json()
+      // Handle SSE streaming response
+      const reader = response.body?.getReader()
+      if (!reader) {
+        throw new Error('No response body')
+      }
 
-      if (data.success) {
-        // Update session status
-        await supabase
-          .from('daily_sessions')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-          })
-          .eq('id', sessionId)
+      const decoder = new TextDecoder()
+      let completed = false
 
-        // Redirect to diary
-        const today = new Date().toISOString().split('T')[0]
-        router.push(`/diary/${today}`)
-      } else {
-        // Show error message
-        setError(data.error || '일기 생성에 실패했습니다.')
-        setIsCompleting(false) // Reset so user can retry
+      while (!completed) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+
+              if (data.type === 'done') {
+                completed = true
+                // Update session status
+                await supabase
+                  .from('daily_sessions')
+                  .update({
+                    status: 'completed',
+                    completed_at: new Date().toISOString(),
+                  })
+                  .eq('id', sessionId)
+
+                // Redirect to diary
+                const today = new Date().toISOString().split('T')[0]
+                router.push(`/diary/${today}`)
+              } else if (data.type === 'error') {
+                setError(data.message || '일기 생성에 실패했습니다.')
+                setIsCompleting(false)
+              }
+            } catch {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to complete session:', error)
@@ -965,8 +1029,8 @@ function SessionPageContent() {
     }
   }
 
-  // Show loading while checking mode
-  if (checkingMode) {
+  // Show loading while checking mode or loading input mode preference
+  if (checkingMode || !inputModeLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-pastel-cream">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pastel-purple"></div>
@@ -998,8 +1062,8 @@ function SessionPageContent() {
     )
   }
 
-  // Realtime mode - use dedicated component
-  if (conversationMode === 'realtime') {
+  // Realtime mode - use dedicated component (but skip if text mode is selected)
+  if (conversationMode === 'realtime' && inputMode !== 'text') {
     // Show loading while checking session or generating diary
     if (realtimeLoading || !realtimeSessionId) {
       return (
@@ -1270,7 +1334,55 @@ function SessionPageContent() {
         </div>
       )}
 
-      {/* Messages */}
+      {/* Start Conversation Button - show before conversation starts */}
+      {!conversationStarted && sessionId && !loading && (
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
+          <div className="text-center space-y-6">
+            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto">
+              {inputMode === 'voice' ? (
+                <MicrophoneIcon className="h-12 w-12 text-white" />
+              ) : (
+                <ChatBubbleLeftIcon className="h-12 w-12 text-white" />
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                {inputMode === 'voice' ? '음성 대화' : '텍스트 대화'}
+              </h2>
+              <p className="text-gray-500 mb-6">
+                버튼을 누르면 AI가 대화를 시작해요
+              </p>
+              <button
+                onClick={handleStartConversation}
+                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+              >
+                대화 시작
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Loading state before conversation starts */}
+      {!conversationStarted && loading && (
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
+          <div className="text-center space-y-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center animate-pulse mx-auto">
+              {inputMode === 'voice' ? (
+                <MicrophoneIcon className="h-10 w-10 text-white" />
+              ) : (
+                <ChatBubbleLeftIcon className="h-10 w-10 text-white" />
+              )}
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              대화 준비 중...
+            </h2>
+          </div>
+        </div>
+      )}
+
+      {/* Messages - only show after conversation started */}
+      {conversationStarted && (
       <div className="flex-1 overflow-y-auto px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-4">
           {messages.map((message, index) => (
@@ -1325,8 +1437,10 @@ function SessionPageContent() {
           <div ref={messagesEndRef} />
         </div>
       </div>
+      )}
 
-      {/* Input */}
+      {/* Input - only show after conversation started */}
+      {conversationStarted && (
       <div className="border-t border-pastel-pink bg-white/80 backdrop-blur-sm p-4">
         <div className="mx-auto max-w-2xl">
           {/* 녹음 중 표시 */}
@@ -1383,6 +1497,7 @@ function SessionPageContent() {
           )}
         </div>
       </div>
+      )}
 
       {/* Toast for schedule notifications */}
       {toast && (
