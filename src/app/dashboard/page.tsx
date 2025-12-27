@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   const [profileResult, sessionsResult, diaryEntriesResult, calendarTokenResult, diariesResult] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase.from('daily_sessions').select('*').eq('user_id', user.id).order('session_date', { ascending: false }).limit(7),
-    supabase.from('diary_entries').select('entry_date').eq('user_id', user.id),
+    supabase.from('diary_entries').select('entry_date, session_id').eq('user_id', user.id),
     supabase.from('calendar_tokens').select('id').eq('user_id', user.id).eq('provider', 'google').maybeSingle(),
     supabase.from('diaries').select('*, cover_templates(*)').eq('user_id', user.id).order('volume_number', { ascending: true }),
   ])
@@ -36,6 +36,28 @@ export default async function DashboardPage() {
   const diaryEntries = diaryEntriesResult.data
   const isCalendarConnected = !!calendarTokenResult.data
   const diariesData = diariesResult.data
+
+  // Fetch session images for diary entries that have sessions with images
+  const sessionIdsWithEntries = diaryEntries
+    ?.filter(e => e.session_id)
+    .map(e => e.session_id as string) || []
+
+  let sessionImages: { date: string; imageUrl: string; cropData: unknown }[] = []
+  if (sessionIdsWithEntries.length > 0) {
+    const { data: sessionsWithImages } = await supabase
+      .from('daily_sessions')
+      .select('id, session_date, session_image_url, thumbnail_crop_data')
+      .in('id', sessionIdsWithEntries)
+      .not('session_image_url', 'is', null)
+
+    if (sessionsWithImages) {
+      sessionImages = sessionsWithImages.map(s => ({
+        date: s.session_date,
+        imageUrl: s.session_image_url!,
+        cropData: s.thumbnail_crop_data,
+      }))
+    }
+  }
 
   // Google Calendar events are now loaded client-side by CalendarWidget for faster initial render
 
@@ -97,6 +119,7 @@ export default async function DashboardPage() {
             <CalendarWidget
               entries={diaryEntries?.map((e) => ({ entry_date: e.entry_date })) || []}
               isConnected={isCalendarConnected}
+              sessionImages={sessionImages}
             />
           }
           todayEventCount={todayDiaryCount}
