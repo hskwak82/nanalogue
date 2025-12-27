@@ -561,6 +561,85 @@ ${fullTestMessages.map(m => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`)
     }
   }
 
+  // Auto conversation - generate simple response and send automatically
+  const handleAutoResponse = async () => {
+    if (fullTestMessages.length === 0 || fullTestLoading || fullTestEnded) return
+
+    setGeneratingPreset('auto')
+
+    // Get the last AI message (question)
+    const lastAiMessage = fullTestMessages
+      .filter(m => m.role === 'assistant')
+      .pop()?.content || ''
+
+    try {
+      const res = await fetch('/api/admin/prompts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `당신은 일기 앱의 테스트 사용자입니다. AI의 질문에 자연스럽게 답변하세요.
+
+규칙:
+- 1-2문장으로 짧고 간단하게 답변
+- 실제 대화처럼 자연스럽게
+- 가끔 미래 일정을 언급 (내일 약속, 다음주 회의 등)
+- 감정을 자연스럽게 표현
+
+대화 맥락:
+${fullTestMessages.map(m => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`).join('\n')}
+
+AI의 질문: "${lastAiMessage}"
+
+짧은 답변:`,
+          testInput: '답변을 생성해주세요.',
+          variables: {},
+        }),
+      })
+
+      const data = await res.json()
+      if (data.response) {
+        // Auto-send the response
+        const userMessage = data.response.trim()
+        setGeneratingPreset(null)
+        setFullTestLoading(true)
+
+        const updatedMessages: ConversationMessage[] = [
+          ...fullTestMessages,
+          { role: 'user', content: userMessage },
+        ]
+        setFullTestMessages(updatedMessages)
+
+        // Get AI response
+        const aiRes = await fetch('/api/chat/next-question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: updatedMessages,
+            questionCount: fullTestQuestionCount,
+          }),
+        })
+
+        const aiData = await aiRes.json()
+
+        setFullTestMessages([
+          ...updatedMessages,
+          { role: 'assistant', content: aiData.question },
+        ])
+        setFullTestQuestionCount(prev => prev + 1)
+
+        if (aiData.shouldEnd) {
+          setFullTestEnded(true)
+        }
+      }
+    } catch (error) {
+      console.error('Error in auto response:', error)
+      toast.error('자동 응답 생성에 실패했습니다.')
+    } finally {
+      setGeneratingPreset(null)
+      setFullTestLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -923,7 +1002,19 @@ ${fullTestMessages.map(m => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`)
 
             {/* Input Area */}
             <div className="border-t border-gray-200 px-6 py-4 bg-gray-50 shrink-0">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAutoResponse}
+                  disabled={fullTestLoading || fullTestEnded || generatingPreset !== null}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {generatingPreset === 'auto' ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                  ) : (
+                    <PlayIcon className="h-4 w-4" />
+                  )}
+                  자동 대화
+                </button>
                 <input
                   type="text"
                   value={fullTestInput}
@@ -934,26 +1025,26 @@ ${fullTestMessages.map(m => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`)
                       handleSendFullTestMessage()
                     }
                   }}
-                  placeholder={fullTestEnded ? '대화가 종료되었습니다' : '메시지를 입력하세요...'}
+                  placeholder={fullTestEnded ? '대화가 종료되었습니다' : '직접 입력...'}
                   disabled={fullTestLoading || fullTestEnded}
                   className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
                 />
                 <button
                   onClick={handleSendFullTestMessage}
                   disabled={fullTestLoading || fullTestEnded || !fullTestInput.trim()}
-                  className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center justify-center w-10 h-10 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                 >
                   <PaperAirplaneIcon className="h-5 w-5" />
                 </button>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="text-xs text-gray-400 mr-1">자동 생성:</span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-400">스타일 지정:</span>
                 {['일상 대화', '감정 표현', '일정 언급', '짧은 응답'].map((label) => (
                   <button
                     key={label}
                     onClick={() => handlePresetClick(label)}
                     disabled={fullTestLoading || fullTestEnded || generatingPreset !== null}
-                    className="px-3 py-1 text-xs rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
+                    className="px-2.5 py-1 text-xs rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
                   >
                     {generatingPreset === label && (
                       <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent" />
