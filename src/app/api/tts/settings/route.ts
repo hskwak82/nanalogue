@@ -25,11 +25,12 @@ export async function GET() {
     let userVoice: string | null = null
     let userSpeakingRate: number | null = null
     let userRealtimeVoice: string | null = null
+    let userInputMode: 'voice' | 'text' = 'voice'
 
     if (user) {
       const { data: userPrefs } = await supabase
         .from('user_preferences')
-        .select('tts_voice, tts_speaking_rate, realtime_voice')
+        .select('tts_voice, tts_speaking_rate, realtime_voice, input_mode')
         .eq('user_id', user.id)
         .single()
 
@@ -38,6 +39,7 @@ export async function GET() {
         userSpeakingRate = userPrefs.tts_speaking_rate ?? null
         userRealtimeVoice = userPrefs.realtime_voice || null
       }
+      userInputMode = userPrefs?.input_mode || 'voice'
     }
 
     // Effective settings (user override or system default)
@@ -62,6 +64,7 @@ export async function GET() {
         voice: userVoice,
         speakingRate: userSpeakingRate,
         realtimeVoice: userRealtimeVoice,
+        inputMode: userInputMode,
       } : null,
       effective: {
         voice: effectiveVoice,
@@ -89,7 +92,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json()
-    const { voice, speakingRate, realtimeVoice } = body
+    const { voice, speakingRate, realtimeVoice, inputMode } = body
 
     // Build update object
     const updateData: Record<string, unknown> = {
@@ -138,6 +141,14 @@ export async function PATCH(request: Request) {
       }
     }
 
+    // Validate input mode if provided
+    if (inputMode !== undefined) {
+      if (inputMode !== null && !['voice', 'text'].includes(inputMode)) {
+        return NextResponse.json({ error: 'Invalid input mode' }, { status: 400 })
+      }
+      updateData.input_mode = inputMode
+    }
+
     // Upsert user preferences
     const { error } = await supabase
       .from('user_preferences')
@@ -152,6 +163,7 @@ export async function PATCH(request: Request) {
       voice: updateData.tts_voice,
       speakingRate: updateData.tts_speaking_rate,
       realtimeVoice: updateData.realtime_voice,
+      inputMode: updateData.input_mode,
     })
   } catch (error) {
     console.error('Error updating TTS settings:', error)

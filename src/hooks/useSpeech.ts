@@ -128,10 +128,18 @@ export function useTTS(options: UseTTSOptions = {}) {
     setIsEnabled((prev) => !prev)
   }, [])
 
+  const setEnabled = useCallback((enabled: boolean) => {
+    setIsEnabled(enabled)
+    if (!enabled) {
+      stop()
+    }
+  }, [stop])
+
   return {
     speak,
     stop,
     toggle,
+    setEnabled,
     isSpeaking,
     isLoading,
     isEnabled,

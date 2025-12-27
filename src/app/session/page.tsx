@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useTTS, useSTT } from '@/hooks/useSpeech'
 import { VoiceInput, SpeakerToggle, PlayButton } from '@/components/VoiceInput'
+import { MicrophoneIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
@@ -48,6 +49,7 @@ function SessionPageContent() {
   const [streamingStatus, setStreamingStatus] = useState('')
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
   const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
+  const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -99,10 +101,13 @@ function SessionPageContent() {
     }
   }, [loading])
 
-  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생 (classic 모드에서만)
+  // TTS 자동 재생: AI 메시지가 추가되면 자동 재생 (classic 모드 + voice 모드에서만)
   useEffect(() => {
     // Don't auto-play in realtime mode (uses its own audio)
     if (conversationMode === 'realtime') return
+
+    // Don't auto-play in text mode
+    if (inputMode === 'text') return
 
     // Don't auto-play if completing session (about to redirect)
     if (isCompleting) return
@@ -117,7 +122,7 @@ function SessionPageContent() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, loading, isCompleting, conversationMode, checkingMode])
+  }, [messages.length, loading, isCompleting, conversationMode, checkingMode, inputMode])
 
   // STT 결과를 입력창에 반영
   useEffect(() => {
@@ -154,7 +159,7 @@ function SessionPageContent() {
     [playingMessageIndex, tts]
   )
 
-  // TTS가 끝나면 재생 상태 초기화 및 자동으로 STT 시작
+  // TTS가 끝나면 재생 상태 초기화 및 자동으로 STT 시작 (voice 모드에서만)
   const wasSpeakingRef = useRef(false)
   useEffect(() => {
     // TTS가 끝났을 때 (speaking -> not speaking)
@@ -163,8 +168,8 @@ function SessionPageContent() {
       if (playingMessageIndex !== null) {
         setPlayingMessageIndex(null)
       }
-      // 자동으로 마이크 입력 시작 (TTS 활성화 상태이고, 로딩 중이 아닐 때)
-      if (tts.isEnabled && stt.isSupported && !loading && !stt.isListening) {
+      // 자동으로 마이크 입력 시작 (voice 모드이고, TTS 활성화 상태이고, 로딩 중이 아닐 때)
+      if (inputMode === 'voice' && tts.isEnabled && stt.isSupported && !loading && !stt.isListening) {
         // 이전 녹음이 전송된 경우 입력창 초기화
         if (stt.wasSent()) {
           setInput('')
@@ -173,7 +178,7 @@ function SessionPageContent() {
       }
     }
     wasSpeakingRef.current = tts.isSpeaking
-  }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex])
+  }, [tts.isSpeaking, tts.isEnabled, stt, loading, playingMessageIndex, inputMode])
 
   // Clean up any lingering audio/media on mount
   useEffect(() => {
@@ -506,15 +511,24 @@ function SessionPageContent() {
       .eq('id', user.id)
       .single()
 
-    // Fetch user's voice preference
+    // Fetch user's voice preference and input mode
     const { data: preferences } = await supabase
       .from('user_preferences')
-      .select('tts_voice')
+      .select('tts_voice, input_mode')
       .eq('user_id', user.id)
       .single()
 
     if (preferences?.tts_voice) {
       setUserVoice(preferences.tts_voice)
+    }
+
+    // Set input mode from user preferences (default: voice)
+    if (preferences?.input_mode) {
+      setInputMode(preferences.input_mode as 'voice' | 'text')
+      // If text mode, disable TTS auto-play
+      if (preferences.input_mode === 'text') {
+        tts.setEnabled(false)
+      }
     }
 
     // Check if calendar is connected
@@ -1189,13 +1203,51 @@ function SessionPageContent() {
             </button>
             <h1 className="text-lg font-semibold text-gray-700">오늘의 대화</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <SpeakerToggle
-              isEnabled={tts.isEnabled}
-              isSupported={tts.isSupported}
-              isSpeaking={tts.isSpeaking}
-              onToggle={tts.toggle}
-            />
+          <div className="flex items-center gap-2">
+            {/* Input Mode Toggle */}
+            <button
+              onClick={() => {
+                const newMode = inputMode === 'voice' ? 'text' : 'voice'
+                setInputMode(newMode)
+                // Mode switch: sync TTS state
+                if (newMode === 'text') {
+                  tts.stop()
+                  stt.stopListening()
+                  tts.setEnabled(false)
+                } else {
+                  tts.setEnabled(true)
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-all ${
+                inputMode === 'voice'
+                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+              title={inputMode === 'voice' ? '음성 대화 모드' : '텍스트 대화 모드'}
+            >
+              {inputMode === 'voice' ? (
+                <>
+                  <MicrophoneIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">음성</span>
+                </>
+              ) : (
+                <>
+                  <ChatBubbleLeftIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">텍스트</span>
+                </>
+              )}
+            </button>
+
+            {/* SpeakerToggle: voice mode only */}
+            {inputMode === 'voice' && (
+              <SpeakerToggle
+                isEnabled={tts.isEnabled}
+                isSupported={tts.isSupported}
+                isSpeaking={tts.isSpeaking}
+                onToggle={tts.toggle}
+              />
+            )}
+
             <span className="text-sm text-pastel-purple-dark">
               {questionCount}/7 질문
             </span>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { PlayIcon, SpeakerWaveIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, SpeakerWaveIcon, MicrophoneIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { BoltIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid'
 
 interface TTSVoice {
@@ -35,6 +35,7 @@ interface TTSSettings {
     voice: string | null
     speakingRate: number | null
     realtimeVoice: string | null
+    inputMode: 'voice' | 'text'
   } | null
   effective: {
     voice: string
@@ -53,6 +54,7 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null)
   const [selectedRate, setSelectedRate] = useState<number | null>(null)
   const [selectedRealtimeVoice, setSelectedRealtimeVoice] = useState<string | null>(null)
+  const [selectedInputMode, setSelectedInputMode] = useState<'voice' | 'text'>('voice')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
@@ -73,6 +75,7 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
       setSelectedVoice(data.userSettings?.voice ?? null)
       setSelectedRate(data.userSettings?.speakingRate ?? null)
       setSelectedRealtimeVoice(data.userSettings?.realtimeVoice ?? null)
+      setSelectedInputMode(data.userSettings?.inputMode ?? 'voice')
     } catch (error) {
       console.error('Error fetching TTS settings:', error)
       setMessage({ type: 'error', text: '설정을 불러오는데 실패했습니다.' })
@@ -86,10 +89,12 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
     const originalVoice = settings.userSettings?.voice ?? null
     const originalRate = settings.userSettings?.speakingRate ?? null
     const originalRealtimeVoice = settings.userSettings?.realtimeVoice ?? null
+    const originalInputMode = settings.userSettings?.inputMode ?? 'voice'
     return (
       selectedVoice !== originalVoice ||
       selectedRate !== originalRate ||
-      selectedRealtimeVoice !== originalRealtimeVoice
+      selectedRealtimeVoice !== originalRealtimeVoice ||
+      selectedInputMode !== originalInputMode
     )
   }
 
@@ -110,6 +115,7 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
           voice: selectedVoice,
           speakingRate: selectedRate,
           realtimeVoice: selectedRealtimeVoice,
+          inputMode: selectedInputMode,
         }),
       })
 
@@ -219,6 +225,50 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
             </span>
           </>
         )}
+      </div>
+
+      {/* Input Mode Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-500 mb-2">
+          대화 입력 방식
+        </label>
+        <p className="text-xs text-gray-400 mb-3">
+          새로운 일기 세션 시작 시 기본으로 적용됩니다.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div
+            onClick={() => setSelectedInputMode('voice')}
+            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+              selectedInputMode === 'voice'
+                ? 'border-pastel-purple bg-pastel-purple-light'
+                : 'border-gray-200 hover:border-pastel-pink'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <MicrophoneIcon className="h-5 w-5 text-pastel-purple" />
+              <span className="font-medium text-gray-700">음성 대화</span>
+            </div>
+            <p className="text-xs text-gray-500">
+              AI 응답을 자동으로 읽어주고, 음성으로 답변할 수 있어요.
+            </p>
+          </div>
+          <div
+            onClick={() => setSelectedInputMode('text')}
+            className={`p-4 rounded-xl border cursor-pointer transition-all ${
+              selectedInputMode === 'text'
+                ? 'border-pastel-purple bg-pastel-purple-light'
+                : 'border-gray-200 hover:border-pastel-pink'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <ChatBubbleLeftIcon className="h-5 w-5 text-pastel-purple" />
+              <span className="font-medium text-gray-700">텍스트 대화</span>
+            </div>
+            <p className="text-xs text-gray-500">
+              텍스트로 조용히 대화해요. 필요할 때만 음성을 사용할 수 있어요.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Realtime Voice Selection (for realtime mode) */}
