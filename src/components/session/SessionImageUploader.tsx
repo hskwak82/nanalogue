@@ -12,7 +12,7 @@ interface SessionImageUploaderProps {
   className?: string
 }
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (will be compressed)
 const MAX_DIMENSION = 1024 // Resize for API cost optimization
 
 export function SessionImageUploader({
@@ -37,7 +37,7 @@ export function SessionImageUploader({
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        setError('파일 크기는 5MB 이하여야 합니다.')
+        setError('파일 크기는 10MB 이하여야 합니다.')
         return
       }
 
@@ -195,7 +195,7 @@ export function SessionImageUploader({
               </p>
             </div>
             <span className="text-xs text-gray-400">
-              JPG, PNG, WebP (최대 5MB)
+              JPG, PNG, WebP (최대 10MB)
             </span>
           </>
         )}
