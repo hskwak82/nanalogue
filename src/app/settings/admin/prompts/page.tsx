@@ -11,6 +11,8 @@ import {
   ArrowUturnLeftIcon,
   XMarkIcon,
   CheckIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
 } from '@heroicons/react/24/outline'
 
 export default function AdminPromptsPage() {
@@ -28,6 +30,7 @@ export default function AdminPromptsPage() {
   const [testInput, setTestInput] = useState('')
   const [testResult, setTestResult] = useState('')
   const [showTestModal, setShowTestModal] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const fetchPrompts = useCallback(async () => {
     setLoading(true)
@@ -193,6 +196,50 @@ export default function AdminPromptsPage() {
     }
   }
 
+  const handleExport = () => {
+    // Direct download - server handles filename via Content-Disposition
+    const categoryParam = selectedCategory === 'all' ? '' : `?category=${selectedCategory}`
+    window.location.href = `/api/admin/prompts/export${categoryParam}`
+    const categoryLabel = selectedCategory === 'all' ? '전체' : getCategoryLabel(selectedCategory)
+    toast.success(`${categoryLabel} 프롬프트가 내보내기되었습니다.`)
+  }
+
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setImporting(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (selectedCategory !== 'all') {
+        formData.append('category', selectedCategory)
+      }
+
+      const res = await fetch('/api/admin/prompts/import', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to import')
+      }
+
+      const categoryLabel = selectedCategory === 'all' ? '전체' : getCategoryLabel(selectedCategory)
+      toast.success(`${categoryLabel} 가져오기 완료: ${data.updated}개 업데이트, ${data.skipped}개 스킵, ${data.failed}개 실패`)
+      fetchPrompts()
+    } catch (error) {
+      console.error('Error importing prompts:', error)
+      toast.error(error instanceof Error ? error.message : '가져오기에 실패했습니다.')
+    } finally {
+      setImporting(false)
+      // Reset the input
+      event.target.value = ''
+    }
+  }
+
   const getCategoryLabel = (category: string) => {
     const found = AI_PROMPT_CATEGORY_LIST.find(c => c.value === category)
     return found?.label || category
@@ -212,13 +259,37 @@ export default function AdminPromptsPage() {
             AI 대화의 성격, 스타일, 규칙을 설정합니다.
           </p>
         </div>
-        <button
-          onClick={handleClearCache}
-          className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-        >
-          <ArrowPathIcon className="h-4 w-4" />
-          캐시 초기화
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
+            <ArrowDownTrayIcon className="h-4 w-4" />
+            내보내기
+          </button>
+          <label className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 cursor-pointer">
+            {importing ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-600 border-t-transparent" />
+            ) : (
+              <ArrowUpTrayIcon className="h-4 w-4" />
+            )}
+            가져오기
+            <input
+              type="file"
+              accept=".zip,.json"
+              onChange={handleImport}
+              className="hidden"
+              disabled={importing}
+            />
+          </label>
+          <button
+            onClick={handleClearCache}
+            className="flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            캐시 초기화
+          </button>
+        </div>
       </div>
 
       {/* Category Tabs */}

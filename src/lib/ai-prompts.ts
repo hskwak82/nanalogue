@@ -334,3 +334,34 @@ export function clearPromptCache(): void {
 export function clearPromptFromCache(key: AIPromptKey): void {
   promptCache.delete(key)
 }
+
+/**
+ * Get a single prompt by key (for admin operations, bypasses cache)
+ */
+export async function getPromptByKey(key: string): Promise<AIPrompt | null> {
+  try {
+    const supabase = getServiceClient()
+    const { data, error } = await supabase
+      .from('ai_prompts')
+      .select('*')
+      .eq('prompt_key', key)
+      .single()
+
+    if (error) {
+      console.error(`Error fetching prompt by key ${key}:`, error)
+      return null
+    }
+
+    if (data) {
+      return {
+        ...data,
+        variables: Array.isArray(data.variables) ? data.variables : []
+      } as AIPrompt
+    }
+
+    return null
+  } catch (error) {
+    console.error(`Error fetching prompt by key ${key}:`, error)
+    return null
+  }
+}
