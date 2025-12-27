@@ -9,6 +9,7 @@ import { MicrophoneIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
+import { SessionImageUploader } from '@/components/session/SessionImageUploader'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 import type { ConversationMode } from '@/lib/realtime/types'
 import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
@@ -53,6 +54,10 @@ function SessionPageContent() {
   const [inputModeLoaded, setInputModeLoaded] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
   const [pendingEndConfirmation, setPendingEndConfirmation] = useState(false)
+  // Session image states for image-based conversation start
+  const [sessionImageFile, setSessionImageFile] = useState<File | null>(null)
+  const [sessionImagePreview, setSessionImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -680,7 +685,32 @@ function SessionPageContent() {
     initializeSession()
   }, [initializeSession])
 
-  // Start conversation - fetch AI greeting
+  // Convert file to base64 data URL
+  const fileToDataUrl = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // Handle image selection
+  const handleImageSelected = useCallback((file: File, previewUrl: string) => {
+    setSessionImageFile(file)
+    setSessionImagePreview(previewUrl)
+  }, [])
+
+  // Handle image removal
+  const handleImageRemoved = useCallback(() => {
+    if (sessionImagePreview) {
+      URL.revokeObjectURL(sessionImagePreview)
+    }
+    setSessionImageFile(null)
+    setSessionImagePreview(null)
+  }, [sessionImagePreview])
+
+  // Start conversation - fetch AI greeting (with optional image analysis)
   const handleStartConversation = useCallback(async () => {
     if (!sessionId) return
 
@@ -688,12 +718,45 @@ function SessionPageContent() {
     setLoading(true)
 
     try {
+      let imageDataUrl: string | undefined
+
+      // If image is selected, upload it first and convert to base64 for AI
+      if (sessionImageFile) {
+        setUploadingImage(true)
+
+        try {
+          // Upload to storage
+          const formData = new FormData()
+          formData.append('file', sessionImageFile)
+          formData.append('session_id', sessionId)
+
+          const uploadResponse = await fetch('/api/session/upload-image', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!uploadResponse.ok) {
+            console.error('Failed to upload session image')
+            // Continue without image if upload fails
+          }
+
+          // Convert to base64 for Vision API
+          imageDataUrl = await fileToDataUrl(sessionImageFile)
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError)
+          // Continue without image if upload fails
+        } finally {
+          setUploadingImage(false)
+        }
+      }
+
       const response = await fetch('/api/chat/next-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [],
           questionCount: 0,
+          imageDataUrl,
         }),
       })
       const data = await response.json()
@@ -719,7 +782,7 @@ function SessionPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [sessionId, supabase])
+  }, [sessionId, supabase, sessionImageFile, fileToDataUrl])
 
   // Helper function to add schedule to calendar
   async function addScheduleToCalendar(schedule: ParsedSchedule) {
@@ -1201,6 +1264,7 @@ function SessionPageContent() {
         <div className="flex-1">
           <RealtimeSession
             onComplete={handleRealtimeComplete}
+            sessionId={realtimeSessionId}
           />
         </div>
       </div>
@@ -1338,27 +1402,41 @@ function SessionPageContent() {
       {/* Start Conversation Button - show before conversation starts */}
       {!conversationStarted && sessionId && !loading && (
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
-          <div className="text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto">
-              {inputMode === 'voice' ? (
-                <MicrophoneIcon className="h-12 w-12 text-white" />
-              ) : (
-                <ChatBubbleLeftIcon className="h-12 w-12 text-white" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <div className="w-full max-w-md space-y-6">
+            {/* Header Icon */}
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto mb-4">
+                {inputMode === 'voice' ? (
+                  <MicrophoneIcon className="h-10 w-10 text-white" />
+                ) : (
+                  <ChatBubbleLeftIcon className="h-10 w-10 text-white" />
+                )}
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">
                 {inputMode === 'voice' ? '음성 대화' : '텍스트 대화'}
               </h2>
-              <p className="text-gray-500 mb-6">
-                버튼을 누르면 AI가 대화를 시작해요
-              </p>
+            </div>
+
+            {/* Image Upload Section */}
+            <SessionImageUploader
+              onImageSelected={handleImageSelected}
+              onImageRemoved={handleImageRemoved}
+              previewUrl={sessionImagePreview}
+              disabled={uploadingImage}
+            />
+
+            {/* Start Button */}
+            <div className="text-center">
               <button
                 onClick={handleStartConversation}
-                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                disabled={uploadingImage}
+                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
               >
-                대화 시작
+                {uploadingImage ? '이미지 업로드 중...' : '대화 시작'}
               </button>
+              <p className="text-sm text-gray-400 mt-3">
+                {sessionImagePreview ? '사진이 대화에 반영됩니다' : '버튼을 누르면 AI가 대화를 시작해요'}
+              </p>
             </div>
           </div>
         </div>

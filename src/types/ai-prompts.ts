@@ -31,6 +31,8 @@ export type AIPromptCategory = 'chat' | 'diary' | 'schedule'
 export type AIPromptKey =
   | 'chat.personality'
   | 'chat.greeting'
+  | 'chat.image_greeting'
+  | 'chat.image_analysis'
   | 'chat.closing'
   | 'chat.phase_early'
   | 'chat.phase_mid'
@@ -66,6 +68,27 @@ export const DEFAULT_PROMPTS: Record<AIPromptKey, string> = {
 5. 이모지나 특수문자는 사용하지 마세요 (음성으로 읽힙니다)`,
 
   'chat.greeting': '안녕하세요! 오늘 하루는 어떠셨나요? 편하게 이야기해 주세요.',
+
+  'chat.image_greeting': `사용자가 오늘 하루를 기록하기 위해 사진을 공유했습니다.
+
+이 사진을 보고:
+1. 사진에서 보이는 상황, 장소, 분위기를 자연스럽게 언급하세요
+2. 사용자의 감정이나 경험에 공감하는 반응을 보이세요
+3. 이 사진과 관련된 이야기를 자연스럽게 이끌어낼 수 있는 질문을 하세요
+
+따뜻하고 친근한 말투로, 사진에 대한 호기심과 공감을 표현하면서 대화를 시작하세요.
+이모지는 사용하지 마세요.
+한두 문장으로 간결하게 응답하세요.`,
+
+  'chat.image_analysis': `이 사진을 분석하여 사용자가 오늘 경험했을 것 같은 상황을 설명해주세요.
+
+분석할 내용:
+1. 사진에 보이는 장소, 사물, 분위기
+2. 사진을 통해 추측할 수 있는 사용자의 활동이나 경험
+3. 대화를 시작할 때 자연스럽게 언급할 수 있는 포인트
+
+응답은 한두 문장으로 간결하게 작성하세요.
+이모지는 사용하지 마세요.`,
 
   'chat.closing': '오늘 이야기 나눠주셔서 감사해요. 이제 말씀해주신 내용을 바탕으로 오늘의 일기를 작성해 드릴게요.',
 
