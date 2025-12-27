@@ -10,7 +10,7 @@ import {
   CheckIcon,
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
-  EyeIcon,
+  ClipboardDocumentIcon,
 } from '@heroicons/react/24/outline'
 
 // Prompt order for each category
@@ -355,6 +355,17 @@ export default function AdminPromptsPage() {
               </button>
               {isEditing ? (
                 <>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(editContent)
+                      toast.success('클립보드에 복사되었습니다.')
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                    title="MD 내용 복사"
+                  >
+                    <ClipboardDocumentIcon className="h-3.5 w-3.5" />
+                    복사
+                  </button>
                   <button
                     onClick={handleCancelEdit}
                     className="flex items-center gap-1.5 rounded-lg bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
