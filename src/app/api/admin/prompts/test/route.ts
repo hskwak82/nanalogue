@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin'
 import { getAIProvider, generateWithProvider } from '@/lib/ai/provider'
+import { getPromptContent } from '@/lib/ai-prompts'
 
 // POST /api/admin/prompts/test - Test prompt with sample data
 export async function POST(request: Request) {
@@ -10,7 +11,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { content, testInput, variables } = await request.json()
+    const { content, testInput, variables, promptKey } = await request.json()
 
     if (!content || typeof content !== 'string') {
       return NextResponse.json({ error: 'Content is required' }, { status: 400 })
@@ -32,10 +33,17 @@ export async function POST(request: Request) {
     // Get AI provider
     const provider = await getAIProvider()
 
+    // For chat prompts (except personality itself), prepend personality
+    let systemPrompt = processedContent
+    if (promptKey && promptKey.startsWith('chat.') && promptKey !== 'chat.personality') {
+      const personality = await getPromptContent('chat.personality')
+      systemPrompt = `${personality}\n\n---\n\n${processedContent}`
+    }
+
     // Generate test response
     const response = await generateWithProvider(provider, {
       messages: [
-        { role: 'system', content: processedContent },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: testInput || '테스트 입력입니다.' },
       ],
     })
@@ -43,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       provider,
-      processedContent,
+      processedContent: systemPrompt,
       response,
     })
   } catch (error) {

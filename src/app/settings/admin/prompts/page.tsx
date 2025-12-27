@@ -33,11 +33,11 @@ const TEST_PRESETS: Record<string, Array<{ label: string; input: string }>> = {
   ],
 }
 
-// Prompt order for each category
+// Prompt order for each category (personality first as base style)
 const PROMPT_ORDER: Record<string, string[]> = {
   chat: [
-    'chat.greeting',
     'chat.personality',
+    'chat.greeting',
     'chat.phase_early',
     'chat.phase_mid',
     'chat.phase_late',
@@ -392,6 +392,7 @@ export default function AdminPromptsPage() {
           content: prompt.content,
           testInput,
           variables: sampleVariables,
+          promptKey: prompt.prompt_key,
         }),
       })
 
