@@ -120,7 +120,7 @@ export default function AdminPromptsPage() {
         }
       }
 
-      const contentMatch = trimmed.match(/### 프롬프트 내용\s*\n\s*```\n([\s\S]*?)\n```/)
+      const contentMatch = trimmed.match(/### 프롬프트 내용\s*\n+```\n([\s\S]*?)\n```/)
       if (!contentMatch) continue
 
       parsed.push({
