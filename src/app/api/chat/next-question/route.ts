@@ -21,28 +21,70 @@ export async function POST(request: Request) {
       pendingSchedule?: PendingScheduleInput
     }
 
-    // First greeting (no emoji for TTS)
-    if (questionCount === 0) {
-      const greeting = await getPromptContent('chat.greeting')
-      return NextResponse.json({
-        question: greeting,
-        purpose: 'greeting',
-        shouldEnd: false,
-      })
-    }
-
-    // Closing message after enough conversation
-    if (questionCount >= 7) {
-      const closing = await getPromptContent('chat.closing')
-      return NextResponse.json({
-        question: closing,
-        purpose: 'closing',
-        shouldEnd: true,
-      })
-    }
-
     // Get the current AI provider
     const provider = await getAIProvider()
+
+    // Load personality prompt (used for all responses)
+    const personality = await getPromptContent('chat.personality')
+
+    // First greeting with personality applied
+    if (questionCount === 0) {
+      const greetingTemplate = await getPromptContent('chat.greeting')
+
+      const greetingPrompt = `${personality}
+
+다음 인사말 템플릿을 참고하여 위 성격에 맞는 자연스러운 첫 인사를 생성하세요:
+---
+${greetingTemplate}
+---
+
+주의사항:
+- 템플릿의 의도를 유지하되, 위 성격에 맞게 말투와 표현을 조절하세요
+- 이모지는 사용하지 마세요 (TTS용)
+- 한 문장 또는 두 문장으로 간결하게 작성하세요
+- JSON이 아닌 순수 텍스트로 응답하세요`
+
+      const greeting = await generateWithProvider(provider, {
+        messages: [{ role: 'user', content: greetingPrompt }],
+      })
+
+      return NextResponse.json({
+        question: greeting.trim(),
+        purpose: 'greeting',
+        shouldEnd: false,
+        provider,
+      })
+    }
+
+    // Closing message with personality applied
+    if (questionCount >= 7) {
+      const closingTemplate = await getPromptContent('chat.closing')
+
+      const closingPrompt = `${personality}
+
+다음 마무리 인사 템플릿을 참고하여 위 성격에 맞는 자연스러운 마무리 인사를 생성하세요:
+---
+${closingTemplate}
+---
+
+주의사항:
+- 템플릿의 의도를 유지하되, 위 성격에 맞게 말투와 표현을 조절하세요
+- 이모지는 사용하지 마세요 (TTS용)
+- 한 문장 또는 두 문장으로 간결하게 작성하세요
+- JSON이 아닌 순수 텍스트로 응답하세요`
+
+      const closing = await generateWithProvider(provider, {
+        messages: [{ role: 'user', content: closingPrompt }],
+      })
+
+      return NextResponse.json({
+        question: closing.trim(),
+        purpose: 'closing',
+        shouldEnd: true,
+        provider,
+      })
+    }
+
     console.log(`[chat/next-question] Using AI provider: ${provider}`)
 
     // Generate natural conversational response
@@ -82,8 +124,7 @@ export async function POST(request: Request) {
 `
     }
 
-    // Load prompts from DB
-    const personality = await getPromptContent('chat.personality')
+    // Load remaining prompts from DB (personality already loaded above)
     const scheduleDetection = await getPromptContent('chat.schedule_detection', { today })
     const responseFormat = await getPromptContent('chat.response_format')
 
