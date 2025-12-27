@@ -84,6 +84,7 @@ export interface Database {
           started_at: string
           completed_at: string | null
           created_at: string
+          session_image_url: string | null
         }
         Insert: {
           id?: string
@@ -95,6 +96,7 @@ export interface Database {
           started_at?: string
           completed_at?: string | null
           created_at?: string
+          session_image_url?: string | null
         }
         Update: {
           id?: string
@@ -106,6 +108,7 @@ export interface Database {
           started_at?: string
           completed_at?: string | null
           created_at?: string
+          session_image_url?: string | null
         }
       }
       diary_entries: {

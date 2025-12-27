@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server'
-import { getAIProvider, generateWithProvider } from '@/lib/ai/provider'
+import { getAIProvider, generateWithProvider, generateVisionWithProvider } from '@/lib/ai/provider'
 import { getPromptContent } from '@/lib/ai-prompts'
 import type { ConversationMessage, ParsedSchedule } from '@/types/database'
+
+// Default prompt for image-based greeting (fallback if not in DB)
+const DEFAULT_IMAGE_GREETING_PROMPT = `사용자가 오늘 하루를 기록하기 위해 사진을 공유했습니다.
+
+이 사진을 보고:
+1. 사진에서 보이는 상황, 장소, 분위기를 자연스럽게 언급하세요
+2. 사용자의 감정이나 경험에 공감하는 반응을 보이세요
+3. 이 사진과 관련된 이야기를 자연스럽게 이끌어낼 수 있는 질문을 하세요
+
+따뜻하고 친근한 말투로, 사진에 대한 호기심과 공감을 표현하면서 대화를 시작하세요.
+이모지는 사용하지 마세요.
+한두 문장으로 간결하게 응답하세요.`
 
 interface PendingScheduleInput {
   id: string
@@ -36,11 +48,12 @@ function isEndConfirmation(message: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    const { messages, questionCount, pendingSchedule, pendingEndConfirmation } = await request.json() as {
+    const { messages, questionCount, pendingSchedule, pendingEndConfirmation, imageDataUrl } = await request.json() as {
       messages: ConversationMessage[]
       questionCount: number
       pendingSchedule?: PendingScheduleInput
       pendingEndConfirmation?: boolean
+      imageDataUrl?: string // base64 data URL for image analysis
     }
 
     // Get the current AI provider
@@ -51,6 +64,40 @@ export async function POST(request: Request) {
 
     // First greeting with personality applied
     if (questionCount === 0) {
+      // If image is provided, use Vision API for image-based greeting
+      if (imageDataUrl) {
+        console.log(`[chat/next-question] Using Vision API for image analysis with provider: ${provider}`)
+
+        // Try to get image greeting prompt from DB, fallback to default
+        let imageGreetingPrompt: string
+        try {
+          imageGreetingPrompt = await getPromptContent('chat.image_greeting')
+        } catch {
+          imageGreetingPrompt = DEFAULT_IMAGE_GREETING_PROMPT
+        }
+
+        const visionPrompt = `${personality}
+
+${imageGreetingPrompt}`
+
+        const imageGreeting = await generateVisionWithProvider(provider, {
+          messages: [
+            { role: 'system', content: personality },
+            { role: 'user', content: imageGreetingPrompt },
+          ],
+          imageUrl: imageDataUrl,
+        })
+
+        return NextResponse.json({
+          question: imageGreeting.trim(),
+          purpose: 'greeting',
+          shouldEnd: false,
+          hasImage: true,
+          provider,
+        })
+      }
+
+      // Standard greeting without image
       const greetingTemplate = await getPromptContent('chat.greeting')
 
       const greetingPrompt = `${personality}

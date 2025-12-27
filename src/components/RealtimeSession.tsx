@@ -8,10 +8,13 @@ import { MicrophoneIcon, XMarkIcon } from '@heroicons/react/24/solid'
 import { DocumentTextIcon } from '@heroicons/react/24/outline'
 import { SpeakerWaveIcon, SpeakerXMarkIcon } from '@heroicons/react/24/outline'
 import { cleanupWebRTC, stopAllMicrophones, blockConnections, allowConnections } from '@/lib/webrtc-cleanup'
+import { SessionImageUploader } from '@/components/session/SessionImageUploader'
+import { compressImage } from '@/lib/image/compress'
 
 interface RealtimeSessionProps {
   onComplete?: (messages: Array<{ role: 'user' | 'assistant'; content: string }>) => void
   onCancel?: () => void
+  sessionId?: string
 }
 
 interface TranscriptMessage {
@@ -20,7 +23,7 @@ interface TranscriptMessage {
   timestamp: Date
 }
 
-export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) {
+export function RealtimeSession({ onComplete, onCancel, sessionId }: RealtimeSessionProps) {
   const router = useRouter()
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([])
   const [currentUserText, setCurrentUserText] = useState('')
@@ -29,6 +32,11 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
   const [conversationStarted, setConversationStarted] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
   const transcriptsEndRef = useRef<HTMLDivElement>(null)
+  // Image upload states
+  const [sessionImageFile, setSessionImageFile] = useState<File | null>(null)
+  const [sessionImagePreview, setSessionImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageContext, setImageContext] = useState<string | null>(null)
 
   // Track if disconnect was triggered (to prevent reconnection)
   const isDisconnecting = useRef(false)
@@ -209,13 +217,76 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
     isDisconnecting.current = false
   }, [])
 
-  // Handle start conversation button click - connect then start
+  // Convert file to base64 data URL
+  const fileToDataUrl = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // Handle image selection
+  const handleImageSelected = useCallback((file: File, previewUrl: string) => {
+    setSessionImageFile(file)
+    setSessionImagePreview(previewUrl)
+  }, [])
+
+  // Handle image removal
+  const handleImageRemoved = useCallback(() => {
+    if (sessionImagePreview) {
+      URL.revokeObjectURL(sessionImagePreview)
+    }
+    setSessionImageFile(null)
+    setSessionImagePreview(null)
+    setImageContext(null)
+  }, [sessionImagePreview])
+
+  // Handle start conversation button click - analyze image first if provided, then connect
   const handleStartConversation = useCallback(async () => {
     console.log('[RealtimeSession] Starting conversation')
     setConnectionError(null)
+
+    // If image is selected, analyze it first
+    if (sessionImageFile && sessionId) {
+      setUploadingImage(true)
+      try {
+        // Upload image to storage
+        const formData = new FormData()
+        formData.append('file', sessionImageFile)
+        formData.append('session_id', sessionId)
+
+        await fetch('/api/session/upload-image', {
+          method: 'POST',
+          body: formData,
+        })
+
+        // Analyze image using Vision API to get context for Realtime session
+        const imageDataUrl = await fileToDataUrl(sessionImageFile)
+
+        const analysisResponse = await fetch('/api/chat/analyze-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageDataUrl }),
+        })
+
+        if (analysisResponse.ok) {
+          const analysisData = await analysisResponse.json()
+          setImageContext(analysisData.context)
+          console.log('[RealtimeSession] Image analyzed:', analysisData.context?.substring(0, 100))
+        }
+      } catch (error) {
+        console.error('[RealtimeSession] Image analysis error:', error)
+        // Continue without image context if analysis fails
+      } finally {
+        setUploadingImage(false)
+      }
+    }
+
     setConversationStarted(true)
     await realtime.connect()
-  }, [realtime])
+  }, [realtime, sessionImageFile, sessionId, fileToDataUrl])
 
   // Trigger AI greeting when connection becomes ready
   useEffect(() => {
@@ -317,41 +388,58 @@ export function RealtimeSession({ onComplete, onCancel }: RealtimeSessionProps) 
 
       {/* Conversation Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-pastel-cream-light">
-        {/* State 1: Initial - show start button */}
+        {/* State 1: Initial - show start button with image upload */}
         {!conversationStarted && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg">
-              <MicrophoneIcon className="h-12 w-12 text-white" />
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                실시간 음성 대화
-              </h2>
-              {connectionError ? (
-                <div className="space-y-4">
-                  <p className="text-red-500 max-w-sm text-sm">
-                    오류: {connectionError}
-                  </p>
-                  <button
-                    onClick={handleStartConversation}
-                    className="px-8 py-4 rounded-full bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-                  >
-                    다시 시도
-                  </button>
+          <div className="flex flex-col items-center justify-center h-full px-4">
+            <div className="w-full max-w-md space-y-6">
+              {/* Header Icon */}
+              <div className="text-center">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto mb-4">
+                  <MicrophoneIcon className="h-10 w-10 text-white" />
                 </div>
-              ) : (
-                <>
-                  <p className="text-gray-500 mb-6">
-                    버튼을 누르면 AI가 대화를 시작해요
-                  </p>
-                  <button
-                    onClick={handleStartConversation}
-                    className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
-                  >
-                    대화 시작
-                  </button>
-                </>
-              )}
+                <h2 className="text-xl font-semibold text-gray-900">
+                  실시간 음성 대화
+                </h2>
+              </div>
+
+              {/* Image Upload Section */}
+              <SessionImageUploader
+                onImageSelected={handleImageSelected}
+                onImageRemoved={handleImageRemoved}
+                previewUrl={sessionImagePreview}
+                disabled={uploadingImage}
+              />
+
+              {/* Start Button */}
+              <div className="text-center">
+                {connectionError ? (
+                  <div className="space-y-4">
+                    <p className="text-red-500 max-w-sm text-sm mx-auto">
+                      오류: {connectionError}
+                    </p>
+                    <button
+                      onClick={handleStartConversation}
+                      disabled={uploadingImage}
+                      className="px-8 py-4 rounded-full bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+                    >
+                      다시 시도
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={handleStartConversation}
+                      disabled={uploadingImage}
+                      className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                    >
+                      {uploadingImage ? '이미지 분석 중...' : '대화 시작'}
+                    </button>
+                    <p className="text-sm text-gray-400 mt-3">
+                      {sessionImagePreview ? '사진이 대화에 반영됩니다' : '버튼을 누르면 AI가 대화를 시작해요'}
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

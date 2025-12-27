@@ -9,6 +9,7 @@ import { MicrophoneIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
 import { SpeakingText } from '@/components/SpeakingText'
 import { Toast } from '@/components/Toast'
 import { RealtimeSession } from '@/components/RealtimeSession'
+import { SessionImageUploader } from '@/components/session/SessionImageUploader'
 import type { ConversationMessage, ParsedSchedule, PendingSchedule } from '@/types/database'
 import type { ConversationMode } from '@/lib/realtime/types'
 import { cleanupWebRTC } from '@/lib/webrtc-cleanup'
@@ -38,6 +39,7 @@ function SessionPageContent() {
   const [isCompleting, setIsCompleting] = useState(false)
   const [showRestartConfirm, setShowRestartConfirm] = useState(false)
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null)
+  const [existingSessionIsCompleted, setExistingSessionIsCompleted] = useState(false)
   const [isCalendarConnected, setIsCalendarConnected] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null)
   const [pendingSchedule, setPendingSchedule] = useState<PendingSchedule | null>(null)
@@ -49,10 +51,15 @@ function SessionPageContent() {
   const [streamingStatus, setStreamingStatus] = useState('')
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
   const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
+  const [realtimeSessionKey, setRealtimeSessionKey] = useState(0) // Force remount on restart
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
   const [inputModeLoaded, setInputModeLoaded] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
   const [pendingEndConfirmation, setPendingEndConfirmation] = useState(false)
+  // Session image states for image-based conversation start
+  const [sessionImageFile, setSessionImageFile] = useState<File | null>(null)
+  const [sessionImagePreview, setSessionImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -292,10 +299,14 @@ function SessionPageContent() {
     setRealtimeLoading(true)
 
     try {
-      // Reset session to active state
+      // Reset session to active state and clear previous image
       await supabase
         .from('daily_sessions')
-        .update({ status: 'active', completed_at: null })
+        .update({
+          status: 'active',
+          completed_at: null,
+          session_image_url: null,
+        })
         .eq('id', realtimeSessionId)
 
       // Delete existing diary entry for today
@@ -312,6 +323,7 @@ function SessionPageContent() {
       console.error('Failed to restart session:', error)
     } finally {
       setRealtimeLoading(false)
+      setRealtimeSessionKey(prev => prev + 1) // Force RealtimeSession remount
     }
   }
 
@@ -603,23 +615,21 @@ function SessionPageContent() {
     }
 
     if (existingSession) {
-      // If completed, show confirmation dialog instead of auto-reset
-      if (existingSession.status === 'completed') {
+      const conversation = existingSession.raw_conversation as ConversationMessage[]
+      const hasMessages = conversation && conversation.length > 0
+
+      // If completed OR has existing messages, show confirmation dialog
+      if (existingSession.status === 'completed' || hasMessages) {
         setCompletedSessionId(existingSession.id)
+        setExistingSessionIsCompleted(existingSession.status === 'completed')
         setShowRestartConfirm(true)
         return
       }
 
+      // Active session without messages - show image upload screen
       setSessionId(existingSession.id)
-      const conversation = existingSession.raw_conversation as ConversationMessage[]
-      setMessages(conversation || [])
-      setQuestionCount(
-        conversation?.filter((m) => m.role === 'assistant').length || 0
-      )
-      // Resume existing conversation
-      if (conversation && conversation.length > 0) {
-        setConversationStarted(true)
-      }
+      setMessages([])
+      setQuestionCount(0)
     } else {
       // Create new session
       const { data: newSession, error } = await supabase
@@ -680,7 +690,32 @@ function SessionPageContent() {
     initializeSession()
   }, [initializeSession])
 
-  // Start conversation - fetch AI greeting
+  // Convert file to base64 data URL
+  const fileToDataUrl = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // Handle image selection
+  const handleImageSelected = useCallback((file: File, previewUrl: string) => {
+    setSessionImageFile(file)
+    setSessionImagePreview(previewUrl)
+  }, [])
+
+  // Handle image removal
+  const handleImageRemoved = useCallback(() => {
+    if (sessionImagePreview) {
+      URL.revokeObjectURL(sessionImagePreview)
+    }
+    setSessionImageFile(null)
+    setSessionImagePreview(null)
+  }, [sessionImagePreview])
+
+  // Start conversation - fetch AI greeting (with optional image analysis)
   const handleStartConversation = useCallback(async () => {
     if (!sessionId) return
 
@@ -688,12 +723,46 @@ function SessionPageContent() {
     setLoading(true)
 
     try {
+      let imageDataUrl: string | undefined
+
+      // If image is selected, upload it first and convert to base64 for AI
+      if (sessionImageFile) {
+        setUploadingImage(true)
+
+        try {
+          // Upload to storage
+          const formData = new FormData()
+          formData.append('file', sessionImageFile)
+          formData.append('session_id', sessionId)
+
+          const uploadResponse = await fetch('/api/session/upload-image', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!uploadResponse.ok) {
+            const errorData = await uploadResponse.json().catch(() => ({}))
+            console.error('Failed to upload session image:', errorData.error || uploadResponse.status)
+            // Continue without image if upload fails
+          }
+
+          // Convert to base64 for Vision API
+          imageDataUrl = await fileToDataUrl(sessionImageFile)
+        } catch (uploadError) {
+          console.error('Image upload error:', uploadError)
+          // Continue without image if upload fails
+        } finally {
+          setUploadingImage(false)
+        }
+      }
+
       const response = await fetch('/api/chat/next-question', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [],
           questionCount: 0,
+          imageDataUrl,
         }),
       })
       const data = await response.json()
@@ -719,7 +788,7 @@ function SessionPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [sessionId, supabase])
+  }, [sessionId, supabase, sessionImageFile, fileToDataUrl])
 
   // Helper function to add schedule to calendar
   async function addScheduleToCalendar(schedule: ParsedSchedule) {
@@ -899,38 +968,21 @@ function SessionPageContent() {
           status: 'active',
           raw_conversation: [],
           completed_at: null,
+          session_image_url: null, // Clear previous image
         })
         .eq('id', completedSessionId)
 
       setSessionId(completedSessionId)
       setMessages([])
       setQuestionCount(0)
+      setConversationStarted(false) // Show image upload screen first
 
-      // Start with greeting
-      const response = await fetch('/api/chat/next-question', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [],
-          questionCount: 0,
-        }),
-      })
-      const data = await response.json()
-      if (data.question) {
-        const aiMessage: ConversationMessage = {
-          role: 'assistant',
-          content: data.question,
-          timestamp: new Date().toISOString(),
-          purpose: data.purpose,
-        }
-        setMessages([aiMessage])
-        setQuestionCount(1)
-
-        await supabase
-          .from('daily_sessions')
-          .update({ raw_conversation: [aiMessage] })
-          .eq('id', completedSessionId)
+      // Clear any previous image state
+      if (sessionImagePreview) {
+        URL.revokeObjectURL(sessionImagePreview)
       }
+      setSessionImageFile(null)
+      setSessionImagePreview(null)
     } catch (err) {
       console.error('Failed to restart session:', err)
       setError('세션 재시작에 실패했습니다.')
@@ -943,6 +995,38 @@ function SessionPageContent() {
   function handleViewDiary() {
     const today = new Date().toISOString().split('T')[0]
     router.push(`/diary/${today}`)
+  }
+
+  // Continue existing active session (resume conversation)
+  async function handleContinueSession() {
+    if (!completedSessionId) return
+
+    setShowRestartConfirm(false)
+    setLoading(true)
+
+    try {
+      // Fetch existing session data
+      const { data: session } = await supabase
+        .from('daily_sessions')
+        .select('*')
+        .eq('id', completedSessionId)
+        .single()
+
+      if (session) {
+        const conversation = session.raw_conversation as ConversationMessage[]
+        setSessionId(completedSessionId)
+        setMessages(conversation || [])
+        setQuestionCount(
+          conversation?.filter((m) => m.role === 'assistant').length || 0
+        )
+        setConversationStarted(true)
+      }
+    } catch (err) {
+      console.error('Failed to continue session:', err)
+      setError('세션을 불러오는데 실패했습니다.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleSessionComplete(finalMessages: ConversationMessage[]) {
@@ -1200,7 +1284,9 @@ function SessionPageContent() {
         {/* Realtime Session */}
         <div className="flex-1">
           <RealtimeSession
+            key={realtimeSessionKey}
             onComplete={handleRealtimeComplete}
+            sessionId={realtimeSessionId}
           />
         </div>
       </div>
@@ -1219,26 +1305,47 @@ function SessionPageContent() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-pastel-cream px-4">
         <div className="w-full max-w-md rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-pastel-pink/30">
           <h2 className="mb-2 text-xl font-bold text-gray-700">
-            오늘의 일기가 있습니다
+            {existingSessionIsCompleted ? '오늘의 일기가 있습니다' : '진행 중인 대화가 있습니다'}
           </h2>
           <p className="mb-6 text-gray-500">
-            {today} 일기가 이미 작성되어 있습니다.
-            <br />
-            기존 일기를 보시겠습니까, 새로 작성하시겠습니까?
+            {existingSessionIsCompleted ? (
+              <>{today} 일기가 이미 작성되어 있습니다.<br />기존 일기를 보시겠습니까, 새로 작성하시겠습니까?</>
+            ) : (
+              <>{today}에 시작한 대화가 있습니다.<br />이어서 대화하시겠습니까?</>
+            )}
           </p>
           <div className="flex flex-col gap-3">
-            <button
-              onClick={handleViewDiary}
-              className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
-            >
-              기존 일기 보기
-            </button>
-            <button
-              onClick={handleRestartSession}
-              className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
-            >
-              새로 작성하기
-            </button>
+            {existingSessionIsCompleted ? (
+              <>
+                <button
+                  onClick={handleViewDiary}
+                  className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
+                >
+                  기존 일기 보기
+                </button>
+                <button
+                  onClick={handleRestartSession}
+                  className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
+                >
+                  새로 작성하기
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleContinueSession}
+                  className="w-full rounded-full bg-pastel-purple px-4 py-3 font-medium text-white hover:bg-pastel-purple-dark transition-all"
+                >
+                  이어서 대화하기
+                </button>
+                <button
+                  onClick={handleRestartSession}
+                  className="w-full rounded-full border border-pastel-pink px-4 py-3 font-medium text-gray-600 hover:bg-pastel-pink-light transition-all"
+                >
+                  새로 시작하기
+                </button>
+              </>
+            )}
             <button
               onClick={() => router.push('/dashboard')}
               className="w-full px-4 py-2 text-sm text-gray-400 hover:text-pastel-purple-dark transition-colors"
@@ -1338,27 +1445,41 @@ function SessionPageContent() {
       {/* Start Conversation Button - show before conversation starts */}
       {!conversationStarted && sessionId && !loading && (
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-6">
-          <div className="text-center space-y-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto">
-              {inputMode === 'voice' ? (
-                <MicrophoneIcon className="h-12 w-12 text-white" />
-              ) : (
-                <ChatBubbleLeftIcon className="h-12 w-12 text-white" />
-              )}
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <div className="w-full max-w-md space-y-6">
+            {/* Header Icon */}
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-pastel-purple to-pastel-pink flex items-center justify-center shadow-lg mx-auto mb-4">
+                {inputMode === 'voice' ? (
+                  <MicrophoneIcon className="h-10 w-10 text-white" />
+                ) : (
+                  <ChatBubbleLeftIcon className="h-10 w-10 text-white" />
+                )}
+              </div>
+              <h2 className="text-xl font-semibold text-gray-900">
                 {inputMode === 'voice' ? '음성 대화' : '텍스트 대화'}
               </h2>
-              <p className="text-gray-500 mb-6">
-                버튼을 누르면 AI가 대화를 시작해요
-              </p>
+            </div>
+
+            {/* Image Upload Section */}
+            <SessionImageUploader
+              onImageSelected={handleImageSelected}
+              onImageRemoved={handleImageRemoved}
+              previewUrl={sessionImagePreview}
+              disabled={uploadingImage}
+            />
+
+            {/* Start Button */}
+            <div className="text-center">
               <button
                 onClick={handleStartConversation}
-                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                disabled={uploadingImage}
+                className="px-8 py-4 rounded-full bg-gradient-to-r from-pastel-purple to-pastel-pink text-white font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
               >
-                대화 시작
+                {uploadingImage ? '이미지 업로드 중...' : '대화 시작'}
               </button>
+              <p className="text-sm text-gray-400 mt-3">
+                {sessionImagePreview ? '사진이 대화에 반영됩니다' : '버튼을 누르면 AI가 대화를 시작해요'}
+              </p>
             </div>
           </div>
         </div>

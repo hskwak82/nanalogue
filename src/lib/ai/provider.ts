@@ -14,6 +14,33 @@ interface GenerateOptions {
   stream?: boolean
 }
 
+// Multimodal content types for Vision API
+interface TextContent {
+  type: 'text'
+  text: string
+}
+
+interface ImageUrlContent {
+  type: 'image_url'
+  image_url: {
+    url: string // data:image/jpeg;base64,... or https:// URL
+    detail?: 'low' | 'high' | 'auto'
+  }
+}
+
+type MultimodalContent = TextContent | ImageUrlContent
+
+interface MultimodalMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string | MultimodalContent[]
+}
+
+interface VisionGenerateOptions {
+  messages: ChatMessage[]
+  imageUrl: string // base64 data URL or https URL
+  jsonMode?: boolean
+}
+
 interface StreamCallbacks {
   onChunk: (text: string) => void
   onDone: () => void
@@ -294,5 +321,166 @@ export async function streamWithProvider(
     return streamGemini(options, callbacks)
   } else {
     return streamOpenAI(options, callbacks)
+  }
+}
+
+// ============================================
+// Vision API Support (Image Analysis)
+// ============================================
+
+// Generate text with image using OpenAI Vision
+async function generateVisionOpenAI(options: VisionGenerateOptions): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured')
+  }
+
+  // Build messages with image content
+  const messages: MultimodalMessage[] = []
+
+  // Add system message if present
+  const systemMessage = options.messages.find(m => m.role === 'system')
+  if (systemMessage) {
+    messages.push({
+      role: 'system',
+      content: systemMessage.content,
+    })
+  }
+
+  // Add user message with image
+  const userMessage = options.messages.find(m => m.role === 'user')
+  if (userMessage) {
+    messages.push({
+      role: 'user',
+      content: [
+        {
+          type: 'image_url',
+          image_url: {
+            url: options.imageUrl,
+            detail: 'low', // Use low detail for cost optimization
+          },
+        },
+        {
+          type: 'text',
+          text: userMessage.content,
+        },
+      ],
+    })
+  }
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', // gpt-4o-mini supports vision
+      messages,
+      ...(options.jsonMode && { response_format: { type: 'json_object' } }),
+    }),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`OpenAI Vision API error: ${error}`)
+  }
+
+  const data = await response.json()
+  return data.choices?.[0]?.message?.content || ''
+}
+
+// Generate text with image using Gemini Vision
+async function generateVisionGemini(options: VisionGenerateOptions): Promise<string> {
+  const apiKey = process.env.GOOGLE_AI_API_KEY
+  if (!apiKey) {
+    throw new Error('GOOGLE_AI_API_KEY is not configured')
+  }
+
+  // Extract base64 data from data URL
+  let imageData: string
+  let mimeType: string
+
+  if (options.imageUrl.startsWith('data:')) {
+    // Parse data URL: data:image/jpeg;base64,/9j/4AAQ...
+    const match = options.imageUrl.match(/^data:([^;]+);base64,(.+)$/)
+    if (!match) {
+      throw new Error('Invalid image data URL format')
+    }
+    mimeType = match[1]
+    imageData = match[2]
+  } else {
+    // For https URLs, Gemini can use fileUri instead
+    // For simplicity, we'll require base64 for now
+    throw new Error('Gemini Vision requires base64 data URL')
+  }
+
+  // Build content with image
+  const systemInstruction = options.messages.find(m => m.role === 'system')?.content || ''
+  const userMessage = options.messages.find(m => m.role === 'user')?.content || ''
+
+  const contents = [
+    {
+      role: 'user',
+      parts: [
+        {
+          inline_data: {
+            mime_type: mimeType,
+            data: imageData,
+          },
+        },
+        {
+          text: userMessage,
+        },
+      ],
+    },
+  ]
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: systemInstruction ? { parts: [{ text: systemInstruction }] } : undefined,
+        generationConfig: {
+          ...(options.jsonMode && { responseMimeType: 'application/json' }),
+        },
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Gemini Vision API error: ${error}`)
+  }
+
+  const data = await response.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+}
+
+// Main Vision generate function - auto-selects provider
+export async function generateWithVision(options: VisionGenerateOptions): Promise<string> {
+  const provider = await getAIProvider()
+
+  if (provider === 'gemini') {
+    return generateVisionGemini(options)
+  } else {
+    return generateVisionOpenAI(options)
+  }
+}
+
+// Generate with Vision using specific provider
+export async function generateVisionWithProvider(
+  provider: AIProviderId,
+  options: VisionGenerateOptions
+): Promise<string> {
+  if (provider === 'gemini') {
+    return generateVisionGemini(options)
+  } else {
+    return generateVisionOpenAI(options)
   }
 }
