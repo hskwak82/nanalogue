@@ -11,7 +11,27 @@ import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   ClipboardDocumentIcon,
+  BeakerIcon,
 } from '@heroicons/react/24/outline'
+
+// Test presets for each category
+const TEST_PRESETS: Record<string, Array<{ label: string; input: string }>> = {
+  chat: [
+    { label: '일상 대화', input: '오늘 회사에서 발표를 했어요. 좀 긴장했는데 잘 끝났어요.' },
+    { label: '감정 표현', input: '요즘 너무 피곤해요. 일이 많아서 쉴 시간이 없네요.' },
+    { label: '일정 언급', input: '내일 3시에 병원 예약이 있어요. 건강검진 받으러 가요.' },
+    { label: '짧은 응답', input: '그냥 그래요.' },
+  ],
+  diary: [
+    { label: '하루 요약', input: '오늘은 아침에 운동하고, 점심에 친구 만나서 맛있는 거 먹고, 저녁에는 영화 봤어요.' },
+    { label: '감정 중심', input: '오늘 정말 행복한 하루였어요. 오랜만에 가족들이랑 시간 보냈거든요.' },
+  ],
+  schedule: [
+    { label: '구체적 일정', input: '다음주 월요일 오후 2시에 팀 미팅 있어요.' },
+    { label: '기간 일정', input: '7월 15일부터 20일까지 여행 가요.' },
+    { label: '반복 일정', input: '매주 화요일 저녁 7시에 요가 수업이에요.' },
+  ],
+}
 
 // Prompt order for each category
 const PROMPT_ORDER: Record<string, string[]> = {
@@ -43,6 +63,11 @@ export default function AdminPromptsPage() {
   const [editContent, setEditContent] = useState('')
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [showTestModal, setShowTestModal] = useState(false)
+  const [testPromptKey, setTestPromptKey] = useState<string>('')
+  const [testInput, setTestInput] = useState('')
+  const [testResult, setTestResult] = useState('')
+  const [testing, setTesting] = useState(false)
 
   const fetchPrompts = useCallback(async () => {
     setLoading(true)
@@ -146,6 +171,11 @@ export default function AdminPromptsPage() {
 
           // Skip metadata lines
           if (line.match(/^- \*\*(이름|설명|변수)\*\*:/)) {
+            continue
+          }
+
+          // Skip ### 프롬프트 내용 header
+          if (line.match(/^### 프롬프트 내용/)) {
             continue
           }
 

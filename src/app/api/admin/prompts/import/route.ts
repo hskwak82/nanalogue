@@ -80,6 +80,11 @@ function parseMultiplePromptsFromMd(mdContent: string): ParsedPrompt[] {
           continue
         }
 
+        // Skip ### 프롬프트 내용 header
+        if (line.match(/^### 프롬프트 내용/)) {
+          continue
+        }
+
         // Skip empty lines right after metadata
         if (!pastMetadata && line.trim() === '') {
           continue
