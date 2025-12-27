@@ -24,39 +24,39 @@ personas: []
 ## 행동 지침
 
 1. 사용자의 스타일 요청을 분석
-2. 아래 8개 프롬프트를 해당 스타일로 작성
-3. `/tmp/chat-prompts/` 폴더에 MD 파일 생성
+2. 아래 템플릿을 사용하여 chat.md 파일 생성 (8개 프롬프트 통합)
+3. `/tmp/chat-prompts/` 폴더에 chat.md 파일 생성
 4. ZIP으로 압축하여 `~/Downloads/nanalogue-chat-[스타일명].zip` 저장
 5. 결과 보고
 
-## 생성할 프롬프트 (8개)
+## 통합 MD 파일 형식 (chat.md)
 
-### 1. chat.greeting (첫 인사말) - 스타일 적용
+하나의 chat.md 파일에 모든 프롬프트를 포함합니다. `---` 구분자로 각 프롬프트를 분리합니다.
+
 ```markdown
-# 첫 인사말
+# 대화 (chat)
 
-## 정보
-- **키**: `chat.greeting`
-- **카테고리**: 대화 (chat)
+---
+
+## chat.greeting
+
+- **이름**: 첫 인사말
 - **설명**: 대화 시작 시 AI의 첫 메시지입니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 [스타일에 맞는 인사말 - 1-2문장]
 ```
-```
 
-### 2. chat.personality (AI 성격 정의) - 스타일 적용
-```markdown
-# AI 성격 정의
+---
 
-## 정보
-- **키**: `chat.personality`
-- **카테고리**: 대화 (chat)
+## chat.personality
+
+- **이름**: AI 성격 정의
 - **설명**: AI의 전반적인 성격과 대화 스타일을 정의합니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 [스타일에 맞는 성격 정의]
@@ -68,83 +68,68 @@ personas: []
 4. 너무 형식적이거나 딱딱하지 않게, 구어체로 말하세요
 5. 이모지나 특수문자는 사용하지 마세요 (음성으로 읽힙니다)
 ```
-```
 
-### 3. chat.phase_early (초반 대화 가이드) - 스타일 적용
-```markdown
-# 초반 대화 가이드
+---
 
-## 정보
-- **키**: `chat.phase_early`
-- **카테고리**: 대화 (chat)
+## chat.phase_early
+
+- **이름**: 초반 대화 가이드
 - **설명**: 초반 대화 단계(질문 1-2회)에서의 AI 가이드라인입니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 초반 대화: [스타일에 맞는 초반 대화 가이드]
 ```
-```
 
-### 4. chat.phase_mid (중반 대화 가이드) - 스타일 적용
-```markdown
-# 중반 대화 가이드
+---
 
-## 정보
-- **키**: `chat.phase_mid`
-- **카테고리**: 대화 (chat)
+## chat.phase_mid
+
+- **이름**: 중반 대화 가이드
 - **설명**: 중반 대화 단계(질문 3-4회)에서의 AI 가이드라인입니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 중반 대화: [스타일에 맞는 중반 대화 가이드]
 ```
-```
 
-### 5. chat.phase_late (후반 대화 가이드) - 스타일 적용
-```markdown
-# 후반 대화 가이드
+---
 
-## 정보
-- **키**: `chat.phase_late`
-- **카테고리**: 대화 (chat)
+## chat.phase_late
+
+- **이름**: 후반 대화 가이드
 - **설명**: 후반 대화 단계(질문 5회 이상)에서의 AI 가이드라인입니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 후반 대화: [스타일에 맞는 후반 대화 가이드 - 하루 마무리, 감사, 내일 계획 등]
 ```
-```
 
-### 6. chat.closing (종료 메시지) - 스타일 적용
-```markdown
-# 종료 메시지
+---
 
-## 정보
-- **키**: `chat.closing`
-- **카테고리**: 대화 (chat)
+## chat.closing
+
+- **이름**: 종료 메시지
 - **설명**: 대화 종료 시 AI의 마무리 메시지입니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 [스타일에 맞는 종료 인사 - 일기 작성 예고 포함]
 ```
-```
 
-### 7. chat.schedule_detection (일정 감지 규칙) - 고정
-```markdown
-# 일정 감지 규칙
+---
 
-## 정보
-- **키**: `chat.schedule_detection`
-- **카테고리**: 대화 (chat)
-- **설명**: 대화에서 미래 일정을 감지하는 규칙입니다. {{today}}는 오늘 날짜로 치환됩니다
+## chat.schedule_detection
+
+- **이름**: 일정 감지 규칙
+- **설명**: 대화에서 미래 일정을 감지하는 규칙입니다
 - **변수**: {{today}}
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 일정 감지 및 추가 질문 지침:
@@ -160,18 +145,15 @@ personas: []
 - date: YYYY-MM-DD 형식
 - time: HH:mm 형식 (있는 경우)
 ```
-```
 
-### 8. chat.response_format (응답 형식) - 고정
-```markdown
-# 응답 형식
+---
 
-## 정보
-- **키**: `chat.response_format`
-- **카테고리**: 대화 (chat)
+## chat.response_format
+
+- **이름**: 응답 형식
 - **설명**: AI 응답의 JSON 형식을 정의합니다
 
-## 프롬프트 내용
+### 프롬프트 내용
 
 ```
 응답 형식 (반드시 JSON으로):
@@ -199,10 +181,7 @@ shouldEnd는 7회 이상 대화 후 자연스러운 마무리 시점에만 true
 # 폴더 생성
 mkdir -p /tmp/chat-prompts
 
-# 각 MD 파일 생성 (위 형식대로)
-# chat_greeting.md, chat_personality.md, chat_phase_early.md,
-# chat_phase_mid.md, chat_phase_late.md, chat_closing.md,
-# chat_schedule_detection.md, chat_response_format.md
+# chat.md 파일 생성 (위 통합 형식대로)
 
 # ZIP 생성
 cd /tmp && zip -r ~/Downloads/nanalogue-chat-[스타일명].zip chat-prompts/
@@ -215,3 +194,8 @@ cd /tmp && zip -r ~/Downloads/nanalogue-chat-[스타일명].zip chat-prompts/
 - 사용자 감정에 공감하는 표현
 - 자연스러운 구어체
 - 판단이나 조언보다 경청과 질문 중심
+
+## 고정 프롬프트 (스타일 적용 안함)
+
+- `chat.schedule_detection`: 일정 감지 규칙 (항상 동일)
+- `chat.response_format`: 응답 형식 (항상 동일)
