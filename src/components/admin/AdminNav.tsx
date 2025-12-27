@@ -13,6 +13,7 @@ import {
   MegaphoneIcon,
   BookOpenIcon,
   SpeakerWaveIcon,
+  ChatBubbleLeftRightIcon,
 } from '@heroicons/react/24/outline'
 
 const navItems = [
@@ -25,6 +26,7 @@ const navItems = [
   { href: '/settings/admin/announcements', label: '공지사항', icon: MegaphoneIcon },
   { href: '/settings/admin/publishing', label: '출판', icon: BookOpenIcon },
   { href: '/settings/admin/tts', label: 'TTS', icon: SpeakerWaveIcon },
+  { href: '/settings/admin/prompts', label: 'AI 프롬프트', icon: ChatBubbleLeftRightIcon },
 ]
 
 export function AdminNav() {

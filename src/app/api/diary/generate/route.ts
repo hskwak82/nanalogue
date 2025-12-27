@@ -2,16 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { isCalendarConnected, createDiaryEvent } from '@/lib/google-calendar'
 import { getAIProvider, streamWithProvider, generateWithProvider } from '@/lib/ai/provider'
 import { earnDiaryPoints } from '@/lib/points'
+import { getPromptContent } from '@/lib/ai-prompts'
 import type { ConversationMessage } from '@/types/database'
-
-const createDiaryPrompt = (dateInfo: string) => `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
-- 첫 줄에 "${dateInfo}" 표시
-- 편안한 구어체, 2-3문단
-- 감정과 생각을 자연스럽게 표현
-일기 본문만 작성하세요.`
-
-const METADATA_PROMPT = `다음 일기를 분석해서 JSON으로 응답하세요:
-{"summary":"한줄요약","emotions":["감정태그"],"gratitude":["감사한점"],"tomorrow_plan":"내일다짐"}`
 
 export async function POST(request: Request) {
   const encoder = new TextEncoder()
@@ -89,11 +81,14 @@ export async function POST(request: Request) {
           // Step 1: Stream diary content
           let diaryContent = ''
 
+          // Load prompts from DB
+          const diaryPrompt = await getPromptContent('diary.write_style', { dateInfo })
+
           await streamWithProvider(
             provider,
             {
               messages: [
-                { role: 'system', content: createDiaryPrompt(dateInfo) },
+                { role: 'system', content: diaryPrompt },
                 { role: 'user', content: conversationText },
               ],
             },
@@ -117,9 +112,10 @@ export async function POST(request: Request) {
           let metadata = { summary: '', emotions: [], gratitude: [], tomorrow_plan: '' }
 
           try {
+            const metadataPrompt = await getPromptContent('diary.metadata_extraction')
             const metaResponse = await generateWithProvider(provider, {
               messages: [
-                { role: 'system', content: METADATA_PROMPT },
+                { role: 'system', content: metadataPrompt },
                 { role: 'user', content: diaryContent },
               ],
               jsonMode: true,
