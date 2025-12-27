@@ -189,7 +189,7 @@ export function Calendar({
       <div className="grid grid-cols-7 gap-1">
         {calendarDays.map((day, index) => {
           if (day === null) {
-            return <div key={`empty-${index}`} className="aspect-square" />
+            return <div key={`empty-${index}`} className="aspect-[4/5]" />
           }
 
           const dateStr = formatDateString(day)
@@ -205,8 +205,8 @@ export function Calendar({
               key={day}
               onClick={() => handleDateClick(day)}
               className={`
-                aspect-square flex flex-col items-center justify-center rounded-lg text-sm
-                transition-all relative
+                aspect-[4/5] flex flex-col items-center justify-center rounded-lg text-sm
+                transition-all relative overflow-hidden
                 ${isSelected ? 'ring-2 ring-pastel-purple-dark bg-pastel-purple-light' : ''}
                 ${isTodayDate && !isSelected ? 'ring-2 ring-pastel-purple font-bold' : ''}
                 ${hasDiary && !isSelected && !sessionImage ? 'bg-pastel-mint-light text-gray-700 hover:bg-pastel-mint' : ''}
@@ -215,32 +215,36 @@ export function Calendar({
                 ${!hasDiary && !isTodayDate && !isSelected ? 'hover:text-pastel-purple-dark' : ''}
               `}
             >
-              {/* Date number - smaller if has image */}
-              <span className={sessionImage ? 'text-[10px] absolute top-0.5 left-1 z-10' : ''}>
-                {day}
-              </span>
-
-              {/* Session image thumbnail */}
+              {/* Session image thumbnail - fills entire cell */}
               {sessionImage ? (
-                <CalendarThumbnail
-                  imageUrl={sessionImage.imageUrl}
-                  cropData={sessionImage.cropData}
-                  size={28}
-                  className="mt-1"
-                  onMouseEnter={(e) => handleImageHover(e, sessionImage.imageUrl, dateStr)}
-                  onMouseLeave={() => setHoveredImage(null)}
-                  onClick={() => onImageEdit?.(dateStr, sessionImage.imageUrl)}
-                />
+                <>
+                  <CalendarThumbnail
+                    imageUrl={sessionImage.imageUrl}
+                    cropData={sessionImage.cropData}
+                    className="absolute inset-0 w-full h-full"
+                    onMouseEnter={(e) => handleImageHover(e, sessionImage.imageUrl, dateStr)}
+                    onMouseLeave={() => setHoveredImage(null)}
+                    onClick={() => onImageEdit?.(dateStr, sessionImage.imageUrl)}
+                  />
+                  {/* Date number overlay */}
+                  <span className="absolute top-0.5 left-1 z-10 text-[10px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    {day}
+                  </span>
+                </>
               ) : (
-                /* Indicators for non-image entries */
-                <div className="flex gap-0.5 mt-0.5">
-                  {hasDiary && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-pastel-purple" />
-                  )}
-                  {hasGoogleEvent && !hasDiary && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-pastel-peach" />
-                  )}
-                </div>
+                <>
+                  {/* Date number */}
+                  <span>{day}</span>
+                  {/* Indicators for non-image entries */}
+                  <div className="flex gap-0.5 mt-0.5">
+                    {hasDiary && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-pastel-purple" />
+                    )}
+                    {hasGoogleEvent && !hasDiary && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-pastel-peach" />
+                    )}
+                  </div>
+                </>
               )}
             </button>
           )

@@ -44,11 +44,25 @@ export default async function DashboardPage() {
 
   let sessionImages: { date: string; imageUrl: string; cropData: unknown }[] = []
   if (sessionIdsWithEntries.length > 0) {
-    const { data: sessionsWithImages } = await supabase
+    // Try to fetch with thumbnail_crop_data, fall back to without if column doesn't exist
+    let sessionsWithImages = null
+    const { data: withCropData, error: withCropError } = await supabase
       .from('daily_sessions')
       .select('id, session_date, session_image_url, thumbnail_crop_data')
       .in('id', sessionIdsWithEntries)
       .not('session_image_url', 'is', null)
+
+    if (withCropError?.code === '42703') {
+      // Column doesn't exist yet, fetch without it
+      const { data: withoutCropData } = await supabase
+        .from('daily_sessions')
+        .select('id, session_date, session_image_url')
+        .in('id', sessionIdsWithEntries)
+        .not('session_image_url', 'is', null)
+      sessionsWithImages = withoutCropData?.map(s => ({ ...s, thumbnail_crop_data: null })) || null
+    } else {
+      sessionsWithImages = withCropData
+    }
 
     if (sessionsWithImages) {
       sessionImages = sessionsWithImages.map(s => ({

@@ -52,11 +52,14 @@ export function CalendarThumbnail({
     return `scale(${scale})`
   }
 
+  // Use fixed size if provided, otherwise fill container
+  const sizeStyle = size ? { width: size, height: size } : {}
+
   if (hasError) {
     return (
       <div
-        className={`flex items-center justify-center bg-gray-100 rounded ${className}`}
-        style={{ width: size, height: size }}
+        className={`flex items-center justify-center bg-gray-100 ${size ? 'rounded' : ''} ${className}`}
+        style={sizeStyle}
       >
         <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
           <path
@@ -71,8 +74,8 @@ export function CalendarThumbnail({
 
   return (
     <div
-      className={`relative overflow-hidden rounded cursor-pointer ${className}`}
-      style={{ width: size, height: size }}
+      className={`overflow-hidden cursor-pointer ${size ? 'relative rounded' : ''} ${className}`}
+      style={sizeStyle}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
