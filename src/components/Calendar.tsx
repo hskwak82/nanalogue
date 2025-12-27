@@ -226,8 +226,8 @@ export function Calendar({
                     onMouseLeave={() => setHoveredImage(null)}
                     onClick={() => onImageEdit?.(dateStr, sessionImage.imageUrl)}
                   />
-                  {/* Date number overlay */}
-                  <span className="absolute top-0.5 left-1 z-10 text-[10px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                  {/* Date number badge */}
+                  <span className="absolute top-1 left-1 z-10 min-w-[18px] h-[18px] flex items-center justify-center rounded bg-black/50 text-[10px] font-bold text-white px-1">
                     {day}
                   </span>
                 </>
