@@ -127,11 +127,11 @@ export function SessionImageUploader({
   if (previewUrl) {
     return (
       <div className={`relative ${className}`}>
-        <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+        <div className="relative w-full max-h-64 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
           <img
             src={previewUrl}
             alt="업로드된 이미지"
-            className="w-full h-full object-cover"
+            className="max-w-full max-h-64 object-contain"
           />
           {!disabled && (
             <button

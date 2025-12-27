@@ -60,10 +60,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Generate path: {userId}/sessions/{sessionId}/image.{ext}
-    // Must start with userId to match storage RLS policies
+    // Generate path: {userId}/general/{sessionId}_session.{ext}
+    // Use /general/ folder which matches existing RLS policies for photos
     const extension = file.name.split('.').pop() || 'jpg'
-    const path = `${user.id}/sessions/${sessionId}/image.${extension}`
+    const path = `${user.id}/general/${sessionId}_session.${extension}`
 
     // Upload to storage (upsert to allow replacement)
     const { error: uploadError } = await supabase.storage
@@ -155,7 +155,7 @@ export async function DELETE(request: Request) {
     }
 
     // Extract path from URL and remove from storage
-    // URL format: https://xxx.supabase.co/storage/v1/object/public/photos/{userId}/sessions/{sessionId}/image.jpg?t=xxx
+    // URL format: https://xxx.supabase.co/storage/v1/object/public/photos/{userId}/general/{sessionId}_session.jpg?t=xxx
     const urlWithoutQuery = session.session_image_url.split('?')[0]
     const pathMatch = urlWithoutQuery.match(/\/photos\/(.+)$/)
 
