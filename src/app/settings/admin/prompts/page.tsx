@@ -83,6 +83,7 @@ export default function AdminPromptsPage() {
   const [fullTestLoading, setFullTestLoading] = useState(false)
   const [fullTestQuestionCount, setFullTestQuestionCount] = useState(0)
   const [fullTestEnded, setFullTestEnded] = useState(false)
+  const [generatingPreset, setGeneratingPreset] = useState<string | null>(null)
 
   const fetchPrompts = useCallback(async () => {
     setLoading(true)
@@ -510,6 +511,56 @@ export default function AdminPromptsPage() {
     setFullTestEnded(false)
   }
 
+  // Generate contextual response based on preset category
+  const handlePresetClick = async (presetLabel: string) => {
+    if (fullTestMessages.length === 0 || fullTestLoading || fullTestEnded) return
+
+    setGeneratingPreset(presetLabel)
+
+    // Get the last AI message (question)
+    const lastAiMessage = fullTestMessages
+      .filter(m => m.role === 'assistant')
+      .pop()?.content || ''
+
+    const presetPrompts: Record<string, string> = {
+      '일상 대화': `AI 질문에 대해 오늘 있었던 평범한 일상 이야기로 답변하세요. 구체적인 장소, 시간, 상황을 포함하세요.`,
+      '감정 표현': `AI 질문에 대해 감정이 담긴 솔직한 답변을 하세요. 기쁨, 슬픔, 피로, 설렘 등의 감정을 자연스럽게 표현하세요.`,
+      '일정 언급': `AI 질문에 답변하면서 자연스럽게 미래 일정(내일, 다음주 등)을 언급하세요. 예: 약속, 회의, 병원, 여행 등.`,
+      '짧은 응답': `AI 질문에 대해 짧고 간단하게 답변하세요. 한 문장 이내로.`,
+    }
+
+    const systemPrompt = presetPrompts[presetLabel] || presetPrompts['일상 대화']
+
+    try {
+      const res = await fetch('/api/admin/prompts/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `${systemPrompt}
+
+대화 맥락:
+${fullTestMessages.map(m => `${m.role === 'user' ? '나' : 'AI'}: ${m.content}`).join('\n')}
+
+위 대화에서 AI의 마지막 질문: "${lastAiMessage}"
+
+이 질문에 대한 사용자 답변을 생성하세요. 답변만 출력하세요.`,
+          testInput: '답변을 생성해주세요.',
+          variables: {},
+        }),
+      })
+
+      const data = await res.json()
+      if (data.response) {
+        setFullTestInput(data.response)
+      }
+    } catch (error) {
+      console.error('Error generating preset response:', error)
+      toast.error('응답 생성에 실패했습니다.')
+    } finally {
+      setGeneratingPreset(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -896,14 +947,18 @@ export default function AdminPromptsPage() {
                 </button>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {TEST_PRESETS.chat.map((preset, idx) => (
+                <span className="text-xs text-gray-400 mr-1">자동 생성:</span>
+                {['일상 대화', '감정 표현', '일정 언급', '짧은 응답'].map((label) => (
                   <button
-                    key={idx}
-                    onClick={() => setFullTestInput(preset.input)}
-                    disabled={fullTestLoading || fullTestEnded}
-                    className="px-3 py-1 text-xs rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                    key={label}
+                    onClick={() => handlePresetClick(label)}
+                    disabled={fullTestLoading || fullTestEnded || generatingPreset !== null}
+                    className="px-3 py-1 text-xs rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1"
                   >
-                    {preset.label}
+                    {generatingPreset === label && (
+                      <div className="animate-spin rounded-full h-3 w-3 border border-gray-400 border-t-transparent" />
+                    )}
+                    {label}
                   </button>
                 ))}
               </div>
