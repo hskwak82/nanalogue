@@ -97,7 +97,7 @@ export default function AdminPromptsPage() {
     return md
   }, [selectedCategory])
 
-  // Parse unified MD content back to prompts
+  // Parse unified MD content back to prompts (flexible parsing)
   const parseUnifiedMd = useCallback((mdContent: string): Array<{ prompt_key: string; content: string; variables: string[] }> => {
     const parsed: Array<{ prompt_key: string; content: string; variables: string[] }> = []
     const sections = mdContent.split(/^---$/m)
@@ -106,11 +106,13 @@ export default function AdminPromptsPage() {
       const trimmed = section.trim()
       if (!trimmed) continue
 
+      // Extract prompt_key from `## category.key`
       const keyMatch = trimmed.match(/^## ([a-z]+\.[a-z_]+)/m)
       if (!keyMatch) continue
 
       const prompt_key = keyMatch[1]
 
+      // Extract variables from `- **변수**: {{today}}, {{name}}`
       const varsMatch = trimmed.match(/- \*\*변수\*\*:\s*(.+)/)
       let variables: string[] = []
       if (varsMatch) {
@@ -120,12 +122,50 @@ export default function AdminPromptsPage() {
         }
       }
 
-      const contentMatch = trimmed.match(/### 프롬프트 내용\s*\n+```\n([\s\S]*?)\n```/)
-      if (!contentMatch) continue
+      // Flexible content extraction:
+      // 1. Try code block first: ### 프롬프트 내용 followed by ```...```
+      let content = ''
+      const codeBlockMatch = trimmed.match(/### 프롬프트 내용\s*\n+```\n([\s\S]*?)\n```/)
+
+      if (codeBlockMatch) {
+        content = codeBlockMatch[1]
+      } else {
+        // 2. Fallback: Get everything after metadata lines
+        const lines = trimmed.split('\n')
+        const contentLines: string[] = []
+        let foundKey = false
+        let pastMetadata = false
+
+        for (const line of lines) {
+          // Skip until we find the ## key line
+          if (line.match(/^## [a-z]+\.[a-z_]+/)) {
+            foundKey = true
+            continue
+          }
+          if (!foundKey) continue
+
+          // Skip metadata lines
+          if (line.match(/^- \*\*(이름|설명|변수)\*\*:/)) {
+            continue
+          }
+
+          // Skip empty lines right after metadata
+          if (!pastMetadata && line.trim() === '') {
+            continue
+          }
+
+          pastMetadata = true
+          contentLines.push(line)
+        }
+
+        content = contentLines.join('\n').trim()
+      }
+
+      if (!content) continue
 
       parsed.push({
         prompt_key,
-        content: contentMatch[1],
+        content,
         variables,
       })
     }

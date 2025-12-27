@@ -17,7 +17,7 @@ interface ImportResult {
   version?: number
 }
 
-// Parse multiple prompts from unified category MD file
+// Parse multiple prompts from unified category MD file (flexible parsing)
 function parseMultiplePromptsFromMd(mdContent: string): ParsedPrompt[] {
   const prompts: ParsedPrompt[] = []
 
@@ -53,16 +53,53 @@ function parseMultiplePromptsFromMd(mdContent: string): ParsedPrompt[] {
       }
     }
 
-    // Extract content from `### 프롬프트 내용` code block
-    const contentMatch = trimmed.match(/### 프롬프트 내용\s*\n\s*```\n([\s\S]*?)\n```/)
-    if (!contentMatch) continue
+    // Flexible content extraction:
+    // 1. Try code block first: ### 프롬프트 내용 followed by ```...```
+    let content = ''
+    const codeBlockMatch = trimmed.match(/### 프롬프트 내용\s*\n+```\n([\s\S]*?)\n```/)
+
+    if (codeBlockMatch) {
+      content = codeBlockMatch[1]
+    } else {
+      // 2. Fallback: Get everything after metadata lines
+      const lines = trimmed.split('\n')
+      const contentLines: string[] = []
+      let foundKey = false
+      let pastMetadata = false
+
+      for (const line of lines) {
+        // Skip until we find the ## key line
+        if (line.match(/^## [a-z]+\.[a-z_]+/)) {
+          foundKey = true
+          continue
+        }
+        if (!foundKey) continue
+
+        // Skip metadata lines
+        if (line.match(/^- \*\*(이름|설명|변수)\*\*:/)) {
+          continue
+        }
+
+        // Skip empty lines right after metadata
+        if (!pastMetadata && line.trim() === '') {
+          continue
+        }
+
+        pastMetadata = true
+        contentLines.push(line)
+      }
+
+      content = contentLines.join('\n').trim()
+    }
+
+    if (!content) continue
 
     prompts.push({
       prompt_key,
       name,
       description,
       variables,
-      content: contentMatch[1]
+      content
     })
   }
 
