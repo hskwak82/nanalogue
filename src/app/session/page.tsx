@@ -50,6 +50,7 @@ function SessionPageContent() {
   const [streamingStatus, setStreamingStatus] = useState('')
   const [showRealtimeConfirm, setShowRealtimeConfirm] = useState(false)
   const [existingSessionStatus, setExistingSessionStatus] = useState<'completed' | 'active' | null>(null)
+  const [realtimeSessionKey, setRealtimeSessionKey] = useState(0) // Force remount on restart
   const [inputMode, setInputMode] = useState<'voice' | 'text'>('voice')
   const [inputModeLoaded, setInputModeLoaded] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
@@ -321,6 +322,7 @@ function SessionPageContent() {
       console.error('Failed to restart session:', error)
     } finally {
       setRealtimeLoading(false)
+      setRealtimeSessionKey(prev => prev + 1) // Force RealtimeSession remount
     }
   }
 
@@ -1251,6 +1253,7 @@ function SessionPageContent() {
         {/* Realtime Session */}
         <div className="flex-1">
           <RealtimeSession
+            key={realtimeSessionKey}
             onComplete={handleRealtimeComplete}
             sessionId={realtimeSessionId}
           />
