@@ -41,6 +41,7 @@ export function Calendar({
     imageUrl: string
     date: string
     position: { x: number; y: number }
+    size: number
   } | null>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
 
@@ -64,28 +65,40 @@ export function Calendar({
     return map
   }, [sessionImages])
 
-  // Handle image hover
-  const handleImageHover = (e: React.MouseEvent, imageUrl: string, date: string) => {
+  // Handle image hover - position based on day of week
+  const handleImageHover = (e: React.MouseEvent, imageUrl: string, date: string, dayOfWeek: number) => {
     if (!calendarRef.current) return
     const rect = calendarRef.current.getBoundingClientRect()
     const cellRect = (e.currentTarget as HTMLElement).getBoundingClientRect()
 
-    // Position the preview to the right of the cell, or left if near right edge
-    const previewWidth = 192
-    const previewHeight = 192
-    let x = cellRect.right - rect.left + 8
-    let y = cellRect.top - rect.top - previewHeight / 2 + cellRect.height / 2
+    // Larger preview on desktop (window width > 768)
+    const isDesktop = window.innerWidth > 768
+    const previewWidth = isDesktop ? 320 : 192
+    const previewHeight = isDesktop ? 320 : 192
 
-    // Adjust if would go off right edge
-    if (cellRect.right + previewWidth + 16 > window.innerWidth) {
-      x = cellRect.left - rect.left - previewWidth - 8
+    let x: number
+    let y: number
+
+    // Position based on day of week:
+    // Sun(0), Mon(1), Tue(2) -> show on RIGHT
+    // Thu(4), Fri(5), Sat(6) -> show on LEFT
+    // Wed(3) -> show on RIGHT (default)
+    if (dayOfWeek >= 4) {
+      // Thursday, Friday, Saturday -> show on LEFT
+      x = cellRect.left - rect.left - previewWidth - 12
+    } else {
+      // Sunday, Monday, Tuesday, Wednesday -> show on RIGHT
+      x = cellRect.right - rect.left + 12
     }
+
+    // Center vertically relative to cell
+    y = cellRect.top - rect.top - previewHeight / 2 + cellRect.height / 2
 
     // Adjust if would go off top or bottom
     if (y < 0) y = 8
     if (y + previewHeight > rect.height) y = rect.height - previewHeight - 8
 
-    setHoveredImage({ imageUrl, date, position: { x, y } })
+    setHoveredImage({ imageUrl, date, position: { x, y }, size: previewWidth })
   }
 
   // Get calendar grid data
@@ -222,7 +235,7 @@ export function Calendar({
                     imageUrl={sessionImage.imageUrl}
                     cropData={sessionImage.cropData}
                     className="absolute inset-0 w-full h-full"
-                    onMouseEnter={(e) => handleImageHover(e, sessionImage.imageUrl, dateStr)}
+                    onMouseEnter={(e) => handleImageHover(e, sessionImage.imageUrl, dateStr, dayOfWeek)}
                     onMouseLeave={() => setHoveredImage(null)}
                     onClick={() => onImageEdit?.(dateStr, sessionImage.imageUrl)}
                   />
@@ -254,10 +267,12 @@ export function Calendar({
       {/* Hover preview popover */}
       {hoveredImage && (
         <div
-          className="absolute z-50 w-48 h-48 rounded-xl shadow-xl overflow-hidden border-2 border-white bg-white pointer-events-none"
+          className="absolute z-50 rounded-xl shadow-xl overflow-hidden border-2 border-white bg-white pointer-events-none"
           style={{
             left: hoveredImage.position.x,
             top: hoveredImage.position.y,
+            width: hoveredImage.size,
+            height: hoveredImage.size,
           }}
         >
           <img
