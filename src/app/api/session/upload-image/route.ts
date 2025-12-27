@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const BUCKET_NAME = 'photos'
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (client compresses before upload)
@@ -60,13 +61,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Generate path: {userId}/general/{sessionId}_session.{ext}
-    // Use /general/ folder which matches existing RLS policies for photos
+    // Generate path: {userId}/sessions/{sessionId}.{ext}
     const extension = file.name.split('.').pop() || 'jpg'
-    const path = `${user.id}/general/${sessionId}_session.${extension}`
+    const path = `${user.id}/sessions/${sessionId}.${extension}`
 
-    // Upload to storage (upsert to allow replacement)
-    const { error: uploadError } = await supabase.storage
+    // Upload using admin client (bypasses RLS)
+    const adminClient = createAdminClient()
+    const { error: uploadError } = await adminClient.storage
       .from(BUCKET_NAME)
       .upload(path, file, {
         cacheControl: '3600',
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = adminClient.storage
       .from(BUCKET_NAME)
       .getPublicUrl(path)
 
@@ -154,14 +155,15 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: true, message: 'No image to delete' })
     }
 
-    // Extract path from URL and remove from storage
-    // URL format: https://xxx.supabase.co/storage/v1/object/public/photos/{userId}/general/{sessionId}_session.jpg?t=xxx
+    // Extract path from URL and remove from storage using admin client
+    // URL format: https://xxx.supabase.co/storage/v1/object/public/photos/{userId}/sessions/{sessionId}.jpg?t=xxx
     const urlWithoutQuery = session.session_image_url.split('?')[0]
     const pathMatch = urlWithoutQuery.match(/\/photos\/(.+)$/)
 
     if (pathMatch) {
       const storagePath = pathMatch[1]
-      await supabase.storage.from(BUCKET_NAME).remove([storagePath])
+      const adminClient = createAdminClient()
+      await adminClient.storage.from(BUCKET_NAME).remove([storagePath])
     }
 
     // Clear session image URL
