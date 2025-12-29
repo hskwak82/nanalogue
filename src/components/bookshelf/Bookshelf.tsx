@@ -31,9 +31,9 @@ export function Bookshelf({
   }
 
   return (
-    <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="rounded-2xl bg-white/70 backdrop-blur-sm p-4 sm:p-6 shadow-sm border border-pastel-pink/30">
+      {/* Header - Responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-700">나의 일기장</h2>
           <span className="text-sm text-gray-400">
@@ -41,18 +41,19 @@ export function Bookshelf({
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ViewToggle mode={viewMode} onChange={setViewMode} />
 
           {isAdmin && onCreateNew && (
             <button
               onClick={onCreateNew}
-              className="flex items-center gap-1.5 px-3 py-2 bg-pastel-purple text-white text-sm font-medium rounded-full hover:bg-pastel-purple-dark transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-pastel-purple text-white text-sm font-medium rounded-full hover:bg-pastel-purple-dark transition-colors whitespace-nowrap"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              새 일기장
+              <span className="hidden xs:inline">새 일기장</span>
+              <span className="xs:hidden">추가</span>
             </button>
           )}
         </div>

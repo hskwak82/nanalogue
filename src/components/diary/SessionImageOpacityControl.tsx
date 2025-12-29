@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { ChevronDownIcon } from '@heroicons/react/24/outline'
 
 interface SessionImageOpacityControlProps {
   entryId: string
@@ -44,6 +45,7 @@ export function SessionImageOpacityControl({
   onFontSizeChange,
   onTextBgOpacityChange,
 }: SessionImageOpacityControlProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
   const [opacity, setOpacity] = useState(initialOpacity)
   const [savedOpacity, setSavedOpacity] = useState(initialOpacity)
   const [fontColor, setFontColor] = useState<string | null>(initialFontColor)
@@ -128,21 +130,38 @@ export function SessionImageOpacityControl({
   const currentDisplayColor = fontColor ?? diaryFontColor
 
   return (
-    <div className="rounded-xl bg-white/70 backdrop-blur-sm p-4 border border-pastel-pink/30">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">🎨</span>
-        <span className="text-sm font-medium text-gray-700">속지 스타일</span>
-        {showSaveSuccess && (
-          <span className="text-xs text-pastel-mint ml-auto flex items-center gap-1">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            저장됨
-          </span>
-        )}
-      </div>
+    <div className="rounded-xl bg-white/70 backdrop-blur-sm border border-pastel-pink/30 overflow-hidden">
+      {/* Accordion Header */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-4 hover:bg-white/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">🎨</span>
+          <span className="text-sm font-medium text-gray-700">속지 스타일</span>
+          {showSaveSuccess && (
+            <span className="text-xs text-pastel-mint flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              저장됨
+            </span>
+          )}
+        </div>
+        <ChevronDownIcon
+          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+            isExpanded ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
 
-      <div className="space-y-4">
+      {/* Accordion Content */}
+      <div
+        className={`transition-all duration-200 ease-in-out ${
+          isExpanded ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+        } overflow-hidden`}
+      >
+        <div className="px-4 pb-4 space-y-4">
         {/* Opacity Control */}
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -268,6 +287,7 @@ export function SessionImageOpacityControl({
             </button>
           </div>
         )}
+        </div>
       </div>
     </div>
   )

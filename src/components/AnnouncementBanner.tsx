@@ -19,11 +19,28 @@ const typeStyles: Record<string, { bg: string; border: string; icon: string }> =
   event: { bg: 'bg-purple-50', border: 'border-purple-200', icon: 'text-purple-500' },
 }
 
+const DISMISSED_STORAGE_KEY = 'nanalogue_dismissed_announcements'
+
 export function AnnouncementBanner() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showPopup, setShowPopup] = useState<Announcement | null>(null)
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+
+  // Load dismissed state from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(DISMISSED_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          setDismissed(new Set(parsed))
+        }
+      }
+    } catch (error) {
+      console.error('Error loading dismissed announcements:', error)
+    }
+  }, [])
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -33,9 +50,12 @@ export function AnnouncementBanner() {
         const data = await response.json()
         setAnnouncements(data.announcements || [])
 
-        // Show popup for unread popup announcements
+        // Show popup for unread popup announcements (not dismissed locally)
+        const storedDismissed = localStorage.getItem(DISMISSED_STORAGE_KEY)
+        const dismissedSet = storedDismissed ? new Set(JSON.parse(storedDismissed)) : new Set()
+
         const unreadPopup = data.announcements?.find(
-          (a: Announcement) => a.is_popup && !a.is_read
+          (a: Announcement) => a.is_popup && !a.is_read && !dismissedSet.has(a.id)
         )
         if (unreadPopup) {
           setShowPopup(unreadPopup)
@@ -62,12 +82,31 @@ export function AnnouncementBanner() {
 
   const handleDismiss = (id: string) => {
     markAsRead(id)
-    setDismissed((prev) => new Set([...prev, id]))
+    setDismissed((prev) => {
+      const newSet = new Set([...prev, id])
+      // Save to localStorage for persistence
+      try {
+        localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...newSet]))
+      } catch (error) {
+        console.error('Error saving dismissed announcements:', error)
+      }
+      return newSet
+    })
   }
 
   const handleClosePopup = () => {
     if (showPopup) {
       markAsRead(showPopup.id)
+      // Also save to localStorage for persistence
+      setDismissed((prev) => {
+        const newSet = new Set([...prev, showPopup.id])
+        try {
+          localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...newSet]))
+        } catch (error) {
+          console.error('Error saving dismissed announcements:', error)
+        }
+        return newSet
+      })
       setShowPopup(null)
     }
   }
