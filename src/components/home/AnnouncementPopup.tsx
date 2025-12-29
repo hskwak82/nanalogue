@@ -127,7 +127,7 @@ export function AnnouncementPopup() {
             <span className="text-sm text-gray-600">다시 보지 않기</span>
           </label>
           <button
-            onClick={handleClose}
+            onClick={() => handleClose()}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
           >
             확인
