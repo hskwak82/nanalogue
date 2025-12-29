@@ -6,9 +6,13 @@ interface SessionImageOpacityControlProps {
   entryId: string
   initialOpacity: number
   initialFontColor: string | null
+  initialFontSize: number | null
+  initialTextBgOpacity: number | null
   diaryFontColor: string
   onOpacityChange?: (opacity: number) => void
   onFontColorChange?: (color: string) => void
+  onFontSizeChange?: (size: number) => void
+  onTextBgOpacityChange?: (opacity: number | null) => void
 }
 
 const FONT_COLOR_PRESETS = [
@@ -21,22 +25,41 @@ const FONT_COLOR_PRESETS = [
   { label: '남색', value: '#1e3a5f', color: '#1e3a5f' },
 ]
 
+const FONT_SIZE_PRESETS = [
+  { label: '작게', value: 0.85 },
+  { label: '기본', value: 1.0 },
+  { label: '크게', value: 1.15 },
+  { label: '매우 크게', value: 1.3 },
+]
+
 export function SessionImageOpacityControl({
   entryId,
   initialOpacity,
   initialFontColor,
+  initialFontSize,
+  initialTextBgOpacity,
   diaryFontColor,
   onOpacityChange,
   onFontColorChange,
+  onFontSizeChange,
+  onTextBgOpacityChange,
 }: SessionImageOpacityControlProps) {
   const [opacity, setOpacity] = useState(initialOpacity)
   const [savedOpacity, setSavedOpacity] = useState(initialOpacity)
   const [fontColor, setFontColor] = useState<string | null>(initialFontColor)
   const [savedFontColor, setSavedFontColor] = useState<string | null>(initialFontColor)
+  const [fontSize, setFontSize] = useState(initialFontSize ?? 1.0)
+  const [savedFontSize, setSavedFontSize] = useState(initialFontSize ?? 1.0)
+  const [textBgOpacity, setTextBgOpacity] = useState(initialTextBgOpacity ?? 0)
+  const [savedTextBgOpacity, setSavedTextBgOpacity] = useState(initialTextBgOpacity ?? 0)
   const [isSaving, setIsSaving] = useState(false)
   const [showSaveSuccess, setShowSaveSuccess] = useState(false)
 
-  const hasChanges = opacity !== savedOpacity || fontColor !== savedFontColor
+  const hasChanges =
+    opacity !== savedOpacity ||
+    fontColor !== savedFontColor ||
+    fontSize !== savedFontSize ||
+    textBgOpacity !== savedTextBgOpacity
 
   const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) / 100
@@ -49,17 +72,36 @@ export function SessionImageOpacityControl({
     onFontColorChange?.(color ?? diaryFontColor)
   }
 
+  const handleFontSizeSelect = (size: number) => {
+    setFontSize(size)
+    onFontSizeChange?.(size)
+  }
+
+  const handleTextBgOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value) / 100
+    setTextBgOpacity(value)
+    onTextBgOpacityChange?.(value === 0 ? null : value)
+  }
+
   const handleSave = async () => {
     setIsSaving(true)
     try {
       const response = await fetch('/api/diary/session-image-opacity', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId, opacity, fontColor }),
+        body: JSON.stringify({
+          entryId,
+          opacity,
+          fontColor,
+          fontSize: fontSize === 1.0 ? null : fontSize,
+          textBgOpacity: textBgOpacity === 0 ? null : textBgOpacity,
+        }),
       })
       if (response.ok) {
         setSavedOpacity(opacity)
         setSavedFontColor(fontColor)
+        setSavedFontSize(fontSize)
+        setSavedTextBgOpacity(textBgOpacity)
         setShowSaveSuccess(true)
         setTimeout(() => setShowSaveSuccess(false), 2000)
       } else {
@@ -75,8 +117,12 @@ export function SessionImageOpacityControl({
   const handleReset = () => {
     setOpacity(savedOpacity)
     setFontColor(savedFontColor)
+    setFontSize(savedFontSize)
+    setTextBgOpacity(savedTextBgOpacity)
     onOpacityChange?.(savedOpacity)
     onFontColorChange?.(savedFontColor ?? diaryFontColor)
+    onFontSizeChange?.(savedFontSize)
+    onTextBgOpacityChange?.(savedTextBgOpacity === 0 ? null : savedTextBgOpacity)
   }
 
   const currentDisplayColor = fontColor ?? diaryFontColor
@@ -119,6 +165,55 @@ export function SessionImageOpacityControl({
           <div className="flex justify-between text-xs text-gray-400 mt-1">
             <span>투명</span>
             <span>불투명</span>
+          </div>
+        </div>
+
+        {/* Text Background Opacity Control */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">📝</span>
+            <span className="text-xs text-gray-600">글자 배경 불투명도</span>
+            <span className="text-xs text-gray-400">(가독성 향상)</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(textBgOpacity * 100)}
+              onChange={handleTextBgOpacityChange}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pastel-purple"
+            />
+            <span className="text-sm text-gray-600 w-12 text-right">
+              {Math.round(textBgOpacity * 100)}%
+            </span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>없음</span>
+            <span>불투명</span>
+          </div>
+        </div>
+
+        {/* Font Size Control */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">🔤</span>
+            <span className="text-xs text-gray-600">글자 크기</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {FONT_SIZE_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => handleFontSizeSelect(preset.value)}
+                className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
+                  Math.abs(fontSize - preset.value) < 0.01
+                    ? 'border-pastel-purple bg-pastel-purple-light/30 ring-1 ring-pastel-purple/50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-gray-700">{preset.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 

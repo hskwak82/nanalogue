@@ -37,6 +37,8 @@ interface DiaryPaperProps {
   paperFontColor?: string
   sessionImageUrl?: string | null
   sessionImageOpacity?: number
+  sessionFontSize?: number
+  sessionTextBgOpacity?: number | null
 }
 
 // Generate line pattern CSS
@@ -91,6 +93,8 @@ export function DiaryPaper({
   paperFontColor = DEFAULT_PAPER_FONT_COLOR,
   sessionImageUrl,
   sessionImageOpacity = 0.15,
+  sessionFontSize = 1.0,
+  sessionTextBgOpacity = null,
 }: DiaryPaperProps) {
   const paper = template || DEFAULT_PAPER as PaperTemplate
 
@@ -207,9 +211,21 @@ export function DiaryPaper({
         style={{
           fontFamily: getFontFamilyCSS(paperFontFamily),
           color: paperFontColor,
+          fontSize: `${sessionFontSize}rem`,
         }}
       >
-        {children}
+        {sessionTextBgOpacity && sessionTextBgOpacity > 0 ? (
+          <div
+            className="rounded-lg p-4 -m-2"
+            style={{
+              backgroundColor: `rgba(255, 255, 255, ${sessionTextBgOpacity})`,
+            }}
+          >
+            {children}
+          </div>
+        ) : (
+          children
+        )}
       </div>
 
       {/* Paper texture overlay */}

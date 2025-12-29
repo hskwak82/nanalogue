@@ -16,6 +16,8 @@ interface DiaryContentWithBackgroundProps {
   sessionImageUrl: string | null
   initialSessionImageOpacity: number
   initialSessionFontColor: string | null
+  initialSessionFontSize: number | null
+  initialSessionTextBgOpacity: number | null
 }
 
 export function DiaryContentWithBackground({
@@ -29,10 +31,16 @@ export function DiaryContentWithBackground({
   sessionImageUrl,
   initialSessionImageOpacity,
   initialSessionFontColor,
+  initialSessionFontSize,
+  initialSessionTextBgOpacity,
 }: DiaryContentWithBackgroundProps) {
   const [sessionImageOpacity, setSessionImageOpacity] = useState(initialSessionImageOpacity)
   const [currentFontColor, setCurrentFontColor] = useState(
     initialSessionFontColor ?? paperFontColor
+  )
+  const [currentFontSize, setCurrentFontSize] = useState(initialSessionFontSize ?? 1.0)
+  const [currentTextBgOpacity, setCurrentTextBgOpacity] = useState<number | null>(
+    initialSessionTextBgOpacity
   )
 
   return (
@@ -46,6 +54,8 @@ export function DiaryContentWithBackground({
         paperFontColor={currentFontColor}
         sessionImageUrl={sessionImageUrl}
         sessionImageOpacity={sessionImageOpacity}
+        sessionFontSize={currentFontSize}
+        sessionTextBgOpacity={currentTextBgOpacity}
         className="mb-8 shadow-sm border border-pastel-pink/30"
       >
         <div className="prose max-w-none">
@@ -64,9 +74,13 @@ export function DiaryContentWithBackground({
             entryId={entryId}
             initialOpacity={initialSessionImageOpacity}
             initialFontColor={initialSessionFontColor}
+            initialFontSize={initialSessionFontSize}
+            initialTextBgOpacity={initialSessionTextBgOpacity}
             diaryFontColor={paperFontColor}
             onOpacityChange={setSessionImageOpacity}
             onFontColorChange={setCurrentFontColor}
+            onFontSizeChange={setCurrentFontSize}
+            onTextBgOpacityChange={setCurrentTextBgOpacity}
           />
         </div>
       )}
