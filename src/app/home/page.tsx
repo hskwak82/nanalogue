@@ -16,16 +16,14 @@ export default async function HomePage() {
     redirect('/login')
   }
 
-  // Parallel fetch: profile, active diary, latest entry
-  const [profileResult, diaryResult, latestEntryResult] = await Promise.all([
+  // Parallel fetch: profile, active diary
+  const [profileResult, diaryResult] = await Promise.all([
     supabase.from('profiles').select('name').eq('id', user.id).single(),
     supabase.from('diaries').select('*, cover_templates(*)').eq('user_id', user.id).eq('status', 'active').single(),
-    supabase.from('diary_entries').select('entry_date, content').eq('user_id', user.id).order('entry_date', { ascending: false }).limit(1).single(),
   ])
 
   const profile = profileResult.data
   const diaryData = diaryResult.data
-  const latestEntry = latestEntryResult.data
 
   // Transform to DiaryWithTemplates format
   const activeDiary: DiaryWithTemplates | null = diaryData
@@ -43,10 +41,6 @@ export default async function HomePage() {
       <BookIntro
         diary={activeDiary}
         userName={profile?.name || undefined}
-        latestEntry={latestEntry ? {
-          date: latestEntry.entry_date,
-          content: latestEntry.content
-        } : undefined}
       />
     </div>
   )
