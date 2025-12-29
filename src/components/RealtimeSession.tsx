@@ -456,6 +456,24 @@ export function RealtimeSession({ onComplete, onCancel, sessionId }: RealtimeSes
           </div>
         )}
 
+        {/* Session Image - show at top of conversation if exists */}
+        {conversationStarted && sessionImagePreview && transcripts.length > 0 && (
+          <div className="flex justify-center mb-4">
+            <div className="relative rounded-2xl overflow-hidden shadow-lg border-2 border-pastel-pink/30 max-w-sm">
+              <img
+                src={sessionImagePreview}
+                alt="오늘의 사진"
+                className="w-full h-auto max-h-64 object-cover"
+              />
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-3">
+                <p className="text-white text-sm font-medium text-center">
+                  오늘의 사진
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Transcript Messages */}
         {transcripts.map((msg, index) => (
           <div
