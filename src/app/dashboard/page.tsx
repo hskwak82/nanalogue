@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         user={user ? { email: user.email, name: profile?.name } : null}
       />
 
-      <main className="mx-auto max-w-6xl px-4 pt-8 pb-12 sm:px-6 sm:pt-12 lg:px-8">
+      <main className="mx-auto max-w-6xl px-4 pb-12 sm:px-6 sm:pt-12 lg:px-8">
         {/* Announcement Card */}
         <AnnouncementCard />
         {/* Daily Quote & Date */}

@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/login/actions'
@@ -9,10 +8,6 @@ import {
   PencilSquareIcon,
   BookOpenIcon,
   Cog6ToothIcon,
-  Bars3Icon,
-  XMarkIcon,
-  InformationCircleIcon,
-  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 interface NavigationProps {
@@ -24,7 +19,6 @@ interface NavigationProps {
 
 export function Navigation({ user }: NavigationProps) {
   const pathname = usePathname()
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const isActive = (path: string) => pathname === path
   const isActivePrefix = (path: string) => pathname.startsWith(path)
@@ -44,7 +38,46 @@ export function Navigation({ user }: NavigationProps) {
 
   return (
     <>
-      <nav className="border-b border-pastel-pink bg-white/80 backdrop-blur-sm">
+      {/* Mobile Top Header - Fixed */}
+      <nav className="sm:hidden fixed top-0 left-0 right-0 z-50 border-b border-pastel-pink bg-white/95 backdrop-blur-sm">
+        <div className="flex items-center justify-center h-8 px-4">
+          <Link href="/home" className="flex items-center gap-1.5">
+            <svg
+              width={24}
+              height={24}
+              viewBox="0 0 48 48"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="mobileNavLeafGradient" x1="8" y1="8" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#86EFAC" />
+                  <stop offset="1" stopColor="#4ADE80" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M24 4C24 4 8 16 8 32C8 40 16 44 24 44C32 44 40 40 40 32C40 16 24 4 24 4Z"
+                fill="url(#mobileNavLeafGradient)"
+              />
+              <path
+                d="M24 12V36M24 20L18 26M24 28L30 22"
+                stroke="#FAF8F5"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span className="text-lg font-semibold text-pastel-purple-dark">
+              나날로그
+            </span>
+          </Link>
+        </div>
+      </nav>
+
+      {/* Spacer for mobile top header */}
+      <div className="sm:hidden h-8" />
+
+      {/* Desktop Navigation */}
+      <nav className="hidden sm:block border-b border-pastel-pink bg-white/80 backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-14 sm:h-16 justify-between">
             {/* Logo - always show icon, hide text on very small screens */}
@@ -102,12 +135,6 @@ export function Navigation({ user }: NavigationProps) {
               </div>
             )}
 
-            {/* Mobile Navigation - Hidden, using bottom nav instead */}
-            {user && (
-              <div className="flex sm:hidden items-center">
-                {/* Empty space - bottom nav handles mobile navigation */}
-              </div>
-            )}
 
           {/* Right side - Desktop */}
           <div className="hidden sm:flex items-center space-x-2 lg:space-x-4">
@@ -181,95 +208,8 @@ export function Navigation({ user }: NavigationProps) {
             )}
           </div>
 
-          {/* Right side - Mobile */}
-          <div className="flex sm:hidden items-center">
-            {user ? (
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-full text-gray-400 hover:text-pastel-purple-dark transition-all"
-              >
-                {mobileMenuOpen ? (
-                  <XMarkIcon className="w-5 h-5" />
-                ) : (
-                  <Cog6ToothIcon className="w-5 h-5" />
-                )}
-              </button>
-            ) : (
-              <div className="flex items-center space-x-3">
-                <Link
-                  href="/about"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/about')
-                      ? 'text-pastel-purple-dark'
-                      : 'text-gray-500 hover:text-pastel-purple-dark'
-                  }`}
-                >
-                  소개
-                </Link>
-                <Link
-                  href="/login"
-                  className="text-sm font-medium text-pastel-purple hover:text-pastel-purple-dark transition-colors"
-                >
-                  로그인
-                </Link>
-              </div>
-            )}
-          </div>
         </div>
       </div>
-
-      {/* Mobile Menu Dropdown */}
-      {user && mobileMenuOpen && (
-        <div className="sm:hidden border-t border-pastel-pink/50 bg-white/95 backdrop-blur-sm">
-          <div className="px-4 py-3 space-y-2">
-            <div className="text-xs text-gray-400 truncate mb-2">{user.email}</div>
-            <Link
-              href="/about"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isActive('/about')
-                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
-                  : 'text-gray-600 hover:bg-pastel-pink-light'
-              }`}
-            >
-              <InformationCircleIcon className="w-4 h-4" />
-              소개
-            </Link>
-            <Link
-              href="/announcements"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isActive('/announcements')
-                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
-                  : 'text-gray-600 hover:bg-pastel-pink-light'
-              }`}
-            >
-              <MegaphoneIcon className="w-4 h-4" />
-              공지사항
-            </Link>
-            <Link
-              href="/settings"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                isActivePrefix('/settings')
-                  ? 'bg-pastel-purple-light text-pastel-purple-dark'
-                  : 'text-gray-600 hover:bg-pastel-pink-light'
-              }`}
-            >
-              <Cog6ToothIcon className="w-4 h-4" />
-              설정
-            </Link>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-pastel-pink-light transition-all text-left"
-              >
-                로그아웃
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </nav>
 
       {/* Mobile Bottom Navigation Bar */}

@@ -57,11 +57,12 @@ export function AnnouncementPopup() {
 
   const style = typeStyles[currentAnnouncement.type] || typeStyles.info
 
-  const handleClose = () => {
-    if (dontShowAgain) {
+  const handleClose = (dismiss: boolean = false) => {
+    // Always dismiss when X is clicked, or when checkbox is checked
+    if (dismiss || dontShowAgain) {
       addDismissedId(currentAnnouncement.id)
     }
-    
+
     if (currentIndex < announcements.length - 1) {
       setCurrentIndex(currentIndex + 1)
       setDontShowAgain(false)
@@ -93,10 +94,11 @@ export function AnnouncementPopup() {
             )}
           </div>
           <button
-            onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-white/50"
+            onClick={() => handleClose(true)}
+            className="p-2 text-gray-600 hover:text-gray-800 rounded-lg hover:bg-white/50 active:bg-white/70"
+            aria-label="닫기"
           >
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
