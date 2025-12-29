@@ -15,6 +15,7 @@ interface DiaryContentWithBackgroundProps {
   paperFontColor: string
   sessionImageUrl: string | null
   initialSessionImageOpacity: number
+  initialSessionFontColor: string | null
 }
 
 export function DiaryContentWithBackground({
@@ -27,8 +28,12 @@ export function DiaryContentWithBackground({
   paperFontColor,
   sessionImageUrl,
   initialSessionImageOpacity,
+  initialSessionFontColor,
 }: DiaryContentWithBackgroundProps) {
   const [sessionImageOpacity, setSessionImageOpacity] = useState(initialSessionImageOpacity)
+  const [currentFontColor, setCurrentFontColor] = useState(
+    initialSessionFontColor ?? paperFontColor
+  )
 
   return (
     <>
@@ -38,7 +43,7 @@ export function DiaryContentWithBackground({
         decorations={paperDecorations}
         paperOpacity={paperOpacity}
         paperFontFamily={paperFontFamily}
-        paperFontColor={paperFontColor}
+        paperFontColor={currentFontColor}
         sessionImageUrl={sessionImageUrl}
         sessionImageOpacity={sessionImageOpacity}
         className="mb-8 shadow-sm border border-pastel-pink/30"
@@ -52,13 +57,16 @@ export function DiaryContentWithBackground({
         </div>
       </DiaryPaper>
 
-      {/* Session Image Opacity Control */}
+      {/* Session Style Control (shown when session image exists) */}
       {sessionImageUrl && (
         <div className="mb-8">
           <SessionImageOpacityControl
             entryId={entryId}
             initialOpacity={initialSessionImageOpacity}
+            initialFontColor={initialSessionFontColor}
+            diaryFontColor={paperFontColor}
             onOpacityChange={setSessionImageOpacity}
+            onFontColorChange={setCurrentFontColor}
           />
         </div>
       )}

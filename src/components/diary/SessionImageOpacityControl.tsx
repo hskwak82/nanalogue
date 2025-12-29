@@ -1,29 +1,52 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 interface SessionImageOpacityControlProps {
   entryId: string
   initialOpacity: number
+  initialFontColor: string | null
+  diaryFontColor: string
   onOpacityChange?: (opacity: number) => void
+  onFontColorChange?: (color: string) => void
 }
+
+const FONT_COLOR_PRESETS = [
+  { label: '기본', value: null, color: null },
+  { label: '검정', value: '#1a1a1a', color: '#1a1a1a' },
+  { label: '진회색', value: '#333333', color: '#333333' },
+  { label: '회색', value: '#666666', color: '#666666' },
+  { label: '흰색', value: '#ffffff', color: '#ffffff' },
+  { label: '갈색', value: '#5c4033', color: '#5c4033' },
+  { label: '남색', value: '#1e3a5f', color: '#1e3a5f' },
+]
 
 export function SessionImageOpacityControl({
   entryId,
   initialOpacity,
+  initialFontColor,
+  diaryFontColor,
   onOpacityChange,
+  onFontColorChange,
 }: SessionImageOpacityControlProps) {
   const [opacity, setOpacity] = useState(initialOpacity)
   const [savedOpacity, setSavedOpacity] = useState(initialOpacity)
+  const [fontColor, setFontColor] = useState<string | null>(initialFontColor)
+  const [savedFontColor, setSavedFontColor] = useState<string | null>(initialFontColor)
   const [isSaving, setIsSaving] = useState(false)
   const [showSaveSuccess, setShowSaveSuccess] = useState(false)
 
-  const hasChanges = opacity !== savedOpacity
+  const hasChanges = opacity !== savedOpacity || fontColor !== savedFontColor
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleOpacityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) / 100
     setOpacity(value)
-    onOpacityChange?.(value) // Real-time preview
+    onOpacityChange?.(value)
+  }
+
+  const handleFontColorSelect = (color: string | null) => {
+    setFontColor(color)
+    onFontColorChange?.(color ?? diaryFontColor)
   }
 
   const handleSave = async () => {
@@ -32,33 +55,37 @@ export function SessionImageOpacityControl({
       const response = await fetch('/api/diary/session-image-opacity', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryId, opacity }),
+        body: JSON.stringify({ entryId, opacity, fontColor }),
       })
       if (response.ok) {
         setSavedOpacity(opacity)
+        setSavedFontColor(fontColor)
         setShowSaveSuccess(true)
         setTimeout(() => setShowSaveSuccess(false), 2000)
       } else {
-        console.error('Failed to save opacity')
+        console.error('Failed to save style')
       }
     } catch (error) {
-      console.error('Error saving opacity:', error)
+      console.error('Error saving style:', error)
     } finally {
       setIsSaving(false)
     }
   }
 
-  // Reset to saved value
   const handleReset = () => {
     setOpacity(savedOpacity)
+    setFontColor(savedFontColor)
     onOpacityChange?.(savedOpacity)
+    onFontColorChange?.(savedFontColor ?? diaryFontColor)
   }
+
+  const currentDisplayColor = fontColor ?? diaryFontColor
 
   return (
     <div className="rounded-xl bg-white/70 backdrop-blur-sm p-4 border border-pastel-pink/30">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">📷</span>
-        <span className="text-sm font-medium text-gray-700">배경 사진 투명도</span>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-lg">🎨</span>
+        <span className="text-sm font-medium text-gray-700">속지 스타일</span>
         {showSaveSuccess && (
           <span className="text-xs text-pastel-mint ml-auto flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,29 +96,68 @@ export function SessionImageOpacityControl({
         )}
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={Math.round(opacity * 100)}
-            onChange={handleChange}
-            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pastel-purple"
-          />
-          <span className="text-sm text-gray-600 w-12 text-right">
-            {Math.round(opacity * 100)}%
-          </span>
+      <div className="space-y-4">
+        {/* Opacity Control */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">📷</span>
+            <span className="text-xs text-gray-600">배경 사진 투명도</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={Math.round(opacity * 100)}
+              onChange={handleOpacityChange}
+              className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pastel-purple"
+            />
+            <span className="text-sm text-gray-600 w-12 text-right">
+              {Math.round(opacity * 100)}%
+            </span>
+          </div>
+          <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <span>투명</span>
+            <span>불투명</span>
+          </div>
         </div>
 
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>투명</span>
-          <span>불투명</span>
+        {/* Font Color Control */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">✏️</span>
+            <span className="text-xs text-gray-600">글자 색상</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {FONT_COLOR_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                onClick={() => handleFontColorSelect(preset.value)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs transition-all ${
+                  (fontColor === preset.value) || (fontColor === null && preset.value === null)
+                    ? 'border-pastel-purple bg-pastel-purple-light/30 ring-1 ring-pastel-purple/50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span
+                  className="w-4 h-4 rounded-full border border-gray-300"
+                  style={{
+                    backgroundColor: preset.color ?? diaryFontColor,
+                  }}
+                />
+                <span className="text-gray-700">{preset.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            현재: <span style={{ color: currentDisplayColor }}>{currentDisplayColor}</span>
+            {fontColor === null && ' (일기장 기본값)'}
+          </p>
         </div>
 
         {/* Save/Reset buttons */}
         {hasChanges && (
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-2 border-t border-gray-100">
             <button
               onClick={handleReset}
               className="flex-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"

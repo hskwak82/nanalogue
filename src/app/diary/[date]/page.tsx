@@ -46,9 +46,10 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     redirect(`/session?entry=true&date=${date}`)
   }
 
-  // Extract session image data
+  // Extract session image data and style
   const sessionImageUrl = (entry.session as { session_image_url: string | null } | null)?.session_image_url || null
   const sessionImageOpacity = (entry.session_image_opacity as number) ?? 0.15
+  const sessionFontColor = (entry.session_font_color as string | null) ?? null
 
   // Get diary customization for paper template and decorations
   // First try to get from the diary associated with this entry
@@ -172,6 +173,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           paperFontColor={paperFontColor}
           sessionImageUrl={sessionImageUrl}
           initialSessionImageOpacity={sessionImageOpacity}
+          initialSessionFontColor={sessionFontColor}
         />
 
         {/* Gratitude */}
