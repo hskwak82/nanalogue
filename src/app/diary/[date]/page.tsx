@@ -2,9 +2,8 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
-import { DiaryPaper } from '@/components/diary/DiaryPaper'
 import { DiaryActionsWrapper } from './DiaryActionsWrapper'
-import { SessionImageOpacityControl } from '@/components/diary/SessionImageOpacityControl'
+import { DiaryContentWithBackground } from '@/components/diary/DiaryContentWithBackground'
 import type { PaperTemplate, PlacedDecoration } from '@/types/customization'
 
 interface DiaryDetailPageProps {
@@ -162,35 +161,18 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
             </div>
           )}
 
-        {/* Diary Content */}
-        <DiaryPaper
-          template={paperTemplate}
-          decorations={paperDecorations}
+        {/* Diary Content with Background Image */}
+        <DiaryContentWithBackground
+          entryId={entry.id}
+          content={entry.content as string}
+          paperTemplate={paperTemplate}
+          paperDecorations={paperDecorations}
           paperOpacity={paperOpacity}
           paperFontFamily={paperFontFamily}
           paperFontColor={paperFontColor}
           sessionImageUrl={sessionImageUrl}
-          sessionImageOpacity={sessionImageOpacity}
-          className="mb-8 shadow-sm border border-pastel-pink/30"
-        >
-          <div className="prose max-w-none">
-            {(entry.content as string).split('\n').map((paragraph: string, idx: number) => (
-              <p key={idx} className="mb-4 last:mb-0 leading-relaxed">
-                {paragraph}
-              </p>
-            ))}
-          </div>
-        </DiaryPaper>
-
-        {/* Session Image Opacity Control */}
-        {sessionImageUrl && (
-          <div className="mb-8">
-            <SessionImageOpacityControl
-              entryId={entry.id}
-              initialOpacity={sessionImageOpacity}
-            />
-          </div>
-        )}
+          initialSessionImageOpacity={sessionImageOpacity}
+        />
 
         {/* Gratitude */}
         {entry.gratitude &&

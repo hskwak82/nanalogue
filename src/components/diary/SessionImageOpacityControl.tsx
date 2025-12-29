@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 
 interface SessionImageOpacityControlProps {
   entryId: string
@@ -14,41 +14,44 @@ export function SessionImageOpacityControl({
   onOpacityChange,
 }: SessionImageOpacityControlProps) {
   const [opacity, setOpacity] = useState(initialOpacity)
+  const [savedOpacity, setSavedOpacity] = useState(initialOpacity)
   const [isSaving, setIsSaving] = useState(false)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false)
 
-  // Debounced save to avoid too many API calls
-  const saveOpacity = useCallback(async (value: number) => {
-    // Clear previous timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-    }
-
-    // Set new timeout
-    timeoutRef.current = setTimeout(async () => {
-      setIsSaving(true)
-      try {
-        const response = await fetch('/api/diary/session-image-opacity', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ entryId, opacity: value }),
-        })
-        if (!response.ok) {
-          console.error('Failed to save opacity')
-        }
-      } catch (error) {
-        console.error('Error saving opacity:', error)
-      } finally {
-        setIsSaving(false)
-      }
-    }, 500)
-  }, [entryId])
+  const hasChanges = opacity !== savedOpacity
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value) / 100
     setOpacity(value)
-    onOpacityChange?.(value)
-    saveOpacity(value)
+    onOpacityChange?.(value) // Real-time preview
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/diary/session-image-opacity', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryId, opacity }),
+      })
+      if (response.ok) {
+        setSavedOpacity(opacity)
+        setShowSaveSuccess(true)
+        setTimeout(() => setShowSaveSuccess(false), 2000)
+      } else {
+        console.error('Failed to save opacity')
+      }
+    } catch (error) {
+      console.error('Error saving opacity:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Reset to saved value
+  const handleReset = () => {
+    setOpacity(savedOpacity)
+    onOpacityChange?.(savedOpacity)
   }
 
   return (
@@ -56,12 +59,17 @@ export function SessionImageOpacityControl({
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">📷</span>
         <span className="text-sm font-medium text-gray-700">배경 사진 투명도</span>
-        {isSaving && (
-          <span className="text-xs text-gray-400 ml-auto">저장 중...</span>
+        {showSaveSuccess && (
+          <span className="text-xs text-pastel-mint ml-auto flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            저장됨
+          </span>
         )}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-3">
           <input
             type="range"
@@ -80,6 +88,25 @@ export function SessionImageOpacityControl({
           <span>투명</span>
           <span>불투명</span>
         </div>
+
+        {/* Save/Reset buttons */}
+        {hasChanges && (
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={handleReset}
+              className="flex-1 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 px-3 py-2 text-sm text-white bg-pastel-purple hover:bg-pastel-purple-dark rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
