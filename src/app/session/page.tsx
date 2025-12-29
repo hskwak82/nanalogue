@@ -1020,6 +1020,11 @@ function SessionPageContent() {
           conversation?.filter((m) => m.role === 'assistant').length || 0
         )
         setConversationStarted(true)
+
+        // Restore session image if exists
+        if (session.session_image_url) {
+          setSessionImagePreview(session.session_image_url)
+        }
       }
     } catch (err) {
       console.error('Failed to continue session:', err)
