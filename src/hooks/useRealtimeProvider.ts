@@ -754,17 +754,21 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
     setAiTranscript('')
   }, [updateState])
 
-  const startConversation = useCallback(() => {
+  const startConversation = useCallback((imageContext?: string) => {
     if (provider === 'gemini') {
       // Gemini: Send a trigger to start conversation based on system instructions
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
 
-      // Send a minimal trigger that prompts the AI to greet based on its system instruction
+      // If image context is provided, include it in the greeting prompt
+      const greetingPrompt = imageContext
+        ? `사용자가 오늘의 사진을 공유했습니다. 사진 분석 결과: ${imageContext}\n\n이 사진에 대해 따뜻하게 언급하며 대화를 시작해주세요.`
+        : '대화를 시작해주세요.'
+
       wsRef.current.send(JSON.stringify({
         clientContent: {
           turns: [{
             role: 'user',
-            parts: [{ text: '대화를 시작해주세요.' }]
+            parts: [{ text: greetingPrompt }]
           }],
           turnComplete: true
         }
@@ -774,11 +778,16 @@ export function useRealtimeProvider(options: UseRealtimeProviderOptions = {}) {
       // OpenAI: Use data channel
       if (!dataChannelRef.current || dataChannelRef.current.readyState !== 'open') return
 
+      // If image context is provided, include it in the instructions
+      const instructions = imageContext
+        ? `사용자가 오늘의 사진을 공유했습니다. 사진 분석 결과: ${imageContext}\n\n이 사진에 대해 따뜻하게 언급하며 인사하고, 사진과 관련된 오늘 하루에 대해 물어봐주세요. 한국어로 짧게 인사해주세요.`
+        : '사용자에게 따뜻하게 인사하고, 오늘 하루 어땠는지 물어봐주세요. 한국어로 짧게 인사해주세요.'
+
       dataChannelRef.current.send(JSON.stringify({
         type: 'response.create',
         response: {
           modalities: ['text', 'audio'],
-          instructions: '사용자에게 따뜻하게 인사하고, 오늘 하루 어땠는지 물어봐주세요. 한국어로 짧게 인사해주세요.',
+          instructions,
         },
       }))
     }

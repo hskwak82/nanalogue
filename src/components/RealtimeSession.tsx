@@ -291,10 +291,10 @@ export function RealtimeSession({ onComplete, onCancel, sessionId }: RealtimeSes
   // Trigger AI greeting when connection becomes ready
   useEffect(() => {
     if (conversationStarted && realtime.isReady && transcripts.length === 0) {
-      console.log('[RealtimeSession] Connection ready, triggering AI greeting')
-      realtime.startConversation()
+      console.log('[RealtimeSession] Connection ready, triggering AI greeting with imageContext:', imageContext?.substring(0, 50))
+      realtime.startConversation(imageContext || undefined)
     }
-  }, [conversationStarted, realtime.isReady, transcripts.length, realtime.startConversation])
+  }, [conversationStarted, realtime.isReady, transcripts.length, realtime.startConversation, imageContext])
 
   const getStateLabel = (state: RealtimeConnectionState): string => {
     switch (state) {
