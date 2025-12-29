@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOut } from '@/app/login/actions'
 import {
   HomeIcon,
   PencilSquareIcon,
   BookOpenIcon,
   Cog6ToothIcon,
+  InformationCircleIcon,
+  MegaphoneIcon,
 } from '@heroicons/react/24/outline'
 
 interface NavigationProps {
@@ -33,6 +34,8 @@ export function Navigation({ user }: NavigationProps) {
     { href: '/dashboard', label: '홈', icon: HomeIcon, exact: true },
     { href: '/session?entry=true', label: '기록', icon: PencilSquareIcon, exact: false },
     { href: '/diary', label: '일기', icon: BookOpenIcon, exact: false },
+    { href: '/about', label: '소개', icon: InformationCircleIcon, exact: true },
+    { href: '/announcements', label: '공지', icon: MegaphoneIcon, exact: false },
     { href: '/settings', label: '설정', icon: Cog6ToothIcon, exact: false },
   ]
 
@@ -40,7 +43,7 @@ export function Navigation({ user }: NavigationProps) {
     <>
       {/* Mobile Top Header - Fixed */}
       <nav className="sm:hidden fixed top-0 left-0 right-0 z-50 border-b border-pastel-pink bg-white/95 backdrop-blur-sm">
-        <div className="flex items-center justify-center h-8 px-4">
+        <div className="flex items-center justify-between h-8 px-4">
           <Link href="/home" className="flex items-center gap-1.5">
             <svg
               width={24}
@@ -70,6 +73,11 @@ export function Navigation({ user }: NavigationProps) {
               나날로그
             </span>
           </Link>
+          {user && (
+            <span className="text-sm text-gray-400 truncate max-w-[140px]">
+              {user.name || user.email}
+            </span>
+          )}
         </div>
       </nav>
 
@@ -170,15 +178,7 @@ export function Navigation({ user }: NavigationProps) {
                 >
                   설정
                 </Link>
-                <span className="text-sm text-gray-400 max-w-[120px] lg:max-w-[150px] truncate hidden md:block">{user.email}</span>
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="rounded-full bg-pastel-warm px-3 lg:px-4 py-2 text-sm font-medium text-gray-600 whitespace-nowrap hover:bg-pastel-pink-light transition-all"
-                  >
-                    로그아웃
-                  </button>
-                </form>
+                <span className="text-sm text-gray-400 max-w-[120px] lg:max-w-[150px] truncate">{user.name || user.email}</span>
               </>
             ) : (
               <div className="flex items-center space-x-3">

@@ -4,7 +4,9 @@ import { Navigation } from '@/components/Navigation'
 import { VoiceSettings } from './VoiceSettings'
 import { CalendarSettings } from './CalendarSettings'
 import { SubscriptionSection } from './SubscriptionSection'
+import { ProfileSection } from './ProfileSection'
 import { isAdmin } from '@/lib/admin'
+import { signOut } from '@/app/login/actions'
 import type { UserSubscription } from '@/types/payment'
 
 export default async function SettingsPage() {
@@ -61,50 +63,13 @@ export default async function SettingsPage() {
         <SubscriptionSection subscription={userSubscription} />
 
         {/* Profile Section */}
-        <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
-          <h2 className="mb-4 text-lg font-semibold text-gray-700">프로필</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500">
-                이메일
-              </label>
-              <p className="mt-1 text-gray-700">{user?.email}</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500">
-                이름
-              </label>
-              <p className="mt-1 text-gray-700">{profile?.name || '-'}</p>
-            </div>
-          </div>
-        </section>
-
-        {/* Preferences Section */}
-        <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
-          <h2 className="mb-4 text-lg font-semibold text-gray-700">선호 설정</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500">
-                대화 톤
-              </label>
-              <p className="mt-1 text-gray-700">
-                {preferences?.tone === 'friendly'
-                  ? '친근한'
-                  : preferences?.tone === 'formal'
-                    ? '정중한'
-                    : '캐주얼'}
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500">
-                언어
-              </label>
-              <p className="mt-1 text-gray-700">
-                {preferences?.language === 'ko' ? '한국어' : 'English'}
-              </p>
-            </div>
-          </div>
-        </section>
+        {user && (
+          <ProfileSection
+            userId={user.id}
+            email={user.email || ''}
+            initialName={profile?.name || null}
+          />
+        )}
 
         {/* Voice Settings Section */}
         <section className="mb-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
@@ -140,6 +105,19 @@ export default async function SettingsPage() {
             </Link>
           </section>
         )}
+
+        {/* Logout Section */}
+        <section className="mt-8 rounded-2xl bg-white/70 backdrop-blur-sm p-6 shadow-sm border border-pastel-pink/30">
+          <h2 className="mb-4 text-lg font-semibold text-gray-700">계정</h2>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="w-full px-4 py-3 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              로그아웃
+            </button>
+          </form>
+        </section>
       </main>
     </div>
   )

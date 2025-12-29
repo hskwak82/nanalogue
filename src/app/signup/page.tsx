@@ -8,6 +8,8 @@ import { Logo } from '@/components/Logo'
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [signupEmail, setSignupEmail] = useState('')
 
   async function handleSubmit(formData: FormData) {
     setLoading(true)
@@ -32,6 +34,10 @@ export default function SignupPage() {
     if (result?.error) {
       setError(result.error)
       setLoading(false)
+    } else if (result?.success) {
+      setSignupEmail(result.email)
+      setShowConfirmation(true)
+      setLoading(false)
     }
   }
 
@@ -44,6 +50,60 @@ export default function SignupPage() {
       setError(result.error)
       setLoading(false)
     }
+  }
+
+  // Show confirmation screen after successful signup
+  if (showConfirmation) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-pastel-cream px-4 py-12 sm:px-6 lg:px-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex flex-col items-center">
+            <Logo size="lg" />
+          </div>
+
+          <div className="rounded-2xl bg-white/80 backdrop-blur-sm p-8 shadow-lg border border-pastel-pink/30 text-center">
+            <div className="mx-auto w-16 h-16 bg-pastel-purple-light rounded-full flex items-center justify-center mb-6">
+              <svg className="w-8 h-8 text-pastel-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+
+            {/* Korean */}
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              이메일을 확인해주세요
+            </h2>
+            <p className="text-gray-600 mb-4">
+              <span className="font-medium text-pastel-purple">{signupEmail}</span>로<br />
+              인증 메일을 보냈습니다.<br />
+              메일함을 확인하고 링크를 클릭해주세요.
+            </p>
+
+            <div className="border-t border-pastel-pink my-6" />
+
+            {/* English */}
+            <h2 className="text-lg font-bold text-gray-700 mb-2">
+              Please check your email
+            </h2>
+            <p className="text-gray-500 text-sm mb-6">
+              We sent a confirmation email to<br />
+              <span className="font-medium text-pastel-purple">{signupEmail}</span><br />
+              Please check your inbox and click the link.
+            </p>
+
+            <Link
+              href="/login"
+              className="inline-block w-full rounded-full bg-pastel-purple px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pastel-purple-dark transition-all"
+            >
+              로그인 페이지로 이동
+            </Link>
+
+            <p className="mt-4 text-xs text-gray-400">
+              메일이 오지 않았나요? 스팸함을 확인해주세요.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

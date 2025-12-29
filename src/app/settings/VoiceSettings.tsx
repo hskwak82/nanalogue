@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { PlayIcon, SpeakerWaveIcon, MicrophoneIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline'
+import { PlayIcon, SpeakerWaveIcon, MicrophoneIcon, ChatBubbleLeftIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { BoltIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid'
 
 interface TTSVoice {
@@ -59,6 +59,7 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
   const [saving, setSaving] = useState(false)
   const [playing, setPlaying] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [voiceExpanded, setVoiceExpanded] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
   useEffect(() => {
@@ -123,9 +124,11 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
 
       await fetchSettings()
       setMessage({ type: 'success', text: '저장되었습니다.' })
+      setTimeout(() => setMessage(null), 2000)
     } catch (error) {
       console.error('Failed to save TTS settings:', error)
       setMessage({ type: 'error', text: '저장에 실패했습니다.' })
+      setTimeout(() => setMessage(null), 3000)
     } finally {
       setSaving(false)
     }
@@ -211,18 +214,12 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
         {isRealtimeMode ? (
           <>
             <BoltIcon className="h-4 w-4 text-indigo-600" />
-            <span className="text-sm text-indigo-700">
-              <span className="font-medium">실시간 대화 모드</span>
-              <span className="text-indigo-500 ml-1">- OpenAI Realtime API</span>
-            </span>
+            <span className="text-sm font-medium text-indigo-700">실시간 대화 모드</span>
           </>
         ) : (
           <>
             <ChatBubbleLeftRightIcon className="h-4 w-4 text-gray-600" />
-            <span className="text-sm text-gray-700">
-              <span className="font-medium">클래식 모드</span>
-              <span className="text-gray-500 ml-1">- {settings.provider.name}</span>
-            </span>
+            <span className="text-sm font-medium text-gray-700">클래식 모드</span>
           </>
         )}
       </div>
@@ -271,55 +268,55 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
         </div>
       </div>
 
-      {/* Realtime Voice Selection (for realtime mode) */}
-      {isRealtimeMode && (
-        <div>
-          <label className="block text-sm font-medium text-gray-500 mb-2">
-            AI 음성 선택
-          </label>
-          <div className="space-y-2">
-            {/* Use System Default Option */}
+      {/* Realtime Voice Selection (for realtime mode + voice input mode) */}
+      {isRealtimeMode && selectedInputMode === 'voice' && (() => {
+        const currentVoiceId = selectedRealtimeVoice || settings.systemDefaults.realtimeVoice
+        const currentVoice = settings.realtimeVoices.find(v => v.id === currentVoiceId)
+        return (
+          <div>
+            <label className="block text-sm font-medium text-gray-500 mb-2">
+              AI 음성 선택
+            </label>
+            {/* Collapsed View - Show selected voice */}
             <div
-              onClick={() => setSelectedRealtimeVoice(null)}
-              className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
-                selectedRealtimeVoice === null
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-gray-200 hover:border-indigo-300'
-              }`}
+              onClick={() => setVoiceExpanded(!voiceExpanded)}
+              className="flex items-center justify-between p-3 rounded-xl border border-indigo-500 bg-indigo-50 cursor-pointer transition-all"
             >
               <div>
-                <span className="font-medium text-gray-700">시스템 기본값 사용</span>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {settings.realtimeVoices.find(v => v.id === settings.systemDefaults.realtimeVoice)?.name || settings.systemDefaults.realtimeVoice}
-                  {' - '}
-                  {settings.realtimeVoices.find(v => v.id === settings.systemDefaults.realtimeVoice)?.description}
-                </p>
+                <span className="font-medium text-gray-700">{currentVoice?.name}</span>
+                <span className="text-xs text-gray-500 ml-2">- {currentVoice?.description}</span>
               </div>
+              <ChevronDownIcon className={`h-5 w-5 text-gray-400 transition-transform ${voiceExpanded ? 'rotate-180' : ''}`} />
             </div>
 
-            {/* Individual Realtime Voice Options */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-              {settings.realtimeVoices.map((voice) => (
-                <div
-                  key={voice.id}
-                  onClick={() => setSelectedRealtimeVoice(voice.id)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                    selectedRealtimeVoice === voice.id
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-indigo-300'
-                  }`}
-                >
-                  <span className="font-medium text-gray-700">{voice.name}</span>
-                  <p className="text-xs text-gray-500 mt-0.5">{voice.description}</p>
-                </div>
-              ))}
-            </div>
+            {/* Expanded View - Voice Options */}
+            {voiceExpanded && (
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {settings.realtimeVoices.map((voice) => (
+                  <div
+                    key={voice.id}
+                    onClick={() => {
+                      setSelectedRealtimeVoice(voice.id)
+                      setVoiceExpanded(false)
+                    }}
+                    className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                      currentVoiceId === voice.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-gray-200 hover:border-indigo-300'
+                    }`}
+                  >
+                    <span className="font-medium text-gray-700">{voice.name}</span>
+                    <span className="text-xs text-gray-500 ml-2">- {voice.description}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Classic Mode Settings */}
-      {!isRealtimeMode && (
+      {!isRealtimeMode && selectedInputMode === 'voice' && (
         <>
           {/* Voice Selection */}
           <div>
@@ -494,8 +491,8 @@ export function VoiceSettings({ userId, currentVoice }: VoiceSettingsProps) {
 
       {message && (
         <p
-          className={`text-sm ${
-            message.type === 'success' ? 'text-pastel-mint' : 'text-pastel-peach'
+          className={`text-sm font-medium ${
+            message.type === 'success' ? 'text-green-600' : 'text-red-500'
           }`}
         >
           {message.text}

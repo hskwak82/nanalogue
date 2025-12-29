@@ -201,6 +201,25 @@ export function AboutContent({ isLoggedIn }: AboutContentProps) {
         </div>
       </section>
 
+      {/* Detailed Guide Link */}
+      <section className="px-4 py-8">
+        <motion.div
+          className="max-w-xl mx-auto text-center"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+        >
+          <Link
+            href="/about/guide"
+            className="inline-flex items-center gap-2 text-pastel-purple-dark hover:text-pastel-purple font-medium transition-colors"
+          >
+            <span>📖</span>
+            <span>상세 사용 가이드 보기</span>
+            <span>→</span>
+          </Link>
+        </motion.div>
+      </section>
+
       {/* CTA Section */}
       <section className="px-4 py-12 sm:py-16">
         <motion.div
