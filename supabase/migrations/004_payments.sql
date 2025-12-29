@@ -1,11 +1,13 @@
--- Toss Payments Integration Migration
--- Created: 2024-12-16
+-- ============================================
+-- 004: Payments System (Toss Payments)
+-- Consolidated from: toss_payments
+-- ============================================
 
 -- ============================================
--- SUBSCRIPTION PLANS TABLE (Admin configurable)
+-- SUBSCRIPTION PLANS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS subscription_plans (
-  id TEXT PRIMARY KEY, -- 'free', 'pro'
+  id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   price INTEGER NOT NULL DEFAULT 0,
   features JSONB DEFAULT '[]'::jsonb,
@@ -14,10 +16,8 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE subscription_plans ENABLE ROW LEVEL SECURITY;
 
--- Public read access for plans
 CREATE POLICY "Anyone can view active plans" ON subscription_plans
   FOR SELECT USING (is_active = true);
 
@@ -35,7 +35,7 @@ ADD COLUMN IF NOT EXISTS toss_billing_key TEXT,
 ADD COLUMN IF NOT EXISTS toss_customer_key TEXT,
 ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS card_company TEXT,
-ADD COLUMN IF NOT EXISTS card_number TEXT; -- Last 4 digits only
+ADD COLUMN IF NOT EXISTS card_number TEXT;
 
 -- ============================================
 -- PAYMENT HISTORY TABLE
@@ -47,22 +47,19 @@ CREATE TABLE IF NOT EXISTS payment_history (
   payment_key TEXT,
   order_id TEXT NOT NULL,
   amount INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'PENDING', -- 'PENDING', 'DONE', 'CANCELED', 'FAILED'
+  status TEXT NOT NULL DEFAULT 'PENDING',
   failure_reason TEXT,
   paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
 ALTER TABLE payment_history ENABLE ROW LEVEL SECURITY;
 
--- Users can only view their own payment history
 CREATE POLICY "Users can view own payment history" ON payment_history
   FOR SELECT USING (auth.uid() = user_id);
 
--- ============================================
--- INDEXES
--- ============================================
 CREATE INDEX IF NOT EXISTS idx_payment_history_user_id ON payment_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_payment_history_order_id ON payment_history(order_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_billing_key ON subscriptions(toss_billing_key);
+
+COMMENT ON COLUMN subscriptions.card_number IS 'Last 4 digits only';
