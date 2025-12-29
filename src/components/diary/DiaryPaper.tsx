@@ -35,6 +35,8 @@ interface DiaryPaperProps {
   paperOpacity?: number
   paperFontFamily?: string
   paperFontColor?: string
+  sessionImageUrl?: string | null
+  sessionImageOpacity?: number
 }
 
 // Generate line pattern CSS
@@ -87,6 +89,8 @@ export function DiaryPaper({
   paperOpacity = DEFAULT_PAPER_OPACITY,
   paperFontFamily = DEFAULT_PAPER_FONT_FAMILY,
   paperFontColor = DEFAULT_PAPER_FONT_COLOR,
+  sessionImageUrl,
+  sessionImageOpacity = 0.15,
 }: DiaryPaperProps) {
   const paper = template || DEFAULT_PAPER as PaperTemplate
 
@@ -106,8 +110,21 @@ export function DiaryPaper({
         backgroundColor: paper.background_color,
       }}
     >
-      {/* Background image layer with opacity control */}
-      {hasBackgroundImage && (
+      {/* Session image layer (takes precedence over template background) */}
+      {sessionImageUrl && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${sessionImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: sessionImageOpacity,
+          }}
+        />
+      )}
+
+      {/* Template background image layer with opacity control (only if no session image) */}
+      {!sessionImageUrl && hasBackgroundImage && (
         <div
           className="absolute inset-0 pointer-events-none"
           style={{

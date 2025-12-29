@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
 import { DiaryPaper } from '@/components/diary/DiaryPaper'
 import { DiaryActionsWrapper } from './DiaryActionsWrapper'
+import { SessionImageOpacityControl } from '@/components/diary/SessionImageOpacityControl'
 import type { PaperTemplate, PlacedDecoration } from '@/types/customization'
 
 interface DiaryDetailPageProps {
@@ -28,9 +29,15 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     .eq('id', user.id)
     .single()
 
+  // Fetch entry with session image URL
   const { data: entry } = await supabase
     .from('diary_entries')
-    .select('*')
+    .select(`
+      *,
+      session:daily_sessions!session_id (
+        session_image_url
+      )
+    `)
     .eq('user_id', user.id)
     .eq('entry_date', date)
     .single()
@@ -39,6 +46,10 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     // Redirect to session page to write diary for this date
     redirect(`/session?entry=true&date=${date}`)
   }
+
+  // Extract session image data
+  const sessionImageUrl = (entry.session as { session_image_url: string | null } | null)?.session_image_url || null
+  const sessionImageOpacity = (entry.session_image_opacity as number) ?? 0.15
 
   // Get diary customization for paper template and decorations
   // First try to get from the diary associated with this entry
@@ -158,6 +169,8 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           paperOpacity={paperOpacity}
           paperFontFamily={paperFontFamily}
           paperFontColor={paperFontColor}
+          sessionImageUrl={sessionImageUrl}
+          sessionImageOpacity={sessionImageOpacity}
           className="mb-8 shadow-sm border border-pastel-pink/30"
         >
           <div className="prose max-w-none">
@@ -168,6 +181,16 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
             ))}
           </div>
         </DiaryPaper>
+
+        {/* Session Image Opacity Control */}
+        {sessionImageUrl && (
+          <div className="mb-8">
+            <SessionImageOpacityControl
+              entryId={entry.id}
+              initialOpacity={sessionImageOpacity}
+            />
+          </div>
+        )}
 
         {/* Gratitude */}
         {entry.gratitude &&
