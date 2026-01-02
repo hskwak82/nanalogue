@@ -226,7 +226,7 @@ export function DiaryPaper({
         className="relative z-10 h-full flex flex-col"
         style={{
           padding: `${paperStyle.padding.vertical}px ${paperStyle.padding.horizontal}px`,
-          fontFamily: getFontFamilyCSS(paperFontFamily),
+          fontFamily: typography.fontFamily, // Use unified font from DIARY_STYLE
           color: style.fontColor,
         }}
       >

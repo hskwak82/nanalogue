@@ -33,6 +33,11 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Gaegu&family=Gowun+Batang&family=Gowun+Dodum&family=Nanum+Gothic&family=Nanum+Myeongjo&family=Nanum+Pen+Script&family=Poor+Story&display=swap"
           rel="stylesheet"
         />
+        {/* Pretendard font for diary paper (matches PDF output) */}
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

@@ -40,22 +40,13 @@ export const DIARY_STYLE = {
     },
   },
 
-  // Typography (unified for web and PDF)
+  // Typography (unified for web and PDF - identical values)
   typography: {
     fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     dateFontSize: 11,
     summaryFontSize: 13,
     emotionsFontSize: 9,
-    contentFontSize: 14, // slightly larger for web readability
-    lineHeight: 1.9,
-  },
-
-  // Legacy PDF-specific sizes (for backward compat)
-  pdf: {
-    dateFontSize: 11,
-    summaryFontSize: 13,
-    emotionsFontSize: 9,
-    contentFontSize: 10,
+    contentFontSize: 10, // same as PDF for exact match
     lineHeight: 1.9,
   },
 } as const
