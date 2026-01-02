@@ -32,6 +32,7 @@ interface DiaryEntryRendererProps {
   summary?: string | null
   emotions?: string[]
   content: string
+  createdAt?: string | null  // Creation timestamp
   // Paper customization
   paperTemplate: PaperTemplate | null
   paperDecorations?: PlacedDecoration[]
@@ -41,11 +42,23 @@ interface DiaryEntryRendererProps {
   className?: string
 }
 
+// Format creation timestamp
+function formatCreatedAt(dateStr: string): string {
+  const d = new Date(dateStr)
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const hour = d.getHours().toString().padStart(2, '0')
+  const minute = d.getMinutes().toString().padStart(2, '0')
+  return `작성: ${year}년 ${month}월 ${day}일 ${hour}:${minute}`
+}
+
 export function DiaryEntryRenderer({
   entryDate,
   summary,
   emotions = [],
   content,
+  createdAt,
   paperTemplate,
   paperDecorations = [],
   sessionImageUrl,
@@ -238,16 +251,24 @@ export function DiaryEntryRenderer({
 
       {/* Content layer - SAME as PDF */}
       <div style={{ position: 'relative', zIndex: 10, height: '100%' }}>
-        {/* Header */}
+        {/* Header row: date (left) + created at (right) */}
         <div
           style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             fontSize: `${DIARY_STYLE.pdf.dateFontSize}px`,
             fontWeight: 600,
             color: DIARY_STYLE.metadata.dateColor,
             marginBottom: '6px',
           }}
         >
-          {formatDateKorean(entryDate)}
+          <span>{formatDateKorean(entryDate)}</span>
+          {createdAt && (
+            <span style={{ fontWeight: 400, fontSize: '8px', color: DIARY_STYLE.metadata.createdAtColor }}>
+              {formatCreatedAt(createdAt)}
+            </span>
+          )}
         </div>
 
         {summary && (

@@ -9,8 +9,7 @@ export async function POST(request: Request) {
   const encoder = new TextEncoder()
 
   try {
-    const { sessionId, messages, timezone } = await request.json()
-    const userTimezone = timezone || 'Asia/Seoul'
+    const { sessionId, messages } = await request.json()
 
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -56,33 +55,11 @@ export async function POST(request: Request) {
             .limit(1)
             .single()
 
-          // Format date/time for diary header
-          const now = new Date()
-          const formatDateTime = (date: Date) => {
-            return date.toLocaleString('ko-KR', {
-              timeZone: userTimezone,
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            }).replace(/\. /g, '년 ').replace('.', '일 ').replace('. ', '월 ')
-          }
-
-          let dateInfo: string
-          if (existingEntry) {
-            const createdAt = new Date(existingEntry.created_at)
-            dateInfo = `작성: ${formatDateTime(createdAt)} / 수정: ${formatDateTime(now)}`
-          } else {
-            dateInfo = `작성: ${formatDateTime(now)}`
-          }
-
           // Step 1: Stream diary content
           let diaryContent = ''
 
           // Load prompts from DB
-          const diaryPrompt = await getPromptContent('diary.write_style', { dateInfo })
+          const diaryPrompt = await getPromptContent('diary.write_style', {})
 
           await streamWithProvider(
             provider,

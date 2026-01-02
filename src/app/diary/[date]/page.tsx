@@ -135,6 +135,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           entryDate={date}
           summary={entry.summary as string | null}
           emotions={entry.emotions as string[] | undefined}
+          createdAt={entry.created_at as string | null}
         />
 
         {/* Gratitude */}

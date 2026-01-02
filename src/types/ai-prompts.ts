@@ -113,7 +113,6 @@ export const DEFAULT_PROMPTS: Record<AIPromptKey, string> = {
 }`,
 
   'diary.write_style': `대화 내용을 바탕으로 1인칭 일기를 작성해주세요.
-- 첫 줄에 "{{dateInfo}}" 표시
 - 편안한 구어체, 2-3문단
 - 감정과 생각을 자연스럽게 표현
 일기 본문만 작성하세요.`,

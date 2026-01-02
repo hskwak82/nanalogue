@@ -26,9 +26,10 @@ export const DIARY_STYLE = {
 
   // Metadata colors (used in both web and PDF)
   metadata: {
-    dateColor: '#6B7280',
-    summaryColor: '#374151',
-    emotionsColor: '#9CA3AF',
+    dateColor: '#374151',
+    summaryColor: '#1F2937',
+    emotionsColor: '#374151',
+    createdAtColor: '#374151',
   },
 
   // B5 paper dimensions (180mm x 250mm)

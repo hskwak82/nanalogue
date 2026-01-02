@@ -13,6 +13,7 @@ interface DiaryContentWithBackgroundProps {
   entryDate?: string
   summary?: string | null
   emotions?: string[]
+  createdAt?: string | null
 }
 
 export function DiaryContentWithBackground({
@@ -23,6 +24,7 @@ export function DiaryContentWithBackground({
   entryDate,
   summary,
   emotions,
+  createdAt,
 }: DiaryContentWithBackgroundProps) {
   // Use the EXACT same renderer as PDF
   // Scale up from PDF's 300px to 500px for better web readability
@@ -52,6 +54,7 @@ export function DiaryContentWithBackground({
           summary={summary}
           emotions={emotions}
           content={content}
+          createdAt={createdAt}
           paperTemplate={paperTemplate}
           paperDecorations={paperDecorations}
           sessionImageUrl={sessionImageUrl}

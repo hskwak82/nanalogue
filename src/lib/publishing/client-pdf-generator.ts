@@ -74,6 +74,7 @@ interface DiaryEntry {
   gratitude: string[]
   tomorrow_plan: string | null
   session_image_url?: string | null
+  created_at?: string | null
 }
 
 // Helper to capture DOM element as PNG
@@ -389,6 +390,17 @@ function formatDateKorean(dateStr: string): string {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
 }
 
+// Format creation timestamp
+function formatCreatedAt(dateStr: string): string {
+  const d = new Date(dateStr)
+  const year = d.getFullYear()
+  const month = d.getMonth() + 1
+  const day = d.getDate()
+  const hour = d.getHours().toString().padStart(2, '0')
+  const minute = d.getMinutes().toString().padStart(2, '0')
+  return `작성: ${year}년 ${month}월 ${day}일 ${hour}:${minute}`
+}
+
 // Generate HTML for a single decoration
 function renderDecoration(decoration: PlacedDecoration): string {
   const { type, content, x, y, scale, rotation, z_index, text_meta } = decoration
@@ -651,12 +663,20 @@ export async function generateInnerPagesPDF(
       // Header only on first page of each entry
       const headerHtml = isFirstPageOfEntry ? `
         <div style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
           font-size: ${DIARY_STYLE.pdf.dateFontSize}px;
           font-weight: 600;
           color: ${DIARY_STYLE.metadata.dateColor};
           margin-bottom: 6px;
         ">
-          ${formatDateKorean(entry.entry_date)}
+          <span>${formatDateKorean(entry.entry_date)}</span>
+          ${entry.created_at ? `
+            <span style="font-weight: 400; font-size: 8px; color: ${DIARY_STYLE.metadata.createdAtColor};">
+              ${formatCreatedAt(entry.created_at)}
+            </span>
+          ` : ''}
         </div>
         ${entry.summary ? `
           <div style="
@@ -713,9 +733,8 @@ export async function generateInnerPagesPDF(
               line-height: ${DIARY_STYLE.pdf.lineHeight};
               white-space: pre-wrap;
               word-break: break-word;
-            ">
-              ${pageContent}
-            </div>
+              text-indent: 0;
+            ">${pageContent.trim()}</div>
           </div>
         </div>
       `
