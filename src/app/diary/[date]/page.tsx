@@ -120,47 +120,21 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
           일기 목록
         </Link>
 
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-700">{formattedDate}</h1>
-          {entry.summary && (
-            <p className="mt-2 text-lg text-gray-500">{entry.summary}</p>
-          )}
-        </div>
-
         {/* Actions */}
         <div className="mb-8">
           <DiaryActionsWrapper date={date} sessionId={entry.session_id} />
         </div>
 
-        {/* Emotions */}
-        {entry.emotions &&
-          Array.isArray(entry.emotions) &&
-          entry.emotions.length > 0 && (
-            <div className="mb-6">
-              <h2 className="mb-2 text-sm font-medium text-gray-500">
-                오늘의 감정
-              </h2>
-              <div className="flex flex-wrap gap-2">
-                {(entry.emotions as string[]).map((emotion, idx) => (
-                  <span
-                    key={idx}
-                    className="rounded-full bg-pastel-purple-light px-3 py-1 text-sm text-pastel-purple-dark"
-                  >
-                    {emotion}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-        {/* Diary Content with Background Image */}
+        {/* Diary Content with Background Image - PDF-like layout */}
         <DiaryContentWithBackground
           content={entry.content as string}
           paperTemplate={paperTemplate}
           paperDecorations={paperDecorations}
           paperFontFamily={paperFontFamily}
           sessionImageUrl={sessionImageUrl}
+          entryDate={date}
+          summary={entry.summary as string | null}
+          emotions={entry.emotions as string[] | undefined}
         />
 
         {/* Gratitude */}

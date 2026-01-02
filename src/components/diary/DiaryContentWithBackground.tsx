@@ -9,6 +9,10 @@ interface DiaryContentWithBackgroundProps {
   paperDecorations: PlacedDecoration[]
   paperFontFamily: string
   sessionImageUrl: string | null
+  // Metadata for PDF-like layout
+  entryDate?: string
+  summary?: string | null
+  emotions?: string[]
 }
 
 export function DiaryContentWithBackground({
@@ -17,6 +21,9 @@ export function DiaryContentWithBackground({
   paperDecorations,
   paperFontFamily,
   sessionImageUrl,
+  entryDate,
+  summary,
+  emotions,
 }: DiaryContentWithBackgroundProps) {
   return (
     <DiaryPaper
@@ -24,14 +31,14 @@ export function DiaryContentWithBackground({
       decorations={paperDecorations}
       paperFontFamily={paperFontFamily}
       sessionImageUrl={sessionImageUrl}
+      entryDate={entryDate}
+      summary={summary}
+      emotions={emotions}
       className="mb-8 shadow-sm border border-pastel-pink/30"
     >
-      <div className="prose max-w-none">
-        {content.split('\n').map((paragraph: string, idx: number) => (
-          <p key={idx} className="mb-4 last:mb-0 leading-relaxed">
-            {paragraph}
-          </p>
-        ))}
+      {/* Content - rendered as pre-wrap text like PDF */}
+      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        {content}
       </div>
     </DiaryPaper>
   )

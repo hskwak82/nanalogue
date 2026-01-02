@@ -35,6 +35,10 @@ interface DiaryPaperProps {
   className?: string
   paperFontFamily?: string
   sessionImageUrl?: string | null
+  // Metadata for PDF-like layout
+  entryDate?: string
+  summary?: string | null
+  emotions?: string[]
 }
 
 // Generate line pattern CSS
@@ -79,6 +83,17 @@ const DEFAULT_PAPER: Pick<PaperTemplate, 'background_color' | 'line_style' | 'li
   line_color: '#E5E5E5',
 }
 
+// Format date in Korean style
+function formatDateKorean(dateStr: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  })
+}
+
 export function DiaryPaper({
   template,
   decorations = [],
@@ -86,10 +101,14 @@ export function DiaryPaper({
   className = '',
   paperFontFamily = 'default',
   sessionImageUrl,
+  entryDate,
+  summary,
+  emotions = [],
 }: DiaryPaperProps) {
   // Resolve style based on session image presence
   const style = sessionImageUrl ? DIARY_STYLE.withImage : DIARY_STYLE.withoutImage
   const paper = template || DEFAULT_PAPER as PaperTemplate
+  const { paper: paperStyle, typography } = DIARY_STYLE
 
   const linePattern = getLinePattern(
     paper.line_style as LineStyle,
@@ -100,12 +119,18 @@ export function DiaryPaper({
   // Build background styles - line pattern only (background image handled separately for opacity)
   const hasBackgroundImage = paper.background_image_url && paper.background_image_url.length > 0
 
+  // Calculate height based on B5 aspect ratio
+  const containerStyle = {
+    backgroundColor: paper.background_color,
+    aspectRatio: `${paperStyle.aspectRatio}`,
+    maxWidth: `${paperStyle.maxWidth}px`,
+    fontFamily: typography.fontFamily,
+  }
+
   return (
     <div
-      className={`relative min-h-[400px] p-6 rounded-lg overflow-hidden ${className}`}
-      style={{
-        backgroundColor: paper.background_color,
-      }}
+      className={`relative rounded-lg overflow-hidden mx-auto ${className}`}
+      style={containerStyle}
     >
       {/* Session image layer (takes precedence over template background) */}
       {sessionImageUrl && (
@@ -196,15 +221,70 @@ export function DiaryPaper({
         </div>
       )}
 
-      {/* Content with font styles */}
+      {/* Content with font styles - PDF-like layout */}
       <div
-        className="relative z-10"
+        className="relative z-10 h-full flex flex-col"
         style={{
+          padding: `${paperStyle.padding.vertical}px ${paperStyle.padding.horizontal}px`,
           fontFamily: getFontFamilyCSS(paperFontFamily),
           color: style.fontColor,
         }}
       >
-        {children}
+        {/* Metadata header (like PDF) */}
+        {entryDate && (
+          <div className="flex-shrink-0">
+            {/* Date */}
+            <div
+              style={{
+                fontSize: `${typography.dateFontSize}px`,
+                fontWeight: 600,
+                color: DIARY_STYLE.metadata.dateColor,
+                marginBottom: '6px',
+              }}
+            >
+              {formatDateKorean(entryDate)}
+            </div>
+
+            {/* Summary */}
+            {summary && (
+              <div
+                style={{
+                  fontSize: `${typography.summaryFontSize}px`,
+                  fontWeight: 600,
+                  color: DIARY_STYLE.metadata.summaryColor,
+                  marginBottom: '8px',
+                  lineHeight: 1.4,
+                }}
+              >
+                {summary}
+              </div>
+            )}
+
+            {/* Emotions */}
+            {emotions.length > 0 && (
+              <div
+                style={{
+                  fontSize: `${typography.emotionsFontSize}px`,
+                  color: DIARY_STYLE.metadata.emotionsColor,
+                  marginBottom: '10px',
+                }}
+              >
+                {emotions.join(' ')}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Main content */}
+        <div
+          className="flex-1 overflow-auto"
+          style={{
+            fontSize: `${typography.contentFontSize}px`,
+            lineHeight: typography.lineHeight,
+          }}
+        >
+          {children}
+        </div>
       </div>
 
       {/* Paper texture overlay */}

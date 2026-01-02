@@ -23,14 +23,34 @@ export const DIARY_STYLE = {
     opacity: 0.5,
   },
 
-  // PDF metadata colors
+  // Metadata colors (used in both web and PDF)
   metadata: {
     dateColor: '#6B7280',
     summaryColor: '#374151',
     emotionsColor: '#9CA3AF',
   },
 
-  // PDF font sizes (in pixels)
+  // B5 paper dimensions (180mm x 250mm)
+  paper: {
+    aspectRatio: 0.72, // width/height = 180/250
+    maxWidth: 500, // max width in pixels for web display
+    padding: {
+      horizontal: 25, // px
+      vertical: 25, // px
+    },
+  },
+
+  // Typography (unified for web and PDF)
+  typography: {
+    fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    dateFontSize: 11,
+    summaryFontSize: 13,
+    emotionsFontSize: 9,
+    contentFontSize: 14, // slightly larger for web readability
+    lineHeight: 1.9,
+  },
+
+  // Legacy PDF-specific sizes (for backward compat)
   pdf: {
     dateFontSize: 11,
     summaryFontSize: 13,
