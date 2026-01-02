@@ -40,13 +40,23 @@ export const DIARY_STYLE = {
     },
   },
 
-  // Typography (unified for web and PDF - identical values)
+  // Typography for web (scaled up from PDF's 300px to web's 500px display)
+  // PDF renders at 300px then scales to full page, so web needs larger sizes
   typography: {
     fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    dateFontSize: 18,      // PDF: 11px * (500/300) ≈ 18px
+    summaryFontSize: 22,   // PDF: 13px * (500/300) ≈ 22px
+    emotionsFontSize: 15,  // PDF: 9px * (500/300) ≈ 15px
+    contentFontSize: 17,   // PDF: 10px * (500/300) ≈ 17px
+    lineHeight: 1.9,
+  },
+
+  // PDF rendering sizes (used by client-pdf-generator at 300px preview width)
+  pdf: {
     dateFontSize: 11,
     summaryFontSize: 13,
     emotionsFontSize: 9,
-    contentFontSize: 10, // same as PDF for exact match
+    contentFontSize: 10,
     lineHeight: 1.9,
   },
 } as const

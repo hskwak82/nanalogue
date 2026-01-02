@@ -83,14 +83,13 @@ const DEFAULT_PAPER: Pick<PaperTemplate, 'background_color' | 'line_style' | 'li
   line_color: '#E5E5E5',
 }
 
-// Format date in Korean style
+// Format date in Korean style (matching PDF format - no weekday)
 function formatDateKorean(dateStr: string): string {
   const date = new Date(dateStr)
   return date.toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    weekday: 'long',
   })
 }
 
