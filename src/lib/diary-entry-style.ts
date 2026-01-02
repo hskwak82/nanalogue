@@ -7,7 +7,7 @@
 export const DIARY_STYLE = {
   // When session image exists (takes precedence)
   withImage: {
-    imageOpacity: 0.35,
+    imageOpacity: 0.65, // Higher = more image visible, less white overlay
     fontColor: '#374151',
     bgImageOpacity: 0, // Session image takes precedence over template bg
   },
