@@ -7,6 +7,7 @@ import { PDFDocument } from 'pdf-lib'
 import JSZip from 'jszip'
 import { PRINT_SPECS, CAPTURE_PIXEL_RATIO } from './print-constants'
 import { getSpinePreset } from '@/lib/spine-renderer'
+import { DIARY_STYLE } from '@/lib/diary-entry-style'
 
 // Text metadata for text decorations
 interface TextMeta {
@@ -72,6 +73,7 @@ interface DiaryEntry {
   emotions: string[]
   gratitude: string[]
   tomorrow_plan: string | null
+  session_image_url?: string | null
 }
 
 // Helper to capture DOM element as PNG
@@ -486,12 +488,51 @@ function getPaperBackgroundSize(lineStyle: string): string {
   }
 }
 
+// Calculate how many characters fit on a page
+const CHARS_PER_PAGE_FIRST = 600  // First page has header, so less content
+const CHARS_PER_PAGE_CONTINUE = 900  // Continuation pages have more space
+
+// Split content into pages
+function splitContentIntoPages(content: string, isFirstPage: boolean): string[] {
+  if (!content) return ['']
+
+  const pages: string[] = []
+  let remaining = content
+  let firstPage = isFirstPage
+
+  while (remaining.length > 0) {
+    const limit = firstPage ? CHARS_PER_PAGE_FIRST : CHARS_PER_PAGE_CONTINUE
+
+    if (remaining.length <= limit) {
+      pages.push(remaining)
+      break
+    }
+
+    // Find a good break point (prefer line breaks, then spaces)
+    let breakPoint = limit
+    const lastNewline = remaining.lastIndexOf('\n', limit)
+    const lastSpace = remaining.lastIndexOf(' ', limit)
+
+    if (lastNewline > limit * 0.7) {
+      breakPoint = lastNewline + 1
+    } else if (lastSpace > limit * 0.7) {
+      breakPoint = lastSpace + 1
+    }
+
+    pages.push(remaining.substring(0, breakPoint))
+    remaining = remaining.substring(breakPoint)
+    firstPage = false
+  }
+
+  return pages
+}
+
 export async function generateInnerPagesPDF(
   diary: DiaryData,
   entries: DiaryEntry[],
   onProgress?: (message: string) => void
 ): Promise<Uint8Array> {
-  console.log('[PDF Generator v2] generateInnerPagesPDF', {
+  console.log('[PDF Generator v3] generateInnerPagesPDF with multi-page support', {
     paper_template: diary.paper_template,
     paper_decorations: diary.paper_decorations?.length || 0,
     entriesCount: entries.length,
@@ -525,106 +566,189 @@ export async function generateInnerPagesPDF(
   const linePattern = getPaperLineStyle(lineStyle, lineColor)
   const backgroundSize = getPaperBackgroundSize(lineStyle)
 
-  for (let i = 0; i < sortedEntries.length; i++) {
-    const entry = sortedEntries[i]
-    onProgress?.(`내지 렌더링 중... (${i + 1}/${sortedEntries.length})`)
-
-    // Build background style
-    let backgroundStyle = `background-color: ${bgColor};`
-    if (linePattern !== 'none') {
-      backgroundStyle += ` background-image: ${linePattern};`
-      if (backgroundSize !== 'auto') {
-        backgroundStyle += ` background-size: ${backgroundSize};`
-      }
+  // Build background style (base)
+  let backgroundStyle = `background-color: ${bgColor};`
+  if (linePattern !== 'none') {
+    backgroundStyle += ` background-image: ${linePattern};`
+    if (backgroundSize !== 'auto') {
+      backgroundStyle += ` background-size: ${backgroundSize};`
     }
+  }
 
-    // Background image layer (if exists)
-    const bgImageHtml = backgroundImage ? `
+  // Background layer HTML (with opacity) - includes session photo as full background, decorations
+  const createBackgroundLayer = (sessionImageUrl?: string | null) => {
+    // Session image as full background (like diary list view)
+    const sessionImageHtml = sessionImageUrl ? `
       <div style="
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image: url('${backgroundImage}');
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: url('${sessionImageUrl}');
         background-size: cover;
         background-position: center;
-        opacity: 0.3;
+        opacity: ${DIARY_STYLE.withImage.imageOpacity};
       "></div>
     ` : ''
 
-    container.innerHTML = `
+    // Paper template background image (if no session image)
+    const bgImageHtml = (!sessionImageUrl && backgroundImage) ? `
       <div style="
-        width: ${previewWidth}px;
-        height: ${previewHeight}px;
-        ${backgroundStyle}
-        padding: 30px 25px;
-        box-sizing: border-box;
-        position: relative;
-        font-family: 'Pretendard', sans-serif;
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image: url('${backgroundImage}');
+        background-size: cover;
+        background-position: center;
+        opacity: ${DIARY_STYLE.withoutImage.bgImageOpacity};
+      "></div>
+    ` : ''
+
+    // Decorations layer (with opacity)
+    const decorationsHtml = diary.paper_decorations?.length ? `
+      <div style="
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        opacity: ${DIARY_STYLE.decorations.opacity};
+        pointer-events: none;
       ">
-        ${bgImageHtml}
-        <div style="position: relative; z-index: 1;">
-          <div style="
-            font-size: 12px;
-            font-weight: 600;
-            color: #6B7280;
-            margin-bottom: 8px;
-          ">
-            ${formatDateKorean(entry.entry_date)}
-          </div>
-          ${entry.summary ? `
-            <div style="
-              font-size: 14px;
-              font-weight: 600;
-              color: #374151;
-              margin-bottom: 12px;
-            ">
-              ${entry.summary}
-            </div>
-          ` : ''}
-          ${entry.emotions?.length > 0 ? `
-            <div style="
-              font-size: 10px;
-              color: #9CA3AF;
-              margin-bottom: 12px;
-            ">
-              ${entry.emotions.join(' ')}
-            </div>
-          ` : ''}
-          <div style="
-            font-size: 11px;
-            color: #4B5563;
-            line-height: 1.8;
-            white-space: pre-wrap;
-            word-break: break-word;
-          ">
-            ${entry.content?.substring(0, 800) || ''}${(entry.content?.length || 0) > 800 ? '...' : ''}
-          </div>
-        </div>
         ${renderDecorations(diary.paper_decorations)}
       </div>
+    ` : ''
+
+    return `
+      <div style="
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 1;
+      ">
+        ${sessionImageHtml}
+        ${bgImageHtml}
+        ${decorationsHtml}
+      </div>
     `
+  }
 
-    const element = container.firstElementChild as HTMLElement
-    const pngDataUrl = await captureElement(element, previewWidth, previewHeight)
+  let totalPages = 0
 
-    // Add page to PDF
-    const page = pdfDoc.addPage([pageWidthPt, pageHeightPt])
-    const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer())
-    const image = await pdfDoc.embedPng(pngBytes)
+  for (let i = 0; i < sortedEntries.length; i++) {
+    const entry = sortedEntries[i]
 
-    page.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: pageWidthPt,
-      height: pageHeightPt,
-    })
+    // Split content into pages
+    const contentPages = splitContentIntoPages(entry.content || '', true)
+
+    for (let pageIdx = 0; pageIdx < contentPages.length; pageIdx++) {
+      const isFirstPageOfEntry = pageIdx === 0
+      const pageContent = contentPages[pageIdx]
+      totalPages++
+
+      onProgress?.(`내지 렌더링 중... (일기 ${i + 1}/${sortedEntries.length}, 페이지 ${pageIdx + 1}/${contentPages.length})`)
+
+      // Determine content font color based on session image presence
+      const hasSessionImage = !!entry.session_image_url
+      const contentFontColor = hasSessionImage
+        ? DIARY_STYLE.withImage.fontColor
+        : DIARY_STYLE.withoutImage.fontColor
+
+      // Header only on first page of each entry
+      const headerHtml = isFirstPageOfEntry ? `
+        <div style="
+          font-size: ${DIARY_STYLE.pdf.dateFontSize}px;
+          font-weight: 600;
+          color: ${DIARY_STYLE.metadata.dateColor};
+          margin-bottom: 6px;
+        ">
+          ${formatDateKorean(entry.entry_date)}
+        </div>
+        ${entry.summary ? `
+          <div style="
+            font-size: ${DIARY_STYLE.pdf.summaryFontSize}px;
+            font-weight: 600;
+            color: ${DIARY_STYLE.metadata.summaryColor};
+            margin-bottom: 8px;
+            line-height: 1.4;
+          ">
+            ${entry.summary}
+          </div>
+        ` : ''}
+        ${entry.emotions?.length > 0 ? `
+          <div style="
+            font-size: ${DIARY_STYLE.pdf.emotionsFontSize}px;
+            color: ${DIARY_STYLE.metadata.emotionsColor};
+            margin-bottom: 10px;
+          ">
+            ${entry.emotions.join(' ')}
+          </div>
+        ` : ''}
+      ` : `
+        <div style="
+          font-size: ${DIARY_STYLE.pdf.emotionsFontSize}px;
+          color: ${DIARY_STYLE.metadata.emotionsColor};
+          margin-bottom: 10px;
+        ">
+          ${formatDateKorean(entry.entry_date)} (계속)
+        </div>
+      `
+
+      container.innerHTML = `
+        <div style="
+          width: ${previewWidth}px;
+          height: ${previewHeight}px;
+          ${backgroundStyle}
+          padding: 25px 22px;
+          box-sizing: border-box;
+          position: relative;
+          font-family: 'Pretendard', sans-serif;
+          overflow: hidden;
+        ">
+          ${createBackgroundLayer(isFirstPageOfEntry ? entry.session_image_url : null)}
+
+          <div style="
+            position: relative;
+            z-index: 10;
+            height: 100%;
+          ">
+            ${headerHtml}
+            <div style="
+              font-size: ${DIARY_STYLE.pdf.contentFontSize}px;
+              color: ${contentFontColor};
+              line-height: ${DIARY_STYLE.pdf.lineHeight};
+              white-space: pre-wrap;
+              word-break: break-word;
+            ">
+              ${pageContent}
+            </div>
+          </div>
+        </div>
+      `
+
+      // Wait for images to load
+      const images = container.querySelectorAll('img')
+      await Promise.all(Array.from(images).map(img =>
+        img.complete ? Promise.resolve() : new Promise(resolve => {
+          img.onload = resolve
+          img.onerror = resolve
+        })
+      ))
+
+      const element = container.firstElementChild as HTMLElement
+      const pngDataUrl = await captureElement(element, previewWidth, previewHeight)
+
+      // Add page to PDF
+      const page = pdfDoc.addPage([pageWidthPt, pageHeightPt])
+      const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer())
+      const image = await pdfDoc.embedPng(pngBytes)
+
+      page.drawImage(image, {
+        x: 0,
+        y: 0,
+        width: pageWidthPt,
+        height: pageHeightPt,
+      })
+    }
   }
 
   document.body.removeChild(container)
 
-  onProgress?.('내지 PDF 저장 중...')
+  onProgress?.(`내지 PDF 저장 중... (총 ${totalPages}페이지)`)
   return pdfDoc.save()
 }
 

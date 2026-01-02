@@ -46,25 +46,19 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     redirect(`/session?entry=true&date=${date}`)
   }
 
-  // Extract session image data and style
+  // Extract session image URL
   const sessionImageUrl = (entry.session as { session_image_url: string | null } | null)?.session_image_url || null
-  const sessionImageOpacity = (entry.session_image_opacity as number) ?? 0.15
-  const sessionFontColor = (entry.session_font_color as string | null) ?? null
-  const sessionFontSize = (entry.session_font_size as number | null) ?? null
-  const sessionTextBgOpacity = (entry.session_text_bg_opacity as number | null) ?? null
 
   // Get diary customization for paper template and decorations
   // First try to get from the diary associated with this entry
   let paperTemplate: PaperTemplate | null = null
   let paperDecorations: PlacedDecoration[] = []
-  let paperOpacity = 1.0
   let paperFontFamily = 'default'
-  let paperFontColor = '#333333'
 
   if (entry.diary_id) {
     const { data: diary } = await supabase
       .from('diaries')
-      .select('paper_template_id, paper_decorations, paper_opacity, paper_font_family, paper_font_color, paper_templates(*)')
+      .select('paper_template_id, paper_decorations, paper_font_family, paper_templates(*)')
       .eq('id', entry.diary_id)
       .single()
 
@@ -72,9 +66,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
       // paper_templates is returned as a single object (or null) from foreign key join
       paperTemplate = (diary.paper_templates as unknown as PaperTemplate) || null
       paperDecorations = (diary.paper_decorations || []) as PlacedDecoration[]
-      paperOpacity = diary.paper_opacity ?? 1.0
       paperFontFamily = diary.paper_font_family ?? 'default'
-      paperFontColor = diary.paper_font_color ?? '#333333'
     }
   }
 
@@ -89,9 +81,7 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
     if (customization) {
       paperTemplate = (customization.paper_templates as unknown as PaperTemplate) || null
       paperDecorations = (customization.paper_decorations || []) as PlacedDecoration[]
-      paperOpacity = customization.paper_opacity ?? 1.0
       paperFontFamily = customization.paper_font_family ?? 'default'
-      paperFontColor = customization.paper_font_color ?? '#333333'
     }
   }
 
@@ -166,18 +156,11 @@ export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) 
 
         {/* Diary Content with Background Image */}
         <DiaryContentWithBackground
-          entryId={entry.id}
           content={entry.content as string}
           paperTemplate={paperTemplate}
           paperDecorations={paperDecorations}
-          paperOpacity={paperOpacity}
           paperFontFamily={paperFontFamily}
-          paperFontColor={paperFontColor}
           sessionImageUrl={sessionImageUrl}
-          initialSessionImageOpacity={sessionImageOpacity}
-          initialSessionFontColor={sessionFontColor}
-          initialSessionFontSize={sessionFontSize}
-          initialSessionTextBgOpacity={sessionTextBgOpacity}
         />
 
         {/* Gratitude */}

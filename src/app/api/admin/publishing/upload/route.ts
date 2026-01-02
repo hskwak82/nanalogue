@@ -25,10 +25,13 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer()
     const uint8Array = new Uint8Array(arrayBuffer)
 
+    // Determine content type from file or path
+    const contentType = file.type || (path.endsWith('.zip') ? 'application/zip' : 'application/pdf')
+
     const { error } = await supabase.storage
       .from('publishing')
       .upload(path, uint8Array, {
-        contentType: 'application/pdf',
+        contentType,
         upsert: true,
       })
 

@@ -50,6 +50,7 @@ interface DiaryEntry {
   gratitude: string[]
   tomorrow_plan: string | null
   created_at: string
+  session_image_url?: string | null
 }
 
 // Helper: Convert hex color to RGB values (0-1 range)
@@ -314,6 +315,29 @@ async function generateSpinePDF(diary: DiaryWithTemplates): Promise<Uint8Array> 
   return pdfDoc.save()
 }
 
+// Constants for page content limits (lines per page)
+const LINES_PER_PAGE_FIRST = 35  // First page has header, so fewer lines
+const LINES_PER_PAGE_CONTINUE = 45  // Continuation pages have more space
+
+// Split wrapped lines into pages
+function splitLinesIntoPages(lines: string[], isFirstPage: boolean): string[][] {
+  if (lines.length === 0) return [[]]
+
+  const pages: string[][] = []
+  let remaining = [...lines]
+  let firstPage = isFirstPage
+
+  while (remaining.length > 0) {
+    const limit = firstPage ? LINES_PER_PAGE_FIRST : LINES_PER_PAGE_CONTINUE
+    const pageLines = remaining.slice(0, limit)
+    pages.push(pageLines)
+    remaining = remaining.slice(limit)
+    firstPage = false
+  }
+
+  return pages
+}
+
 // Generate inner pages PDF
 async function generateInnerPagesPDF(
   diary: DiaryWithTemplates,
@@ -337,10 +361,10 @@ async function generateInnerPagesPDF(
     (a, b) => new Date(a.entry_date).getTime() - new Date(b.entry_date).getTime()
   )
 
-  // Generate pages for each entry
-  for (const entry of sortedEntries) {
-    const page = pdfDoc.addPage([pageWidth, pageHeight])
-
+  // Helper function to draw background elements (with lower opacity via lighter colors)
+  const drawPageBackground = (
+    page: ReturnType<typeof pdfDoc.addPage>
+  ) => {
     // Background color
     page.drawRectangle({
       x: 0,
@@ -350,15 +374,21 @@ async function generateInnerPagesPDF(
       color: rgb(backgroundColor.r, backgroundColor.g, backgroundColor.b),
     })
 
-    // Draw lines based on style
+    // Draw lines based on style (lighter for background effect)
+    const lightLineColor = rgb(
+      Math.min(1, lineColor.r + 0.3),
+      Math.min(1, lineColor.g + 0.3),
+      Math.min(1, lineColor.b + 0.3)
+    )
+
     if (lineStyle === 'lined' || lineStyle === 'grid') {
       const lineSpacing = 8 * mmToPoints
       for (let y = margin; y < pageHeight - margin; y += lineSpacing) {
         page.drawLine({
           start: { x: margin, y },
           end: { x: pageWidth - margin, y },
-          thickness: 0.5,
-          color: rgb(lineColor.r, lineColor.g, lineColor.b),
+          thickness: 0.3,
+          color: lightLineColor,
         })
       }
     }
@@ -369,8 +399,8 @@ async function generateInnerPagesPDF(
         page.drawLine({
           start: { x, y: margin },
           end: { x, y: pageHeight - margin },
-          thickness: 0.5,
-          color: rgb(lineColor.r, lineColor.g, lineColor.b),
+          thickness: 0.3,
+          color: lightLineColor,
         })
       }
     }
@@ -382,70 +412,168 @@ async function generateInnerPagesPDF(
           page.drawCircle({
             x,
             y,
-            size: 0.5,
-            color: rgb(lineColor.r, lineColor.g, lineColor.b),
+            size: 0.4,
+            color: lightLineColor,
           })
         }
       }
     }
+  }
 
-    // Draw date header
-    const dateStr = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    })
-    page.drawText(dateStr, {
-      x: margin,
-      y: pageHeight - margin - 20,
-      size: 12,
-      font,
-      color: rgb(0.3, 0.3, 0.3),
-    })
+  // Helper function to draw session image as full page background (with opacity)
+  const drawSessionImage = async (
+    page: ReturnType<typeof pdfDoc.addPage>,
+    imageUrl: string | null | undefined
+  ) => {
+    if (!imageUrl) return
 
-    // Draw summary if present
-    let currentY = pageHeight - margin - 45
-    if (entry.summary) {
-      page.drawText(entry.summary, {
-        x: margin,
-        y: currentY,
-        size: 14,
-        font,
-        color: rgb(0.1, 0.1, 0.1),
+    try {
+      const response = await fetch(imageUrl)
+      const imageBuffer = await response.arrayBuffer()
+      const uint8Array = new Uint8Array(imageBuffer)
+
+      // Detect image type and embed
+      let image
+      if (imageUrl.includes('.png') || imageUrl.includes('png')) {
+        image = await pdfDoc.embedPng(uint8Array)
+      } else {
+        image = await pdfDoc.embedJpg(uint8Array)
+      }
+
+      // Draw image as full page background (cover style)
+      const imageAspect = image.width / image.height
+      const pageAspect = pageWidth / pageHeight
+
+      let drawWidth: number
+      let drawHeight: number
+      let drawX: number
+      let drawY: number
+
+      if (imageAspect > pageAspect) {
+        // Image is wider - fit height, crop width
+        drawHeight = pageHeight
+        drawWidth = drawHeight * imageAspect
+        drawX = (pageWidth - drawWidth) / 2
+        drawY = 0
+      } else {
+        // Image is taller - fit width, crop height
+        drawWidth = pageWidth
+        drawHeight = drawWidth / imageAspect
+        drawX = 0
+        drawY = (pageHeight - drawHeight) / 2
+      }
+
+      page.drawImage(image, {
+        x: drawX,
+        y: drawY,
+        width: drawWidth,
+        height: drawHeight,
+        opacity: 0.35, // Apply transparency for background effect
       })
-      currentY -= 25
+    } catch (error) {
+      console.error('Error embedding session image:', error)
     }
+  }
 
-    // Draw emotions if present
-    if (entry.emotions && entry.emotions.length > 0) {
-      page.drawText(`감정: ${entry.emotions.join(', ')}`, {
-        x: margin,
-        y: currentY,
-        size: 9,
-        font,
-        color: rgb(0.5, 0.5, 0.5),
-      })
-      currentY -= 20
-    }
-
-    // Draw content (simple text wrapping)
+  // Generate pages for each entry
+  for (const entry of sortedEntries) {
+    // Wrap all content text
     const contentLines = wrapText(entry.content, font, 10, pageWidth - margin * 2)
-    const lineHeight = 14
-    for (const line of contentLines) {
-      if (currentY < margin + 20) break // Stop if we run out of space
-      page.drawText(line, {
-        x: margin,
-        y: currentY,
-        size: 10,
-        font,
-        color: rgb(0.2, 0.2, 0.2),
-      })
-      currentY -= lineHeight
-    }
 
-    // Add crop marks
-    addCropMarks(page, pageWidth, pageHeight, PRINT_SPECS.BLEED_MM * mmToPoints)
+    // Split content into multiple pages if needed
+    const contentPages = splitLinesIntoPages(contentLines, true)
+
+    for (let pageIdx = 0; pageIdx < contentPages.length; pageIdx++) {
+      const isFirstPageOfEntry = pageIdx === 0
+      const pageLines = contentPages[pageIdx]
+
+      const page = pdfDoc.addPage([pageWidth, pageHeight])
+
+      // Draw background
+      drawPageBackground(page)
+
+      // Draw session image only on first page (as background with opacity)
+      if (isFirstPageOfEntry) {
+        await drawSessionImage(page, entry.session_image_url)
+      }
+
+      // Draw content on top
+      let currentY = pageHeight - margin - 20
+
+      if (isFirstPageOfEntry) {
+        // Draw date header
+        const dateStr = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          weekday: 'long',
+        })
+        page.drawText(dateStr, {
+          x: margin,
+          y: currentY,
+          size: 12,
+          font,
+          color: rgb(0.3, 0.3, 0.3),
+        })
+        currentY -= 25
+
+        // Draw summary if present
+        if (entry.summary) {
+          page.drawText(entry.summary, {
+            x: margin,
+            y: currentY,
+            size: 14,
+            font,
+            color: rgb(0.1, 0.1, 0.1),
+          })
+          currentY -= 25
+        }
+
+        // Draw emotions if present
+        if (entry.emotions && entry.emotions.length > 0) {
+          page.drawText(`${entry.emotions.join(' ')}`, {
+            x: margin,
+            y: currentY,
+            size: 9,
+            font,
+            color: rgb(0.5, 0.5, 0.5),
+          })
+          currentY -= 20
+        }
+      } else {
+        // Continuation page - show date with "(continued)"
+        const dateStr = new Date(entry.entry_date).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+        page.drawText(`${dateStr} (continued)`, {
+          x: margin,
+          y: currentY,
+          size: 9,
+          font,
+          color: rgb(0.5, 0.5, 0.5),
+        })
+        currentY -= 20
+      }
+
+      // Draw content lines
+      const lineHeight = 14
+      for (const line of pageLines) {
+        if (currentY < margin + 20) break
+        page.drawText(line, {
+          x: margin,
+          y: currentY,
+          size: 10,
+          font,
+          color: rgb(0.2, 0.2, 0.2),
+        })
+        currentY -= lineHeight
+      }
+
+      // Add crop marks
+      addCropMarks(page, pageWidth, pageHeight, PRINT_SPECS.BLEED_MM * mmToPoints)
+    }
   }
 
   // If no entries, add a blank page
@@ -583,10 +711,13 @@ export async function generatePublishingFiles(
       .update({ status: 'processing' })
       .eq('id', jobId)
 
-    // Fetch diary entries
+    // Fetch diary entries with session image
     const { data: entries, error: entriesError } = await supabase
       .from('diary_entries')
-      .select('*')
+      .select(`
+        *,
+        daily_sessions(session_image_url)
+      `)
       .eq('diary_id', diary.id)
       .order('entry_date', { ascending: true })
 
@@ -594,7 +725,15 @@ export async function generatePublishingFiles(
       throw new Error(`Failed to fetch entries: ${entriesError.message}`)
     }
 
-    const diaryEntries = (entries || []) as DiaryEntry[]
+    // Transform entries to include session_image_url from daily_sessions
+    const diaryEntries = (entries || []).map((entry) => {
+      const sessionData = entry.daily_sessions as { session_image_url: string | null } | null
+      return {
+        ...entry,
+        session_image_url: sessionData?.session_image_url || null,
+        daily_sessions: undefined, // Remove the nested object
+      }
+    }) as DiaryEntry[]
     const basePath = `${diary.user_id}/${diary.id}`
 
     // Generate and upload front cover

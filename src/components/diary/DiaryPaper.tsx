@@ -1,6 +1,7 @@
 'use client'
 
-import { PaperTemplate, LineStyle, PlacedDecoration, ShapeType, FONT_OPTIONS, DEFAULT_PAPER_OPACITY, DEFAULT_PAPER_FONT_FAMILY, DEFAULT_PAPER_FONT_COLOR } from '@/types/customization'
+import { PaperTemplate, LineStyle, PlacedDecoration, ShapeType, FONT_OPTIONS } from '@/types/customization'
+import { DIARY_STYLE } from '@/lib/diary-entry-style'
 import { ReactNode } from 'react'
 
 // Helper to get font family CSS value
@@ -32,13 +33,8 @@ interface DiaryPaperProps {
   decorations?: PlacedDecoration[]
   children: ReactNode
   className?: string
-  paperOpacity?: number
   paperFontFamily?: string
-  paperFontColor?: string
   sessionImageUrl?: string | null
-  sessionImageOpacity?: number
-  sessionFontSize?: number
-  sessionTextBgOpacity?: number | null
 }
 
 // Generate line pattern CSS
@@ -88,14 +84,11 @@ export function DiaryPaper({
   decorations = [],
   children,
   className = '',
-  paperOpacity = DEFAULT_PAPER_OPACITY,
-  paperFontFamily = DEFAULT_PAPER_FONT_FAMILY,
-  paperFontColor = DEFAULT_PAPER_FONT_COLOR,
+  paperFontFamily = 'default',
   sessionImageUrl,
-  sessionImageOpacity = 0.15,
-  sessionFontSize = 1.0,
-  sessionTextBgOpacity = null,
 }: DiaryPaperProps) {
+  // Resolve style based on session image presence
+  const style = sessionImageUrl ? DIARY_STYLE.withImage : DIARY_STYLE.withoutImage
   const paper = template || DEFAULT_PAPER as PaperTemplate
 
   const linePattern = getLinePattern(
@@ -122,7 +115,7 @@ export function DiaryPaper({
             backgroundImage: `url(${sessionImageUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: sessionImageOpacity,
+            opacity: DIARY_STYLE.withImage.imageOpacity,
           }}
         />
       )}
@@ -135,7 +128,7 @@ export function DiaryPaper({
             backgroundImage: `url(${paper.background_image_url})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            opacity: paperOpacity,
+            opacity: DIARY_STYLE.withoutImage.bgImageOpacity,
           }}
         />
       )}
@@ -163,9 +156,7 @@ export function DiaryPaper({
                 top: `${decoration.y}%`,
                 transform: `translate(-50%, -50%) scale(${decoration.scale}) rotate(${decoration.rotation}deg)`,
                 zIndex: decoration.z_index,
-                opacity: decoration.type === 'text'
-                  ? (decoration.text_meta?.opacity ?? 0.8)
-                  : 0.6, // Make decorations subtle on paper
+                opacity: DIARY_STYLE.decorations.opacity,
               }}
             >
               {decoration.type === 'emoji' ? (
@@ -210,22 +201,10 @@ export function DiaryPaper({
         className="relative z-10"
         style={{
           fontFamily: getFontFamilyCSS(paperFontFamily),
-          color: paperFontColor,
-          fontSize: `${sessionFontSize}rem`,
+          color: style.fontColor,
         }}
       >
-        {sessionTextBgOpacity && sessionTextBgOpacity > 0 ? (
-          <div
-            className="rounded-lg p-4 -m-2"
-            style={{
-              backgroundColor: `rgba(255, 255, 255, ${sessionTextBgOpacity})`,
-            }}
-          >
-            {children}
-          </div>
-        ) : (
-          children
-        )}
+        {children}
       </div>
 
       {/* Paper texture overlay */}

@@ -22,7 +22,6 @@ import {
   generateSpinePDF,
   generateInnerPagesPDF,
   createPublishingZip,
-  uploadZipToStorage,
 } from '@/lib/publishing/client-pdf-generator'
 import type { PublishableDiary, PublishJobWithDiary } from '@/types/publishing'
 
@@ -169,7 +168,7 @@ function JobCard({
 
       {job.status === 'completed' && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {/* New: ZIP download button */}
+          {/* Old jobs with zip_url stored on server */}
           {job.zip_url && (
             <button
               onClick={() => onDownload(job, 'zip')}
@@ -179,18 +178,23 @@ function JobCard({
               전체 다운로드 (ZIP)
             </button>
           )}
+          {/* New: client-side generated - show regenerate button */}
+          {!job.zip_url && !job.front_cover_url && (
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <CheckCircleIcon className="h-4 w-4 text-green-500" />
+              생성 완료 (다운로드됨) - 다시 필요하면 생성 버튼 클릭
+            </span>
+          )}
           {/* Backward compatibility: individual PDF buttons for old jobs */}
-          {!job.zip_url && (
+          {!job.zip_url && job.front_cover_url && (
             <>
-              {job.front_cover_url && (
-                <button
-                  onClick={() => onDownload(job, 'front')}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
-                >
-                  <DocumentArrowDownIcon className="h-3 w-3" />
-                  앞표지
-                </button>
-              )}
+              <button
+                onClick={() => onDownload(job, 'front')}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-gray-200 rounded hover:bg-gray-50"
+              >
+                <DocumentArrowDownIcon className="h-3 w-3" />
+                앞표지
+              </button>
               {job.back_cover_url && (
                 <button
                   onClick={() => onDownload(job, 'back')}
@@ -377,17 +381,30 @@ export default function AdminPublishingPage() {
         throw new Error('일기장 정보를 불러올 수 없습니다.')
       }
 
-      // Fetch diary entries
+      // Fetch diary entries with session image
       setProgressMessage('일기 항목 로딩 중...')
-      const { data: entries, error: entriesError } = await supabase
+      const { data: rawEntries, error: entriesError } = await supabase
         .from('diary_entries')
-        .select('*')
+        .select(`
+          *,
+          daily_sessions(session_image_url)
+        `)
         .eq('diary_id', diaryId)
         .order('entry_date', { ascending: true })
 
       if (entriesError) {
         throw new Error('일기 항목을 불러올 수 없습니다.')
       }
+
+      // Transform entries to include session_image_url
+      const entries = (rawEntries || []).map((entry) => {
+        const sessionData = entry.daily_sessions as { session_image_url: string | null } | null
+        return {
+          ...entry,
+          session_image_url: sessionData?.session_image_url || null,
+          daily_sessions: undefined,
+        }
+      })
 
       // Use timestamp in path to bust CDN cache
       const timestamp = Date.now()
@@ -416,23 +433,30 @@ export default function AdminPublishingPage() {
         diaryData.volume_number
       )
 
-      // Upload ZIP file
-      setProgressMessage('ZIP 파일 업로드 중...')
-      const zipUrl = await uploadZipToStorage(zipBuffer, `${basePath}/publishing.zip`)
+      // Download ZIP directly to client (no server upload needed)
+      setProgressMessage('ZIP 파일 다운로드 중...')
+      const blob = new Blob([zipBuffer as BlobPart], { type: 'application/zip' })
+      const downloadUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = `${diaryData.title || '일기장'}_${diaryData.volume_number}권_출판파일.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(downloadUrl)
 
-      // Update job with ZIP URL
+      // Update job as completed (without zip_url - generated on client)
       setProgressMessage('작업 완료 처리 중...')
       await fetch(`/api/admin/publishing/${job.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'complete',
-          zip_url: zipUrl,
           page_count: entries?.length || 0,
         }),
       })
 
-      toast.success('출판 파일 생성이 완료되었습니다.')
+      toast.success('출판 파일이 다운로드되었습니다.')
       fetchJobs()
       fetchDiaries()
     } catch (error) {
