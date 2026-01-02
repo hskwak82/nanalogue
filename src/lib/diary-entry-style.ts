@@ -6,8 +6,9 @@
 
 export const DIARY_STYLE = {
   // When session image exists (takes precedence)
+  // These values are used by BOTH web and PDF - must be identical
   withImage: {
-    imageOpacity: 0.65, // Higher = more image visible, less white overlay
+    imageOpacity: 0.35, // SAME as PDF - do not change independently
     fontColor: '#374151',
     bgImageOpacity: 0, // Session image takes precedence over template bg
   },

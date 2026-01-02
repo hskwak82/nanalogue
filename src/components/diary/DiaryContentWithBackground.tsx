@@ -1,6 +1,6 @@
 'use client'
 
-import { DiaryPaper } from './DiaryPaper'
+import { DiaryEntryRenderer } from './DiaryEntryRenderer'
 import type { PaperTemplate, PlacedDecoration } from '@/types/customization'
 
 interface DiaryContentWithBackgroundProps {
@@ -19,27 +19,45 @@ export function DiaryContentWithBackground({
   content,
   paperTemplate,
   paperDecorations,
-  paperFontFamily,
   sessionImageUrl,
   entryDate,
   summary,
   emotions,
 }: DiaryContentWithBackgroundProps) {
+  // Use the EXACT same renderer as PDF
+  // Scale up from PDF's 300px to 500px for better web readability
+  // Using CSS transform to scale maintains pixel-perfect match with PDF
+  const pdfWidth = 300
+  const webDisplayWidth = 500
+  const scaleFactor = webDisplayWidth / pdfWidth
+
   return (
-    <DiaryPaper
-      template={paperTemplate}
-      decorations={paperDecorations}
-      paperFontFamily={paperFontFamily}
-      sessionImageUrl={sessionImageUrl}
-      entryDate={entryDate}
-      summary={summary}
-      emotions={emotions}
-      className="mb-8 shadow-sm border border-pastel-pink/30"
+    <div
+      className="mb-8 shadow-sm border border-pastel-pink/30 rounded-lg overflow-hidden"
+      style={{
+        width: `${webDisplayWidth}px`,
+        height: `${Math.round(webDisplayWidth / 0.72)}px`, // B5 ratio
+        margin: '0 auto',
+      }}
     >
-      {/* Content - rendered as pre-wrap text like PDF */}
-      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {content}
+      {/* Render at PDF size (300px) and scale up with CSS transform */}
+      <div
+        style={{
+          transform: `scale(${scaleFactor})`,
+          transformOrigin: 'top left',
+        }}
+      >
+        <DiaryEntryRenderer
+          entryDate={entryDate || ''}
+          summary={summary}
+          emotions={emotions}
+          content={content}
+          paperTemplate={paperTemplate}
+          paperDecorations={paperDecorations}
+          sessionImageUrl={sessionImageUrl}
+          width={pdfWidth}  // Same as PDF
+        />
       </div>
-    </DiaryPaper>
+    </div>
   )
 }

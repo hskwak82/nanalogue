@@ -119,8 +119,9 @@ export function DiaryPaper({
   const hasBackgroundImage = paper.background_image_url && paper.background_image_url.length > 0
 
   // Calculate height based on B5 aspect ratio
+  // Use SAME approach as PDF: paper background color (not transparent)
   const containerStyle = {
-    backgroundColor: sessionImageUrl ? 'transparent' : paper.background_color,
+    backgroundColor: paper.background_color,
     aspectRatio: `${paperStyle.aspectRatio}`,
     maxWidth: `${paperStyle.maxWidth}px`,
     fontFamily: typography.fontFamily,
@@ -131,25 +132,17 @@ export function DiaryPaper({
       className={`relative rounded-lg overflow-hidden mx-auto ${className}`}
       style={containerStyle}
     >
-      {/* Session image layer - full opacity as base (takes precedence over template background) */}
+      {/* Session image layer - SAME as PDF: just opacity on the image */}
       {sessionImageUrl && (
-        <>
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `url(${sessionImageUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-          {/* Semi-transparent white overlay for text readability */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundColor: `rgba(255, 255, 255, ${1 - DIARY_STYLE.withImage.imageOpacity})`,
-            }}
-          />
-        </>
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${sessionImageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: DIARY_STYLE.withImage.imageOpacity,
+          }}
+        />
       )}
 
       {/* Template background image layer with opacity control (only if no session image) */}
